@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
-import { authClient } from "@/lib/auth-client";
+import { getSession } from "@/lib/auth-session";
 
 type SessionData = {
   user: {
@@ -13,7 +13,7 @@ type SessionData = {
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
-    const { data: session } = await authClient.getSession();
+    const session = await getSession();
 
     if (!session) {
       // eslint-disable-next-line only-throw-error -- TanStack Router requires throwing redirect()
