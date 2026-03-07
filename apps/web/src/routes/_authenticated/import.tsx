@@ -69,7 +69,7 @@ function ImportPage(): React.ReactElement {
 
       // Set default config for CSV
       const defaultMapping: Record<number, string> = {};
-      if (parsed.headers.length >= 1) {
+      if (parsed.headers.length > 0) {
         defaultMapping[0] = "Front";
       }
       if (parsed.headers.length >= 2) {
@@ -133,7 +133,8 @@ function ImportPage(): React.ReactElement {
         setCurrentStep((prev) => prev + 1);
       }
     }
-  }, [currentStep]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runImport is a stable function using file state
+  }, [currentStep, file]);
 
   const handleBack = useCallback(() => {
     if (currentStep > 0) {
@@ -211,13 +212,15 @@ function ImportPage(): React.ReactElement {
             <div key={step.label} className="flex items-center">
               <div className="flex flex-col items-center">
                 <div
-                  className={`flex size-8 items-center justify-center rounded-full border-2 text-xs font-medium transition-colors ${
-                    index < currentStep
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : index === currentStep
-                        ? "border-primary bg-background text-primary"
-                        : "border-muted text-muted-foreground"
-                  }`}
+                  className={`flex size-8 items-center justify-center rounded-full border-2 text-xs font-medium transition-colors ${(() => {
+                    if (index < currentStep) {
+                      return "border-primary bg-primary text-primary-foreground";
+                    }
+                    if (index === currentStep) {
+                      return "border-primary bg-background text-primary";
+                    }
+                    return "border-muted text-muted-foreground";
+                  })()}`}
                 >
                   {index < currentStep ? (
                     <svg

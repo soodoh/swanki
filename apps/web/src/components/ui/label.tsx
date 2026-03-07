@@ -4,8 +4,12 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Label({ className, ...props }: React.ComponentProps<"label">) {
+function Label({
+  className,
+  ...props
+}: React.ComponentProps<"label">): React.ReactElement {
   return (
+    // eslint-disable-next-line jsx-a11y/label-has-associated-control -- htmlFor is passed via spread props
     <label
       data-slot="label"
       className={cn(

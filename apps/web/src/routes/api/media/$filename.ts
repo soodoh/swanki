@@ -18,6 +18,7 @@ export const Route = createFileRoute("/api/media/$filename")({
           return Response.json({ error: "File not found" }, { status: 404 });
         }
 
+        // oxlint-disable-next-line typescript/no-unsafe-call -- existsSync is a typed Node.js API
         if (!existsSync(result.filePath)) {
           return Response.json(
             { error: "File not found on disk" },
@@ -25,7 +26,9 @@ export const Route = createFileRoute("/api/media/$filename")({
           );
         }
 
+        // oxlint-disable-next-line typescript/no-unsafe-assignment, typescript/no-unsafe-call, typescript/no-unsafe-member-access -- Bun global is typed at runtime
         const file = Bun.file(result.filePath);
+        // oxlint-disable-next-line typescript/no-unsafe-argument -- file is BunFile from Bun.file()
         return new Response(file, {
           headers: {
             "Content-Type": result.record.mimeType,

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/study/preview/$cardId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const result = await studyService.getIntervalPreviews(
+        const result = studyService.getIntervalPreviews(
           session.user.id,
           params.cardId,
         );

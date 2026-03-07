@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
+import type * as schema from "../../db/schema";
 import { decks, noteTypes, cardTemplates, notes, cards } from "../../db/schema";
 import { parseCrowdAnki } from "../import/crowdanki-parser";
 import type { CrowdAnkiData } from "../import/crowdanki-parser";
 import type { ApkgData } from "../import/apkg-parser";
 
-type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+type Db = BunSQLiteDatabase<typeof schema>;
 
 export type ImportFormat = "apkg" | "colpkg" | "csv" | "txt" | "crowdanki";
 
@@ -43,12 +44,12 @@ export function detectFormat(filename: string): ImportFormat | undefined {
 }
 
 export class ImportService {
-  constructor(private db: Db) {}
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
+  }
 
-  async importFromCsv(
-    userId: string,
-    options: CsvImportOptions,
-  ): Promise<ImportResult> {
+  importFromCsv(userId: string, options: CsvImportOptions): ImportResult {
     const deckName = options.deckName ?? "CSV Import";
     const { rows } = options;
 
@@ -56,7 +57,7 @@ export class ImportService {
       // Still create the deck, but no notes/cards
       const deckId = generateId();
       const now = new Date();
-      await this.db.insert(decks).values({
+      this.db.insert(decks).values({
         id: deckId,
         userId,
         name: deckName,
@@ -76,7 +77,7 @@ export class ImportService {
     // Create deck
     const deckId = generateId();
     const now = new Date();
-    await this.db.insert(decks).values({
+    this.db.insert(decks).values({
       id: deckId,
       userId,
       name: deckName,
@@ -87,7 +88,7 @@ export class ImportService {
     // Create note type
     const noteTypeId = generateId();
     const fields = fieldNames.map((name, i) => ({ name, ordinal: i }));
-    await this.db.insert(noteTypes).values({
+    this.db.insert(noteTypes).values({
       id: noteTypeId,
       userId,
       name: `${deckName} - Note Type`,
@@ -105,7 +106,7 @@ export class ImportService {
         ? remainingFields.map((f) => `{{${f}}}`).join("<br>")
         : `{{${firstField}}}`;
 
-    await this.db.insert(cardTemplates).values({
+    this.db.insert(cardTemplates).values({
       id: templateId,
       noteTypeId,
       name: "Card 1",
@@ -125,7 +126,7 @@ export class ImportService {
         noteFields[fieldNames[i]] = row[i] ?? "";
       }
 
-      await this.db.insert(notes).values({
+      this.db.insert(notes).values({
         id: noteId,
         userId,
         noteTypeId,
@@ -136,7 +137,7 @@ export class ImportService {
       });
       noteCount += 1;
 
-      await this.db.insert(cards).values({
+      this.db.insert(cards).values({
         id: generateId(),
         noteId,
         deckId,
@@ -153,10 +154,7 @@ export class ImportService {
     return { deckId, noteCount, cardCount };
   }
 
-  async importFromCrowdAnki(
-    userId: string,
-    json: unknown,
-  ): Promise<ImportResult> {
+  importFromCrowdAnki(userId: string, json: unknown): ImportResult {
     const data = parseCrowdAnki(json);
 
     let deckCount = 0;
@@ -177,7 +175,7 @@ export class ImportService {
         ordinal: f.ordinal,
       }));
 
-      await this.db.insert(noteTypes).values({
+      this.db.insert(noteTypes).values({
         id: noteTypeId,
         userId,
         name: model.name,
@@ -189,7 +187,7 @@ export class ImportService {
 
       // Create templates
       for (const tmpl of model.templates) {
-        await this.db.insert(cardTemplates).values({
+        this.db.insert(cardTemplates).values({
           id: generateId(),
           noteTypeId,
           name: tmpl.name,
@@ -201,7 +199,7 @@ export class ImportService {
     }
 
     // Recursively create decks and notes
-    const importResult = await this.importCrowdAnkiDeck(
+    const importResult = this.importCrowdAnkiDeck(
       userId,
       data,
       modelMap,
@@ -216,20 +214,20 @@ export class ImportService {
     return { deckCount, noteCount, cardCount };
   }
 
-  private async importCrowdAnkiDeck(
+  private importCrowdAnkiDeck(
     userId: string,
     data: CrowdAnkiData,
     modelMap: Map<string, string>,
     parentId: string | undefined,
     now: Date,
-  ): Promise<{ deckCount: number; noteCount: number; cardCount: number }> {
+  ): { deckCount: number; noteCount: number; cardCount: number } {
     let deckCount = 0;
     let noteCount = 0;
     let cardCount = 0;
 
     // Create deck
     const deckId = generateId();
-    await this.db.insert(decks).values({
+    this.db.insert(decks).values({
       id: deckId,
       userId,
       name: data.name,
@@ -249,7 +247,7 @@ export class ImportService {
       const noteId = generateId();
 
       // Get the note type to map field indices to field names
-      const noteType = await this.db
+      const noteType = this.db
         .select()
         .from(noteTypes)
         .where(eq(noteTypes.id, noteTypeId))
@@ -268,7 +266,7 @@ export class ImportService {
         noteFields[field.name] = note.fields[field.ordinal] ?? "";
       }
 
-      await this.db.insert(notes).values({
+      this.db.insert(notes).values({
         id: noteId,
         userId,
         noteTypeId,
@@ -280,14 +278,14 @@ export class ImportService {
       noteCount += 1;
 
       // Get templates for this note type and create cards
-      const templates = await this.db
+      const templates = this.db
         .select()
         .from(cardTemplates)
         .where(eq(cardTemplates.noteTypeId, noteTypeId))
         .all();
 
       for (const template of templates) {
-        await this.db.insert(cards).values({
+        this.db.insert(cards).values({
           id: generateId(),
           noteId,
           deckId,
@@ -304,7 +302,7 @@ export class ImportService {
 
     // Recursively handle children
     for (const child of data.children) {
-      const childResult = await this.importCrowdAnkiDeck(
+      const childResult = this.importCrowdAnkiDeck(
         userId,
         child,
         modelMap,
@@ -319,7 +317,7 @@ export class ImportService {
     return { deckCount, noteCount, cardCount };
   }
 
-  async importFromApkg(userId: string, data: ApkgData): Promise<ImportResult> {
+  importFromApkg(userId: string, data: ApkgData): ImportResult {
     const now = new Date();
     let noteCount = 0;
     let cardCount = 0;
@@ -330,7 +328,7 @@ export class ImportService {
       const deckId = generateId();
       deckMap.set(ankiDeck.id, deckId);
 
-      await this.db.insert(decks).values({
+      this.db.insert(decks).values({
         id: deckId,
         userId,
         name: ankiDeck.name,
@@ -350,7 +348,7 @@ export class ImportService {
         ordinal: f.ordinal,
       }));
 
-      await this.db.insert(noteTypes).values({
+      this.db.insert(noteTypes).values({
         id: noteTypeId,
         userId,
         name: ankiNoteType.name,
@@ -362,7 +360,7 @@ export class ImportService {
 
       // Create templates
       for (const tmpl of ankiNoteType.templates) {
-        await this.db.insert(cardTemplates).values({
+        this.db.insert(cardTemplates).values({
           id: generateId(),
           noteTypeId,
           name: tmpl.name,
@@ -395,7 +393,7 @@ export class ImportService {
         }
       }
 
-      await this.db.insert(notes).values({
+      this.db.insert(notes).values({
         id: noteId,
         userId,
         noteTypeId,
@@ -429,7 +427,7 @@ export class ImportService {
       // Use a generated template id
       const templateId = generateId();
 
-      await this.db.insert(cards).values({
+      this.db.insert(cards).values({
         id: generateId(),
         noteId,
         deckId,

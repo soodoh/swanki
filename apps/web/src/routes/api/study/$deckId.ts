@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/study/$deckId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const result = await studyService.getStudySession(
+        const result = studyService.getStudySession(
           session.user.id,
           params.deckId,
         );

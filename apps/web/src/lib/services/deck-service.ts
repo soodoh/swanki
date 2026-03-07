@@ -4,7 +4,7 @@ import { generateId } from "../id";
 import type * as schema from "../../db/schema";
 import { decks } from "../../db/schema";
 
-type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+type Db = BunSQLiteDatabase<typeof schema>;
 
 type Deck = typeof decks.$inferSelect;
 
@@ -13,16 +13,16 @@ export type DeckTreeNode = Deck & {
 };
 
 export class DeckService {
-  constructor(private db: Db) {}
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
+  }
 
-  async create(
-    userId: string,
-    data: { name: string; parentId?: string },
-  ): Promise<Deck> {
+  create(userId: string, data: { name: string; parentId?: string }): Deck {
     const id = generateId();
     const now = new Date();
 
-    await this.db.insert(decks).values({
+    this.db.insert(decks).values({
       id,
       userId,
       name: data.name,
@@ -31,25 +31,21 @@ export class DeckService {
       updatedAt: now,
     });
 
-    const deck = await this.db
-      .select()
-      .from(decks)
-      .where(eq(decks.id, id))
-      .get();
+    const deck = this.db.select().from(decks).where(eq(decks.id, id)).get();
 
     return deck!;
   }
 
-  async listByUser(userId: string): Promise<Deck[]> {
+  listByUser(userId: string): Deck[] {
     return this.db.select().from(decks).where(eq(decks.userId, userId)).all();
   }
 
-  async getTree(userId: string): Promise<DeckTreeNode[]> {
-    const allDecks = await this.listByUser(userId);
+  getTree(userId: string): DeckTreeNode[] {
+    const allDecks = this.listByUser(userId);
     return buildTree(allDecks);
   }
 
-  async getById(id: string, userId: string): Promise<Deck | undefined> {
+  getById(id: string, userId: string): Deck | undefined {
     return this.db
       .select()
       .from(decks)
@@ -57,15 +53,17 @@ export class DeckService {
       .get();
   }
 
-  async update(
+  update(
     id: string,
     userId: string,
     data: { name?: string },
-  ): Promise<Deck | undefined> {
-    const existing = await this.getById(id, userId);
-    if (!existing) return undefined;
+  ): Deck | undefined {
+    const existing = this.getById(id, userId);
+    if (!existing) {
+      return undefined;
+    }
 
-    await this.db
+    this.db
       .update(decks)
       .set({
         ...data,
@@ -76,17 +74,19 @@ export class DeckService {
     return this.getById(id, userId);
   }
 
-  async delete(id: string, userId: string): Promise<void> {
-    const existing = await this.getById(id, userId);
-    if (!existing) return;
+  delete(id: string, userId: string): void {
+    const existing = this.getById(id, userId);
+    if (!existing) {
+      return;
+    }
 
     // Re-parent children to the deleted deck's parent
-    await this.db
+    this.db
       .update(decks)
       .set({ parentId: existing.parentId })
       .where(and(eq(decks.parentId, id), eq(decks.userId, userId)));
 
-    await this.db
+    this.db
       .delete(decks)
       .where(and(eq(decks.id, id), eq(decks.userId, userId)));
   }

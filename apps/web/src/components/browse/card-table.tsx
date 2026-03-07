@@ -50,7 +50,8 @@ function getQuestionPreview(fields: Record<string, string>): string {
     return "(empty)";
   }
   // Strip HTML tags for preview
-  const text = firstValue.replace(/<[^>]*>/g, "");
+  // oxlint-disable-next-line eslint-plugin-unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
+  const text: string = firstValue.replace(/<[^>]*>/g, "");
   return text.length > 60 ? `${text.slice(0, 60)}...` : text;
 }
 
@@ -198,7 +199,7 @@ export function CardTable({
       {/* Pagination */}
       <div className="flex items-center justify-between border-t px-2 py-2">
         <p className="text-xs text-muted-foreground">
-          {total} card{total !== 1 ? "s" : ""} found
+          {total} card{total === 1 ? "" : "s"} found
         </p>
         <div className="flex items-center gap-1">
           <Button

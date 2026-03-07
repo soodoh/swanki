@@ -35,7 +35,15 @@ const MONTH_LABELS = [
   "Dec",
 ];
 
-const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
+const DAY_LABELS = [
+  { key: "sun", label: "" },
+  { key: "mon", label: "Mon" },
+  { key: "tue", label: "" },
+  { key: "wed", label: "Wed" },
+  { key: "thu", label: "" },
+  { key: "fri", label: "Fri" },
+  { key: "sat", label: "" },
+];
 
 function getIntensityClass(count: number, maxCount: number): string {
   if (count === 0) {
@@ -60,7 +68,7 @@ function buildGrid(
 ): {
   cells: DayCell[];
   weeks: number;
-  monthStarts: { month: number; weekIndex: number }[];
+  monthStarts: Array<{ month: number; weekIndex: number }>;
 } {
   const cells: DayCell[] = [];
 
@@ -75,9 +83,10 @@ function buildGrid(
   const current = new Date(adjustedStart);
   let weekIndex = 0;
 
-  const monthStarts: { month: number; weekIndex: number }[] = [];
+  const monthStarts: Array<{ month: number; weekIndex: number }> = [];
   let lastMonth = -1;
 
+  // eslint-disable-next-line no-unmodified-loop-condition -- `current` is mutated via setDate
   while (current <= end || current.getDay() !== 0) {
     const dayOfWeek = current.getDay();
     const dateStr = current.toISOString().split("T")[0];
@@ -118,13 +127,15 @@ export function ReviewHeatmap({ year }: HeatmapProps): React.ReactElement {
   );
 
   const maxCount = useMemo(() => {
-    if (!data) return 1;
+    if (!data) {
+      return 1;
+    }
     const values = Object.values(data);
     return values.length > 0 ? Math.max(...values) : 1;
   }, [data]);
 
   // Group cells by week
-  const weeks = useMemo(() => {
+  const weeks = useMemo((): Array<[number, DayCell[]]> => {
     const map = new Map<number, DayCell[]>();
     for (const cell of cells) {
       if (!map.has(cell.weekIndex)) {
@@ -132,7 +143,9 @@ export function ReviewHeatmap({ year }: HeatmapProps): React.ReactElement {
       }
       map.get(cell.weekIndex)!.push(cell);
     }
-    return [...map.entries()].sort((a, b) => a[0] - b[0]);
+    const entries: Array<[number, DayCell[]]> = [...map.entries()];
+    entries.sort((a, b) => a[0] - b[0]);
+    return entries;
   }, [cells]);
 
   return (
@@ -152,12 +165,12 @@ export function ReviewHeatmap({ year }: HeatmapProps): React.ReactElement {
               <div className="inline-flex gap-px">
                 {/* Day labels */}
                 <div className="mr-1 flex flex-col gap-px pt-4">
-                  {DAY_LABELS.map((label, i) => (
+                  {DAY_LABELS.map((day) => (
                     <div
-                      key={i}
+                      key={day.key}
                       className="flex h-[13px] w-6 items-center text-[10px] text-muted-foreground"
                     >
-                      {label}
+                      {day.label}
                     </div>
                   ))}
                 </div>

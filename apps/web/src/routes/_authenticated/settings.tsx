@@ -28,8 +28,19 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
+type SessionData = {
+  user: {
+    name: string;
+    email: string;
+    image?: string | undefined;
+  };
+};
+
 function SettingsPage(): React.ReactElement {
+  // oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via beforeLoad return
   const { session } = Route.useRouteContext();
+  // oxlint-disable-next-line typescript/no-unsafe-member-access -- typed via beforeLoad return
+  const user = (session as SessionData).user;
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,10 +48,7 @@ function SettingsPage(): React.ReactElement {
         <h1 className="mb-6 text-lg font-bold tracking-tight">Settings</h1>
 
         <div className="grid gap-6">
-          <UserInfoSection
-            name={session.user.name}
-            email={session.user.email}
-          />
+          <UserInfoSection name={user.name} email={user.email} />
 
           <Separator />
 
@@ -73,7 +81,9 @@ function UserInfoSection({
   const [saved, setSaved] = useState(false);
 
   async function handleSave(): Promise<void> {
-    if (!displayName.trim() || displayName.trim() === name) return;
+    if (!displayName.trim() || displayName.trim() === name) {
+      return;
+    }
     setIsSaving(true);
     try {
       await authClient.updateUser({ name: displayName.trim() });
@@ -100,7 +110,9 @@ function UserInfoSection({
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleSave();
+                  if (e.key === "Enter") {
+                    void handleSave();
+                  }
                 }}
               />
               <Button
@@ -110,7 +122,15 @@ function UserInfoSection({
                 }
                 size="sm"
               >
-                {saved ? "Saved" : isSaving ? "Saving..." : "Save"}
+                {(() => {
+                  if (saved) {
+                    return "Saved";
+                  }
+                  if (isSaving) {
+                    return "Saving...";
+                  }
+                  return "Save";
+                })()}
               </Button>
             </div>
           </div>
@@ -206,7 +226,9 @@ function ChangePasswordSection(): React.ReactElement {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void handleChangePassword();
+                if (e.key === "Enter") {
+                  void handleChangePassword();
+                }
               }}
             />
           </div>
@@ -311,7 +333,9 @@ function DangerZone(): React.ReactElement {
   }
 
   async function handleDeleteAccount(): Promise<void> {
-    if (confirmText !== "DELETE") return;
+    if (confirmText !== "DELETE") {
+      return;
+    }
     setIsDeleting(true);
     try {
       await authClient.deleteUser();

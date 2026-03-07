@@ -10,10 +10,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const result = await noteService.getById(
-          params.noteId,
-          session.user.id,
-        );
+        const result = noteService.getById(params.noteId, session.user.id);
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -25,11 +22,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
           fields?: Record<string, string>;
           tags?: string;
         };
-        const note = await noteService.update(
-          params.noteId,
-          session.user.id,
-          body,
-        );
+        const note = noteService.update(params.noteId, session.user.id, body);
         if (!note) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -37,7 +30,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
-        await noteService.delete(params.noteId, session.user.id);
+        noteService.delete(params.noteId, session.user.id);
         return new Response(undefined, { status: 204 });
       },
     },

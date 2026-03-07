@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,12 +51,18 @@ function flattenDecks(nodes: DeckTreeNode[]): DeckTreeNode[] {
 
 function findDeck(nodes: DeckTreeNode[], id: string): DeckTreeNode | undefined {
   for (const node of nodes) {
-    if (node.id === id) return node;
+    if (node.id === id) {
+      return node;
+    }
     const found = findDeck(node.children, id);
-    if (found) return found;
+    if (found) {
+      return found;
+    }
   }
   return undefined;
 }
+
+const EMPTY_DECKS: DeckTreeNode[] = [];
 
 function DeckSettingsPage(): React.ReactElement {
   // oxlint-disable-next-line typescript/no-unsafe-assignment -- TanStack Router params are typed via route tree generation
@@ -66,7 +72,12 @@ function DeckSettingsPage(): React.ReactElement {
   const { data: counts } = useDeckCounts(deckId);
   const navigate = useNavigate();
 
+  // oxlint-disable-next-line typescript/no-unsafe-argument -- TanStack Router params are typed via route tree generation
   const deck = decks ? findDeck(decks, deckId) : undefined;
+  const allDecks = useMemo(
+    () => (decks ? flattenDecks(decks) : EMPTY_DECKS),
+    [decks],
+  );
 
   if (decksLoading) {
     return (
@@ -89,13 +100,12 @@ function DeckSettingsPage(): React.ReactElement {
     );
   }
 
-  const allDecks = decks ? flattenDecks(decks) : [];
-
   return (
     <DeckSettingsContent
       deck={deck}
       allDecks={allDecks}
       counts={counts}
+      // oxlint-disable-next-line typescript/no-unsafe-assignment -- TanStack Router params are typed via route tree generation
       deckId={deckId}
       navigate={navigate}
     />
@@ -288,7 +298,15 @@ function DeckSettingsContent({
               onClick={() => void handleSave()}
               disabled={!name.trim() || isSaving}
             >
-              {saved ? "Saved" : isSaving ? "Saving..." : "Save Changes"}
+              {(() => {
+                if (saved) {
+                  return "Saved";
+                }
+                if (isSaving) {
+                  return "Saving...";
+                }
+                return "Save Changes";
+              })()}
             </Button>
           </div>
 

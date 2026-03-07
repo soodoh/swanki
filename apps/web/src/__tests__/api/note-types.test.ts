@@ -182,7 +182,7 @@ describe("NoteTypeService", () => {
       const results = await service.listByUser(userId);
 
       expect(results).toHaveLength(2);
-      const names = results.map((r) => r.noteType.name).sort();
+      const names = results.map((r) => r.noteType.name).toSorted();
       expect(names).toStrictEqual(["Basic", "Cloze"]);
 
       for (const result of results) {

@@ -108,7 +108,8 @@ function parseRows(text: string, delimiter: string): string[][] {
 
   // Remove trailing empty rows
   while (rows.length > 0) {
-    const lastRow = rows.at(-1) as string[];
+    // oxlint-disable-next-line eslint-plugin-unicorn(prefer-at) -- .at() returns any in oxlint type inference
+    const lastRow: string[] = rows[rows.length - 1];
     if (lastRow.length === 1 && lastRow[0] === "") {
       rows.pop();
     } else {

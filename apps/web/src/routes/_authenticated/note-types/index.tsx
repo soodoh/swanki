@@ -42,7 +42,9 @@ function NoteTypesPage(): React.ReactElement {
   const [deleteId, setDeleteId] = useState<string | undefined>(undefined);
 
   async function handleCreate(): Promise<void> {
-    if (!newName.trim()) return;
+    if (!newName.trim()) {
+      return;
+    }
 
     const fieldNames = newFields
       .split(",")
@@ -102,7 +104,9 @@ function NoteTypesPage(): React.ReactElement {
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleCreate();
+                      if (e.key === "Enter") {
+                        void handleCreate();
+                      }
                     }}
                   />
                 </div>
@@ -116,7 +120,9 @@ function NoteTypesPage(): React.ReactElement {
                     value={newFields}
                     onChange={(e) => setNewFields(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleCreate();
+                      if (e.key === "Enter") {
+                        void handleCreate();
+                      }
                     }}
                   />
                 </div>

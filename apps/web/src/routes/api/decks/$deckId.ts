@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const deck = await deckService.getById(params.deckId, session.user.id);
+        const deck = deckService.getById(params.deckId, session.user.id);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -19,11 +19,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
         const body = (await request.json()) as { name?: string };
-        const deck = await deckService.update(
-          params.deckId,
-          session.user.id,
-          body,
-        );
+        const deck = deckService.update(params.deckId, session.user.id, body);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -31,7 +27,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
-        await deckService.delete(params.deckId, session.user.id);
+        deckService.delete(params.deckId, session.user.id);
         return new Response(undefined, { status: 204 });
       },
     },

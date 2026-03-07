@@ -17,15 +17,11 @@ export const Route = createFileRoute("/api/note-types/templates/")({
           questionTemplate: string;
           answerTemplate: string;
         };
-        const template = await noteTypeService.addTemplate(
-          body.noteTypeId,
-          userId,
-          {
-            name: body.name,
-            questionTemplate: body.questionTemplate,
-            answerTemplate: body.answerTemplate,
-          },
-        );
+        const template = noteTypeService.addTemplate(body.noteTypeId, userId, {
+          name: body.name,
+          questionTemplate: body.questionTemplate,
+          answerTemplate: body.answerTemplate,
+        });
         if (!template) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }

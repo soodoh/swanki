@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,22 +20,26 @@ type PieEntry = {
 export function CardStateChart(): React.ReactElement {
   const { data, isLoading } = useCardStates();
 
-  const entries: PieEntry[] = data
-    ? [
-        { name: "New", value: data.new, color: STATE_COLORS.New },
-        {
-          name: "Learning",
-          value: data.learning,
-          color: STATE_COLORS.Learning,
-        },
-        { name: "Review", value: data.review, color: STATE_COLORS.Review },
-        {
-          name: "Relearning",
-          value: data.relearning,
-          color: STATE_COLORS.Relearning,
-        },
-      ].filter((e) => e.value > 0)
-    : [];
+  const entries: PieEntry[] = useMemo(
+    () =>
+      data
+        ? [
+            { name: "New", value: data.new, color: STATE_COLORS.New },
+            {
+              name: "Learning",
+              value: data.learning,
+              color: STATE_COLORS.Learning,
+            },
+            { name: "Review", value: data.review, color: STATE_COLORS.Review },
+            {
+              name: "Relearning",
+              value: data.relearning,
+              color: STATE_COLORS.Relearning,
+            },
+          ].filter((e) => e.value > 0)
+        : [],
+    [data],
+  );
 
   const total = entries.reduce((sum, e) => sum + e.value, 0);
 

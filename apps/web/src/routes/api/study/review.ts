@@ -32,7 +32,7 @@ export const Route = createFileRoute("/api/study/review")({
         }
 
         try {
-          const result = await studyService.submitReview(
+          const result = studyService.submitReview(
             session.user.id,
             body.cardId,
             body.rating as Grade,
