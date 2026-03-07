@@ -30,7 +30,7 @@ out/
 *.db
 
 # User data (media uploads)
-data/
+apps/web/data/
 
 # OS
 .DS_Store
