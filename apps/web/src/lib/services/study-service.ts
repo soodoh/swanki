@@ -1,4 +1,4 @@
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and, lte } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import type * as schema from "../../db/schema";
 import {
@@ -7,6 +7,7 @@ import {
   cardTemplates,
   noteTypes,
   reviewLogs,
+  decks,
 } from "../../db/schema";
 import { generateId } from "../id";
 import { CardService } from "./card-service";
@@ -32,6 +33,13 @@ export type StudySession = {
 export type ReviewResult = {
   card: CardWithNote;
   fsrs: FsrsResult;
+};
+
+export type CustomStudyOptions = {
+  studyAhead?: number; // include cards due in the next N days
+  extraNewCards?: number; // override new card limit
+  tag?: string; // filter by tag
+  previewMode?: boolean; // flag: client uses this to skip review submission
 };
 
 export class StudyService {
@@ -94,6 +102,153 @@ export class StudyService {
 
     return {
       cards: dueCards,
+      counts,
+      templates: templateMap,
+      css: cssMap,
+    };
+  }
+
+  async getCustomSession(
+    userId: string,
+    deckId: string,
+    options: CustomStudyOptions,
+  ): Promise<StudySession> {
+    const now = new Date();
+
+    // Determine the cutoff date for due cards
+    let dueCutoff = now;
+    if (options.studyAhead && options.studyAhead > 0) {
+      dueCutoff = new Date(
+        now.getTime() + options.studyAhead * 24 * 60 * 60 * 1000,
+      );
+    }
+
+    // Get deck settings
+    const deck = await this.db
+      .select()
+      .from(decks)
+      .where(and(eq(decks.id, deckId), eq(decks.userId, userId)))
+      .get();
+
+    if (!deck) {
+      return {
+        cards: [],
+        counts: { new: 0, learning: 0, review: 0 },
+        templates: {},
+        css: {},
+      };
+    }
+
+    const settings = deck.settings ?? {
+      newCardsPerDay: 20,
+      maxReviewsPerDay: 200,
+    };
+
+    // Query cards due by cutoff
+    const dueRows = await this.db
+      .select({
+        card: cards,
+        noteFields: notes.fields,
+        tags: notes.tags,
+      })
+      .from(cards)
+      .innerJoin(notes, eq(cards.noteId, notes.id))
+      .where(
+        and(
+          eq(notes.userId, userId),
+          eq(cards.deckId, deckId),
+          lte(cards.due, dueCutoff),
+        ),
+      )
+      .all();
+
+    // Filter by tag if specified
+    let filteredRows = dueRows;
+    if (options.tag) {
+      const tagFilter = options.tag.toLowerCase();
+      filteredRows = dueRows.filter((row) => {
+        const tags = (row.tags ?? "").toLowerCase();
+        return tags.split(/[\s,]+/).some((t) => t === tagFilter);
+      });
+    }
+
+    // Separate by category
+    const reviewCards: CardWithNote[] = [];
+    const learningCards: CardWithNote[] = [];
+    const newCards: CardWithNote[] = [];
+
+    for (const row of filteredRows) {
+      const cardWithNote: CardWithNote = {
+        ...row.card,
+        noteFields: row.noteFields,
+      };
+
+      const state = row.card.state ?? 0;
+      if (state === 2 || state === 3) {
+        reviewCards.push(cardWithNote);
+      } else if (state === 1) {
+        learningCards.push(cardWithNote);
+      } else {
+        newCards.push(cardWithNote);
+      }
+    }
+
+    // Apply limits (extraNewCards overrides the default new card limit)
+    const newCardLimit = options.extraNewCards
+      ? settings.newCardsPerDay + options.extraNewCards
+      : settings.newCardsPerDay;
+    const limitedReviews = reviewCards.slice(0, settings.maxReviewsPerDay);
+    const limitedNew = newCards.slice(0, newCardLimit);
+
+    const allCards = [...limitedReviews, ...learningCards, ...limitedNew];
+
+    // Collect templates
+    const templateIds = [...new Set(allCards.map((c) => c.templateId))];
+    const templateMap: Record<string, StudyCardTemplate> = {};
+    if (templateIds.length > 0) {
+      const templates = await this.db
+        .select()
+        .from(cardTemplates)
+        .where(inArray(cardTemplates.id, templateIds))
+        .all();
+
+      for (const t of templates) {
+        templateMap[t.id] = {
+          id: t.id,
+          questionTemplate: t.questionTemplate,
+          answerTemplate: t.answerTemplate,
+        };
+      }
+    }
+
+    // Collect CSS
+    const noteIds = [...new Set(allCards.map((c) => c.noteId))];
+    const cssMap: Record<string, string> = {};
+    if (noteIds.length > 0) {
+      const noteRows = await this.db
+        .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
+        .from(notes)
+        .where(inArray(notes.id, noteIds))
+        .all();
+
+      const noteTypeIds = [...new Set(noteRows.map((n) => n.noteTypeId))];
+      if (noteTypeIds.length > 0) {
+        const noteTypeRows = await this.db
+          .select({ id: noteTypes.id, css: noteTypes.css })
+          .from(noteTypes)
+          .where(inArray(noteTypes.id, noteTypeIds))
+          .all();
+
+        for (const nt of noteTypeRows) {
+          cssMap[nt.id] = nt.css ?? "";
+        }
+      }
+    }
+
+    const counts = await this.cardService.getCounts(userId, deckId);
+
+    return {
+      cards: allCards,
       counts,
       templates: templateMap,
       css: cssMap,
