@@ -7,7 +7,15 @@ import { tmpdir } from "node:os";
 import { createTestDb } from "../../test-utils";
 import { ImportService } from "../../../lib/services/import-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
-import { cards, cardTemplates } from "../../../db/schema";
+import { parseCsv } from "../../../lib/import/csv-parser";
+import { eq } from "drizzle-orm";
+import {
+  cards,
+  cardTemplates,
+  decks,
+  noteTypes,
+  notes,
+} from "../../../db/schema";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -257,6 +265,315 @@ describe("Import Integration", () => {
       for (const card of allCards) {
         expect(templateIds.has(card.templateId)).toBe(true);
       }
+    });
+  });
+
+  describe("CSV import", () => {
+    it("imports comma-separated file with headers end-to-end", () => {
+      const csvText = "Front,Back\nhello,world\nfoo,bar\n";
+      const parsed = parseCsv(csvText, { delimiter: ",", hasHeader: true });
+      const result = importService.importFromCsv(userId, {
+        headers: parsed.headers,
+        rows: parsed.rows,
+        deckName: "My CSV Deck",
+      });
+
+      expect(result.noteCount).toBe(2);
+      expect(result.cardCount).toBe(2);
+      expect(result.deckId).toBeDefined();
+
+      // Verify deck
+      const allDecks = db
+        .select()
+        .from(decks)
+        .where(eq(decks.userId, userId))
+        .all();
+      expect(allDecks).toHaveLength(1);
+      expect(allDecks[0].name).toBe("My CSV Deck");
+
+      // Verify notes have correct field values
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(2);
+      const fields = allNotes.map((n) => n.fields);
+      expect(fields).toContainEqual({ Front: "hello", Back: "world" });
+      expect(fields).toContainEqual({ Front: "foo", Back: "bar" });
+
+      // Verify cards reference valid templates
+      const allCards = db.select().from(cards).all();
+      const allTemplates = db.select().from(cardTemplates).all();
+      expect(allCards).toHaveLength(2);
+      expect(allTemplates).toHaveLength(1);
+      for (const card of allCards) {
+        expect(card.templateId).toBe(allTemplates[0].id);
+      }
+    });
+  });
+
+  describe("TXT (tab-separated) import", () => {
+    it("imports tab-separated file with headers end-to-end", () => {
+      const txtText =
+        "Question\tAnswer\nWhat is 2+2?\t4\nCapital of France?\tParis\n";
+      const parsed = parseCsv(txtText, { delimiter: "\t", hasHeader: true });
+      const result = importService.importFromCsv(userId, {
+        headers: parsed.headers,
+        rows: parsed.rows,
+        deckName: "My TXT Deck",
+      });
+
+      expect(result.noteCount).toBe(2);
+      expect(result.cardCount).toBe(2);
+
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      const fields = allNotes.map((n) => n.fields);
+      expect(fields).toContainEqual({ Question: "What is 2+2?", Answer: "4" });
+      expect(fields).toContainEqual({
+        Question: "Capital of France?",
+        Answer: "Paris",
+      });
+    });
+  });
+
+  describe("CrowdAnki JSON import", () => {
+    it("imports deck with notes, cards, and note type CSS", () => {
+      const json = {
+        name: "Geography",
+        children: [],
+        note_models: [
+          {
+            crowdanki_uuid: "model-uuid-1",
+            name: "Basic",
+            flds: [
+              { name: "Country", ord: 0 },
+              { name: "Capital", ord: 1 },
+            ],
+            tmpls: [
+              {
+                name: "Card 1",
+                qfmt: "{{Country}}",
+                afmt: "{{FrontSide}}<hr>{{Capital}}",
+                ord: 0,
+              },
+            ],
+            css: ".card { color: black; }",
+          },
+        ],
+        notes: [
+          {
+            fields: ["France", "Paris"],
+            tags: ["europe"],
+            note_model_uuid: "model-uuid-1",
+            guid: "guid-1",
+          },
+          {
+            fields: ["Japan", "Tokyo"],
+            tags: ["asia"],
+            note_model_uuid: "model-uuid-1",
+            guid: "guid-2",
+          },
+        ],
+        media_files: [],
+      };
+
+      const result = importService.importFromCrowdAnki(userId, json);
+
+      expect(result.deckCount).toBe(1);
+      expect(result.noteCount).toBe(2);
+      expect(result.cardCount).toBe(2);
+
+      // Verify deck
+      const allDecks = db
+        .select()
+        .from(decks)
+        .where(eq(decks.userId, userId))
+        .all();
+      expect(allDecks).toHaveLength(1);
+      expect(allDecks[0].name).toBe("Geography");
+
+      // Verify note type has correct CSS
+      const allNoteTypes = db
+        .select()
+        .from(noteTypes)
+        .where(eq(noteTypes.userId, userId))
+        .all();
+      expect(allNoteTypes).toHaveLength(1);
+      expect(allNoteTypes[0].name).toBe("Basic");
+      expect(allNoteTypes[0].css).toBe(".card { color: black; }");
+
+      // Verify notes have correct field values
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(2);
+      const fields = allNotes.map((n) => n.fields);
+      expect(fields).toContainEqual({ Country: "France", Capital: "Paris" });
+      expect(fields).toContainEqual({ Country: "Japan", Capital: "Tokyo" });
+
+      // Verify cards reference valid templates
+      const allCards = db.select().from(cards).all();
+      const allTemplates = db.select().from(cardTemplates).all();
+      expect(allCards).toHaveLength(2);
+      expect(allTemplates).toHaveLength(1);
+      const templateIds = new Set(allTemplates.map((t) => t.id));
+      for (const card of allCards) {
+        expect(templateIds.has(card.templateId)).toBe(true);
+      }
+    });
+  });
+
+  describe("APKG import", () => {
+    it("imports deck with scheduling data preserved", () => {
+      const modelId = 111;
+      const ankiDeckId = 555;
+
+      const dbBytes = createAnkiDb({
+        models: {
+          [String(modelId)]: {
+            id: modelId,
+            name: "Basic",
+            flds: [
+              { name: "Front", ord: 0 },
+              { name: "Back", ord: 1 },
+            ],
+            tmpls: [
+              {
+                name: "Card 1",
+                qfmt: "{{Front}}",
+                afmt: "{{FrontSide}}<hr>{{Back}}",
+                ord: 0,
+              },
+            ],
+            css: ".card { font-family: arial; }",
+          },
+        },
+        decks: {
+          [String(ankiDeckId)]: { id: ankiDeckId, name: "Spanish" },
+        },
+        notes: [
+          {
+            id: 1001,
+            mid: modelId,
+            flds: "hola\u001Fhello",
+            tags: "greetings",
+          },
+          { id: 1002, mid: modelId, flds: "gato\u001Fcat", tags: "animals" },
+        ],
+        cards: [
+          {
+            id: 2001,
+            nid: 1001,
+            did: ankiDeckId,
+            ord: 0,
+            type: 2,
+            queue: 2,
+            due: 100,
+            ivl: 30,
+            factor: 2500,
+            reps: 10,
+            lapses: 2,
+          },
+          {
+            id: 2002,
+            nid: 1002,
+            did: ankiDeckId,
+            ord: 0,
+            type: 0,
+            queue: 0,
+            due: 0,
+            ivl: 0,
+            factor: 0,
+            reps: 0,
+            lapses: 0,
+          },
+        ],
+      });
+
+      const buffer = createApkgBuffer({ dbBytes });
+      const apkgData = parseApkg(buffer);
+      const result = importService.importFromApkg(userId, apkgData);
+
+      expect(result.deckCount).toBe(1);
+      expect(result.noteCount).toBe(2);
+      expect(result.cardCount).toBe(2);
+
+      // Verify deck
+      const allDecks = db
+        .select()
+        .from(decks)
+        .where(eq(decks.userId, userId))
+        .all();
+      expect(allDecks).toHaveLength(1);
+      expect(allDecks[0].name).toBe("Spanish");
+
+      // Verify notes have correct field values
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(2);
+      const fields = allNotes.map((n) => n.fields);
+      expect(fields).toContainEqual({ Front: "hola", Back: "hello" });
+      expect(fields).toContainEqual({ Front: "gato", Back: "cat" });
+
+      // Verify scheduling data preserved
+      const allCards = db.select().from(cards).all();
+      expect(allCards).toHaveLength(2);
+
+      const reviewedCard = allCards.find((c) => c.reps === 10);
+      expect(reviewedCard).toBeDefined();
+      expect(reviewedCard!.state).toBe(2);
+      expect(reviewedCard!.lapses).toBe(2);
+
+      const newCard = allCards.find((c) => c.reps === 0);
+      expect(newCard).toBeDefined();
+      expect(newCard!.state).toBe(0);
+      expect(newCard!.lapses).toBe(0);
+
+      // Verify cards reference valid templates
+      const allTemplates = db.select().from(cardTemplates).all();
+      const templateIds = new Set(allTemplates.map((t) => t.id));
+      for (const card of allCards) {
+        expect(templateIds.has(card.templateId)).toBe(true);
+      }
+    });
+  });
+
+  describe("COLPKG import", () => {
+    it("imports a collection package with correct counts", () => {
+      const buffer = createApkgBuffer();
+      const apkgData = parseApkg(buffer);
+      const result = importService.importFromApkg(userId, apkgData);
+
+      expect(result.deckCount).toBeGreaterThan(0);
+      expect(result.noteCount).toBeGreaterThan(0);
+      expect(result.cardCount).toBeGreaterThan(0);
+
+      const allDecks = db
+        .select()
+        .from(decks)
+        .where(eq(decks.userId, userId))
+        .all();
+      expect(allDecks.length).toBeGreaterThan(0);
+
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes.length).toBeGreaterThan(0);
+
+      const allCards = db.select().from(cards).all();
+      expect(allCards.length).toBeGreaterThan(0);
     });
   });
 });
