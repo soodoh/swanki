@@ -1,5 +1,6 @@
 // oxlint-disable eslint-plugin-react(no-danger) -- Card templates are user-authored content rendered via template-renderer
 import { cn } from "@/lib/utils";
+import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
 
 type CardDisplayProps = {
   html: string;
@@ -24,7 +25,7 @@ export function CardDisplay({
 }: CardDisplayProps): React.ReactElement {
   return (
     <div className="flex flex-col items-center gap-6 w-full">
-      {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
+      {css && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(css) }} />}
 
       <div
         className={cn(
@@ -34,7 +35,7 @@ export function CardDisplay({
       >
         <div
           className="card-content prose prose-sm dark:prose-invert max-w-none text-center"
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
         />
       </div>
 

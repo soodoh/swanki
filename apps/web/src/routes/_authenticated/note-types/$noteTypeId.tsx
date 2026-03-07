@@ -38,6 +38,7 @@ import {
 } from "@/lib/hooks/use-note-types";
 import type { NoteTypeField, CardTemplate } from "@/lib/hooks/use-note-types";
 import { renderTemplate } from "@/lib/template-renderer";
+import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
 
 export const Route = createFileRoute("/_authenticated/note-types/$noteTypeId")({
   component: NoteTypeEditor,
@@ -670,10 +671,10 @@ function PreviewTab({
               <CardTitle className="text-sm">Question</CardTitle>
             </CardHeader>
             <CardContent>
-              {css && <style>{css}</style>}
+              {css && <style>{sanitizeCss(css)}</style>}
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: questionHtml }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(questionHtml) }}
               />
             </CardContent>
           </Card>
@@ -683,10 +684,10 @@ function PreviewTab({
               <CardTitle className="text-sm">Answer</CardTitle>
             </CardHeader>
             <CardContent>
-              {css && <style>{css}</style>}
+              {css && <style>{sanitizeCss(css)}</style>}
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: answerHtml }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(answerHtml) }}
               />
             </CardContent>
           </Card>
