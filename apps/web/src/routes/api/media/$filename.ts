@@ -28,6 +28,8 @@ export const Route = createFileRoute("/api/media/$filename")({
             "Content-Type": result.record.mimeType,
             "Content-Length": String(result.record.size),
             "Cache-Control": "public, max-age=31536000, immutable",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'",
           },
         });
       },

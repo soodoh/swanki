@@ -16,7 +16,7 @@ async function createDefaultNoteTypes(userId: string): Promise<void> {
     name: "Basic",
     fields: basicFields,
   });
-  await noteTypeService.addTemplate(basic.id, {
+  await noteTypeService.addTemplate(basic.id, userId, {
     name: "Card 1",
     questionTemplate: "{{Front}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Back}}',
@@ -27,12 +27,12 @@ async function createDefaultNoteTypes(userId: string): Promise<void> {
     name: "Basic (and reversed card)",
     fields: basicFields,
   });
-  await noteTypeService.addTemplate(basicReversed.id, {
+  await noteTypeService.addTemplate(basicReversed.id, userId, {
     name: "Card 1",
     questionTemplate: "{{Front}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Back}}',
   });
-  await noteTypeService.addTemplate(basicReversed.id, {
+  await noteTypeService.addTemplate(basicReversed.id, userId, {
     name: "Card 2",
     questionTemplate: "{{Back}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Front}}',
