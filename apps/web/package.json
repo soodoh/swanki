@@ -1,0 +1,36 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --bun vite dev",
+    "build": "bun --bun vite build",
+    "start": "bun run .output/server/index.mjs",
+    "lint": "bun x oxlint -c oxlint.config.mjs . && prettier --check .",
+    "lint:fix": "bun x oxlint -c oxlint.config.mjs --fix . && prettier --write .",
+    "test": "echo 'test placeholder'",
+    "test:run": "echo 'test:run placeholder'"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@tanstack/react-router": "^1.166.2",
+    "@tanstack/react-start": "^1.166.2",
+    "nitro": "^3.0.1-alpha.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "vite": "^7.3.1"
+  },
+  "devDependencies": {
+    "@standard-config/oxlint": "^1.4.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "oxlint": "^1.51.0",
+    "oxlint-tsgolint": "^0.16.0",
+    "prettier": "^3.5.3",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.8.3",
+    "vite-tsconfig-paths": "^4.3.2"
+  }
+}
