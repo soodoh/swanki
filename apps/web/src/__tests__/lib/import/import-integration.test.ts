@@ -919,6 +919,109 @@ describe("Import Integration", () => {
     });
   });
 
+  // --- APKG New Schema (Anki 2.1.50+) ---
+
+  describe("APKG new schema (anki21b)", () => {
+    it("imports deck from new-schema database with separate tables", () => {
+      // Create a new-schema Anki database with notetypes/fields/templates tables
+      const dbPath = join(
+        tmpdir(),
+        `anki-new-schema-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+      );
+      const sqliteDb = new Database(dbPath);
+      try {
+        sqliteDb.run(
+          "CREATE TABLE notetypes (id integer PRIMARY KEY, name text, css text DEFAULT '')",
+        );
+        sqliteDb.run(
+          "CREATE TABLE fields (ntid integer, ord integer, name text)",
+        );
+        sqliteDb.run(
+          "CREATE TABLE templates (ntid integer, ord integer, name text, qfmt text, afmt text)",
+        );
+        sqliteDb.run("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
+        sqliteDb.run(
+          "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
+        );
+        sqliteDb.run(
+          "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
+        );
+        sqliteDb.run(
+          "INSERT INTO notetypes VALUES (1, 'Basic', '.card { color: red; }')",
+        );
+        sqliteDb.run("INSERT INTO fields VALUES (1, 0, 'Front')");
+        sqliteDb.run("INSERT INTO fields VALUES (1, 1, 'Back')");
+        sqliteDb.run(
+          "INSERT INTO templates VALUES (1, 0, 'Card 1', '{{Front}}', '{{FrontSide}}<hr>{{Back}}')",
+        );
+        sqliteDb.run("INSERT INTO decks VALUES (1, 'NewFormat Deck')");
+        sqliteDb.run(
+          "INSERT INTO notes VALUES (100, 'g1', 1, 0, 0, 'tag1', 'hola\u001Fhello', 'hola', 0, 0, '')",
+        );
+        sqliteDb.run(
+          "INSERT INTO cards VALUES (200, 100, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '')",
+        );
+        sqliteDb.close();
+
+        const dbBytesNew = new Uint8Array(readFileSync(dbPath));
+        const buffer = createApkgBuffer({
+          dbBytes: dbBytesNew,
+          dbFilename: "collection.anki21b",
+        });
+        const apkgData = parseApkg(buffer);
+        const result = importService.importFromApkg(userId, apkgData);
+
+        expect(result.deckCount).toBe(1);
+        expect(result.noteCount).toBe(1);
+        expect(result.cardCount).toBe(1);
+
+        // Verify deck name
+        const allDecks = db
+          .select()
+          .from(decks)
+          .where(eq(decks.userId, userId))
+          .all();
+        expect(allDecks).toHaveLength(1);
+        expect(allDecks[0].name).toBe("NewFormat Deck");
+
+        // Verify note type CSS preserved
+        const allNoteTypes = db
+          .select()
+          .from(noteTypes)
+          .where(eq(noteTypes.userId, userId))
+          .all();
+        expect(allNoteTypes).toHaveLength(1);
+        expect(allNoteTypes[0].css).toBe(".card { color: red; }");
+
+        // Verify note fields
+        const allNotes = db
+          .select()
+          .from(notes)
+          .where(eq(notes.userId, userId))
+          .all();
+        expect(allNotes).toHaveLength(1);
+        expect(allNotes[0].fields).toStrictEqual({
+          Front: "hola",
+          Back: "hello",
+        });
+
+        // Verify cards reference valid templates
+        const allCards = db.select().from(cards).all();
+        const allTemplates = db.select().from(cardTemplates).all();
+        const templateIds = new Set(allTemplates.map((t) => t.id));
+        for (const card of allCards) {
+          expect(templateIds.has(card.templateId)).toBe(true);
+        }
+      } finally {
+        try {
+          unlinkSync(dbPath);
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+    });
+  });
+
   // --- Format Detection ---
 
   describe("Format detection", () => {

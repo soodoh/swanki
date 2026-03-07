@@ -14,30 +14,33 @@ export const Route = createFileRoute("/api/import")({
         const session = await requireSession(request);
         const userId = session.user.id;
 
-        const contentType = request.headers.get("content-type") ?? "";
-        if (!contentType.includes("multipart/form-data")) {
-          return Response.json(
-            { error: "Expected multipart/form-data" },
-            { status: 400 },
-          );
-        }
-
-        const formData = await request.formData();
-        const file = formData.get("file");
-
-        if (!(file instanceof File)) {
-          return Response.json({ error: "No file provided" }, { status: 400 });
-        }
-
-        const format = detectFormat(file.name);
-        if (!format) {
-          return Response.json(
-            { error: `Unsupported file format: ${file.name}` },
-            { status: 400 },
-          );
-        }
-
         try {
+          const contentType = request.headers.get("content-type") ?? "";
+          if (!contentType.includes("multipart/form-data")) {
+            return Response.json(
+              { error: "Expected multipart/form-data" },
+              { status: 400 },
+            );
+          }
+
+          const formData = await request.formData();
+          const file = formData.get("file");
+
+          if (!(file instanceof File)) {
+            return Response.json(
+              { error: "No file provided" },
+              { status: 400 },
+            );
+          }
+
+          const format = detectFormat(file.name);
+          if (!format) {
+            return Response.json(
+              { error: `Unsupported file format: ${file.name}` },
+              { status: 400 },
+            );
+          }
+
           if (format === "apkg" || format === "colpkg") {
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
