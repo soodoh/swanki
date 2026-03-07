@@ -11,6 +11,8 @@ type MediaRecord = typeof media.$inferSelect;
 
 const MEDIA_DIR = join(process.cwd(), "data", "media");
 
+const ALLOWED_MIME_PREFIXES = ["image/", "audio/", "video/"] as const;
+
 function ensureMediaDir(): void {
   if (!existsSync(MEDIA_DIR)) {
     mkdirSync(MEDIA_DIR, { recursive: true });
@@ -22,6 +24,17 @@ export class MediaService {
 
   async upload(userId: string, file: File): Promise<MediaRecord> {
     ensureMediaDir();
+
+    // Validate MIME type to prevent serving arbitrary content (e.g. text/html XSS)
+    const mimeType = file.type || "application/octet-stream";
+    const isAllowed = ALLOWED_MIME_PREFIXES.some((prefix) =>
+      mimeType.startsWith(prefix),
+    );
+    if (!isAllowed) {
+      throw new Error(
+        `Unsupported file type: ${mimeType}. Only image, audio, and video files are allowed.`,
+      );
+    }
 
     const buffer = await file.arrayBuffer();
     const bytes = new Uint8Array(buffer);
@@ -59,7 +72,7 @@ export class MediaService {
       userId,
       filename,
       hash,
-      mimeType: file.type || "application/octet-stream",
+      mimeType,
       size: bytes.length,
       createdAt: now,
     });

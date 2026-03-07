@@ -9,13 +9,15 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
   server: {
     handlers: {
       PUT: async ({ request, params }) => {
-        await requireSession(request);
+        const session = await requireSession(request);
+        const userId = session.user.id;
         const body = (await request.json()) as {
           questionTemplate?: string;
           answerTemplate?: string;
         };
         const template = await noteTypeService.updateTemplate(
           params.templateId,
+          userId,
           body,
         );
         if (!template) {
@@ -24,8 +26,9 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
         return Response.json(template);
       },
       DELETE: async ({ request, params }) => {
-        await requireSession(request);
-        await noteTypeService.deleteTemplate(params.templateId);
+        const session = await requireSession(request);
+        const userId = session.user.id;
+        await noteTypeService.deleteTemplate(params.templateId, userId);
         return new Response(undefined, { status: 204 });
       },
     },

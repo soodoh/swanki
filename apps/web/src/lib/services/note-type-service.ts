@@ -48,12 +48,24 @@ export class NoteTypeService {
 
   async addTemplate(
     noteTypeId: string,
+    userId: string,
     data: {
       name: string;
       questionTemplate: string;
       answerTemplate: string;
     },
-  ): Promise<CardTemplate> {
+  ): Promise<CardTemplate | undefined> {
+    // Verify ownership of the note type
+    const noteType = await this.db
+      .select()
+      .from(noteTypes)
+      .where(and(eq(noteTypes.id, noteTypeId), eq(noteTypes.userId, userId)))
+      .get();
+
+    if (!noteType) {
+      return undefined;
+    }
+
     const id = generateId();
 
     // Determine the next ordinal
@@ -131,12 +143,17 @@ export class NoteTypeService {
 
   async updateTemplate(
     templateId: string,
+    userId: string,
     data: { questionTemplate?: string; answerTemplate?: string },
   ): Promise<CardTemplate | undefined> {
+    // Verify ownership: template -> noteType -> user
     const existing = await this.db
       .select()
       .from(cardTemplates)
-      .where(eq(cardTemplates.id, templateId))
+      .innerJoin(noteTypes, eq(cardTemplates.noteTypeId, noteTypes.id))
+      .where(
+        and(eq(cardTemplates.id, templateId), eq(noteTypes.userId, userId)),
+      )
       .get();
 
     if (!existing) {
@@ -163,7 +180,21 @@ export class NoteTypeService {
       .get();
   }
 
-  async deleteTemplate(templateId: string): Promise<void> {
+  async deleteTemplate(templateId: string, userId: string): Promise<void> {
+    // Verify ownership: template -> noteType -> user
+    const existing = await this.db
+      .select()
+      .from(cardTemplates)
+      .innerJoin(noteTypes, eq(cardTemplates.noteTypeId, noteTypes.id))
+      .where(
+        and(eq(cardTemplates.id, templateId), eq(noteTypes.userId, userId)),
+      )
+      .get();
+
+    if (!existing) {
+      return;
+    }
+
     await this.db.delete(cardTemplates).where(eq(cardTemplates.id, templateId));
   }
 

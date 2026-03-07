@@ -61,7 +61,7 @@ describe("NoteTypeService", () => {
         ],
       });
 
-      const template = await service.addTemplate(noteType.id, {
+      const template = await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
@@ -85,12 +85,12 @@ describe("NoteTypeService", () => {
         ],
       });
 
-      const t1 = await service.addTemplate(noteType.id, {
+      const t1 = await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       });
-      const t2 = await service.addTemplate(noteType.id, {
+      const t2 = await service.addTemplate(noteType.id, userId, {
         name: "Card 2",
         questionTemplate: "{{Back}}",
         answerTemplate: "{{Front}}",
@@ -111,12 +111,12 @@ describe("NoteTypeService", () => {
         ],
       });
 
-      await service.addTemplate(noteType.id, {
+      await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       });
-      await service.addTemplate(noteType.id, {
+      await service.addTemplate(noteType.id, userId, {
         name: "Card 2",
         questionTemplate: "{{Back}}",
         answerTemplate: "{{Front}}",
@@ -157,7 +157,7 @@ describe("NoteTypeService", () => {
           { name: "Back", ordinal: 1 },
         ],
       });
-      await service.addTemplate(nt1.id, {
+      await service.addTemplate(nt1.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
@@ -167,7 +167,7 @@ describe("NoteTypeService", () => {
         name: "Cloze",
         fields: [{ name: "Text", ordinal: 0 }],
       });
-      await service.addTemplate(nt2.id, {
+      await service.addTemplate(nt2.id, userId, {
         name: "Cloze Card",
         questionTemplate: "{{cloze:Text}}",
         answerTemplate: "{{Text}}",
@@ -200,13 +200,13 @@ describe("NoteTypeService", () => {
           { name: "Back", ordinal: 1 },
         ],
       });
-      const template = await service.addTemplate(noteType.id, {
+      const template = await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       });
 
-      const updated = await service.updateTemplate(template.id, {
+      const updated = await service.updateTemplate(template.id, userId, {
         questionTemplate: "<b>{{Front}}</b>",
       });
 
@@ -223,13 +223,13 @@ describe("NoteTypeService", () => {
           { name: "Back", ordinal: 1 },
         ],
       });
-      const template = await service.addTemplate(noteType.id, {
+      const template = await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       });
 
-      const updated = await service.updateTemplate(template.id, {
+      const updated = await service.updateTemplate(template.id, userId, {
         answerTemplate: "<i>{{Back}}</i>",
       });
 
@@ -239,7 +239,7 @@ describe("NoteTypeService", () => {
     });
 
     it("returns undefined for non-existent template", async () => {
-      const updated = await service.updateTemplate("non-existent", {
+      const updated = await service.updateTemplate("non-existent", userId, {
         questionTemplate: "test",
       });
 
@@ -256,13 +256,13 @@ describe("NoteTypeService", () => {
           { name: "Back", ordinal: 1 },
         ],
       });
-      const template = await service.addTemplate(noteType.id, {
+      const template = await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       });
 
-      await service.deleteTemplate(template.id);
+      await service.deleteTemplate(template.id, userId);
 
       const remaining = await db
         .select()
@@ -345,7 +345,7 @@ describe("NoteTypeService", () => {
           { name: "Back", ordinal: 1 },
         ],
       });
-      await service.addTemplate(noteType.id, {
+      await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
@@ -372,7 +372,7 @@ describe("NoteTypeService", () => {
           { name: "Back", ordinal: 1 },
         ],
       });
-      await service.addTemplate(noteType.id, {
+      await service.addTemplate(noteType.id, userId, {
         name: "Card 1",
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",

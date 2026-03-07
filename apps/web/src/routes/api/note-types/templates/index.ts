@@ -9,18 +9,26 @@ export const Route = createFileRoute("/api/note-types/templates/")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        await requireSession(request);
+        const session = await requireSession(request);
+        const userId = session.user.id;
         const body = (await request.json()) as {
           noteTypeId: string;
           name: string;
           questionTemplate: string;
           answerTemplate: string;
         };
-        const template = await noteTypeService.addTemplate(body.noteTypeId, {
-          name: body.name,
-          questionTemplate: body.questionTemplate,
-          answerTemplate: body.answerTemplate,
-        });
+        const template = await noteTypeService.addTemplate(
+          body.noteTypeId,
+          userId,
+          {
+            name: body.name,
+            questionTemplate: body.questionTemplate,
+            answerTemplate: body.answerTemplate,
+          },
+        );
+        if (!template) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
         return Response.json(template, { status: 201 });
       },
     },
