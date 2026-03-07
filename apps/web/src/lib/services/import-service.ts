@@ -1,0 +1,454 @@
+import { eq } from "drizzle-orm";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { generateId } from "../id";
+import { decks, noteTypes, cardTemplates, notes, cards } from "../../db/schema";
+import { parseCrowdAnki } from "../import/crowdanki-parser";
+import type { CrowdAnkiData } from "../import/crowdanki-parser";
+import type { ApkgData } from "../import/apkg-parser";
+
+type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+
+export type ImportFormat = "apkg" | "colpkg" | "csv" | "txt" | "crowdanki";
+
+export type CsvImportOptions = {
+  headers?: string[];
+  rows: string[][];
+  deckName?: string;
+};
+
+export type ImportResult = {
+  deckId?: string;
+  deckCount?: number;
+  noteCount: number;
+  cardCount: number;
+};
+
+const FORMAT_MAP: Record<string, ImportFormat> = {
+  ".apkg": "apkg",
+  ".colpkg": "colpkg",
+  ".csv": "csv",
+  ".txt": "txt",
+  ".json": "crowdanki",
+};
+
+export function detectFormat(filename: string): ImportFormat | undefined {
+  const lower = filename.toLowerCase();
+  const dotIndex = lower.lastIndexOf(".");
+  if (dotIndex === -1) {
+    return undefined;
+  }
+
+  const ext = lower.slice(dotIndex);
+  return FORMAT_MAP[ext];
+}
+
+export class ImportService {
+  constructor(private db: Db) {}
+
+  async importFromCsv(
+    userId: string,
+    options: CsvImportOptions,
+  ): Promise<ImportResult> {
+    const deckName = options.deckName ?? "CSV Import";
+    const { rows } = options;
+
+    if (rows.length === 0) {
+      // Still create the deck, but no notes/cards
+      const deckId = generateId();
+      const now = new Date();
+      await this.db.insert(decks).values({
+        id: deckId,
+        userId,
+        name: deckName,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return { deckId, noteCount: 0, cardCount: 0 };
+    }
+
+    // Determine field names
+    const fieldCount = rows[0].length;
+    const fieldNames =
+      options.headers ??
+      Array.from({ length: fieldCount }, (_, i) => `Field ${i + 1}`);
+
+    // Create deck
+    const deckId = generateId();
+    const now = new Date();
+    await this.db.insert(decks).values({
+      id: deckId,
+      userId,
+      name: deckName,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Create note type
+    const noteTypeId = generateId();
+    const fields = fieldNames.map((name, i) => ({ name, ordinal: i }));
+    await this.db.insert(noteTypes).values({
+      id: noteTypeId,
+      userId,
+      name: `${deckName} - Note Type`,
+      fields,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Create a basic card template
+    const templateId = generateId();
+    const firstField = fieldNames[0];
+    const remainingFields = fieldNames.slice(1);
+    const answerContent =
+      remainingFields.length > 0
+        ? remainingFields.map((f) => `{{${f}}}`).join("<br>")
+        : `{{${firstField}}}`;
+
+    await this.db.insert(cardTemplates).values({
+      id: templateId,
+      noteTypeId,
+      name: "Card 1",
+      ordinal: 0,
+      questionTemplate: `{{${firstField}}}`,
+      answerTemplate: answerContent,
+    });
+
+    // Create notes and cards
+    let noteCount = 0;
+    let cardCount = 0;
+
+    for (const row of rows) {
+      const noteId = generateId();
+      const noteFields: Record<string, string> = {};
+      for (let i = 0; i < fieldNames.length; i += 1) {
+        noteFields[fieldNames[i]] = row[i] ?? "";
+      }
+
+      await this.db.insert(notes).values({
+        id: noteId,
+        userId,
+        noteTypeId,
+        fields: noteFields,
+        tags: "",
+        createdAt: now,
+        updatedAt: now,
+      });
+      noteCount += 1;
+
+      await this.db.insert(cards).values({
+        id: generateId(),
+        noteId,
+        deckId,
+        templateId,
+        ordinal: 0,
+        state: 0,
+        due: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      cardCount += 1;
+    }
+
+    return { deckId, noteCount, cardCount };
+  }
+
+  async importFromCrowdAnki(
+    userId: string,
+    json: unknown,
+  ): Promise<ImportResult> {
+    const data = parseCrowdAnki(json);
+
+    let deckCount = 0;
+    let noteCount = 0;
+    let cardCount = 0;
+
+    // Build a map of model UUID -> our note type ID
+    const modelMap = new Map<string, string>();
+
+    // Create note types from all models in the data
+    const now = new Date();
+    for (const model of data.noteModels) {
+      const noteTypeId = generateId();
+      modelMap.set(model.uuid, noteTypeId);
+
+      const fields = model.fields.map((f) => ({
+        name: f.name,
+        ordinal: f.ordinal,
+      }));
+
+      await this.db.insert(noteTypes).values({
+        id: noteTypeId,
+        userId,
+        name: model.name,
+        fields,
+        css: model.css,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // Create templates
+      for (const tmpl of model.templates) {
+        await this.db.insert(cardTemplates).values({
+          id: generateId(),
+          noteTypeId,
+          name: tmpl.name,
+          ordinal: tmpl.ordinal,
+          questionTemplate: tmpl.questionFormat,
+          answerTemplate: tmpl.answerFormat,
+        });
+      }
+    }
+
+    // Recursively create decks and notes
+    const importResult = await this.importCrowdAnkiDeck(
+      userId,
+      data,
+      modelMap,
+      undefined,
+      now,
+    );
+
+    deckCount += importResult.deckCount;
+    noteCount += importResult.noteCount;
+    cardCount += importResult.cardCount;
+
+    return { deckCount, noteCount, cardCount };
+  }
+
+  private async importCrowdAnkiDeck(
+    userId: string,
+    data: CrowdAnkiData,
+    modelMap: Map<string, string>,
+    parentId: string | undefined,
+    now: Date,
+  ): Promise<{ deckCount: number; noteCount: number; cardCount: number }> {
+    let deckCount = 0;
+    let noteCount = 0;
+    let cardCount = 0;
+
+    // Create deck
+    const deckId = generateId();
+    await this.db.insert(decks).values({
+      id: deckId,
+      userId,
+      name: data.name,
+      parentId: parentId ?? undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
+    deckCount += 1;
+
+    // Create notes for this deck
+    for (const note of data.notes) {
+      const noteTypeId = modelMap.get(note.noteModelUuid);
+      if (!noteTypeId) {
+        continue;
+      }
+
+      const noteId = generateId();
+
+      // Get the note type to map field indices to field names
+      const noteType = await this.db
+        .select()
+        .from(noteTypes)
+        .where(eq(noteTypes.id, noteTypeId))
+        .get();
+
+      if (!noteType) {
+        continue;
+      }
+
+      const fieldDefs = noteType.fields as Array<{
+        name: string;
+        ordinal: number;
+      }>;
+      const noteFields: Record<string, string> = {};
+      for (const field of fieldDefs) {
+        noteFields[field.name] = note.fields[field.ordinal] ?? "";
+      }
+
+      await this.db.insert(notes).values({
+        id: noteId,
+        userId,
+        noteTypeId,
+        fields: noteFields,
+        tags: note.tags.join(" "),
+        createdAt: now,
+        updatedAt: now,
+      });
+      noteCount += 1;
+
+      // Get templates for this note type and create cards
+      const templates = await this.db
+        .select()
+        .from(cardTemplates)
+        .where(eq(cardTemplates.noteTypeId, noteTypeId))
+        .all();
+
+      for (const template of templates) {
+        await this.db.insert(cards).values({
+          id: generateId(),
+          noteId,
+          deckId,
+          templateId: template.id,
+          ordinal: template.ordinal,
+          state: 0,
+          due: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+        cardCount += 1;
+      }
+    }
+
+    // Recursively handle children
+    for (const child of data.children) {
+      const childResult = await this.importCrowdAnkiDeck(
+        userId,
+        child,
+        modelMap,
+        deckId,
+        now,
+      );
+      deckCount += childResult.deckCount;
+      noteCount += childResult.noteCount;
+      cardCount += childResult.cardCount;
+    }
+
+    return { deckCount, noteCount, cardCount };
+  }
+
+  async importFromApkg(userId: string, data: ApkgData): Promise<ImportResult> {
+    const now = new Date();
+    let noteCount = 0;
+    let cardCount = 0;
+
+    // Create decks, mapping anki deck id -> our deck id
+    const deckMap = new Map<number, string>();
+    for (const ankiDeck of data.decks) {
+      const deckId = generateId();
+      deckMap.set(ankiDeck.id, deckId);
+
+      await this.db.insert(decks).values({
+        id: deckId,
+        userId,
+        name: ankiDeck.name,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Create note types, mapping anki model id -> our note type id
+    const noteTypeMap = new Map<number, string>();
+    for (const ankiNoteType of data.noteTypes) {
+      const noteTypeId = generateId();
+      noteTypeMap.set(ankiNoteType.id, noteTypeId);
+
+      const fields = ankiNoteType.fields.map((f) => ({
+        name: f.name,
+        ordinal: f.ordinal,
+      }));
+
+      await this.db.insert(noteTypes).values({
+        id: noteTypeId,
+        userId,
+        name: ankiNoteType.name,
+        fields,
+        css: ankiNoteType.css,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // Create templates
+      for (const tmpl of ankiNoteType.templates) {
+        await this.db.insert(cardTemplates).values({
+          id: generateId(),
+          noteTypeId,
+          name: tmpl.name,
+          ordinal: tmpl.ordinal,
+          questionTemplate: tmpl.questionFormat,
+          answerTemplate: tmpl.answerFormat,
+        });
+      }
+    }
+
+    // Create notes, mapping anki note id -> our note id
+    const noteMap = new Map<number, string>();
+    for (const ankiNote of data.notes) {
+      const noteId = generateId();
+      noteMap.set(ankiNote.id, noteId);
+
+      const noteTypeId = noteTypeMap.get(ankiNote.modelId);
+      if (!noteTypeId) {
+        continue;
+      }
+
+      // Get the note type fields to map indices to names
+      const ankiNoteType = data.noteTypes.find(
+        (nt) => nt.id === ankiNote.modelId,
+      );
+      const noteFields: Record<string, string> = {};
+      if (ankiNoteType) {
+        for (const field of ankiNoteType.fields) {
+          noteFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
+        }
+      }
+
+      await this.db.insert(notes).values({
+        id: noteId,
+        userId,
+        noteTypeId,
+        fields: noteFields,
+        tags: ankiNote.tags.trim(),
+        createdAt: now,
+        updatedAt: now,
+      });
+      noteCount += 1;
+    }
+
+    // Create cards
+    for (const ankiCard of data.cards) {
+      const noteId = noteMap.get(ankiCard.noteId);
+      const deckId = deckMap.get(ankiCard.deckId);
+      if (!noteId || !deckId) {
+        continue;
+      }
+
+      // Find the note for this card
+      const ankiNote = data.notes.find((n) => n.id === ankiCard.noteId);
+      if (!ankiNote) {
+        continue;
+      }
+
+      const noteTypeId = noteTypeMap.get(ankiNote.modelId);
+      if (!noteTypeId) {
+        continue;
+      }
+
+      // Use a generated template id
+      const templateId = generateId();
+
+      await this.db.insert(cards).values({
+        id: generateId(),
+        noteId,
+        deckId,
+        templateId,
+        ordinal: ankiCard.ordinal,
+        state: ankiCard.type,
+        due: now,
+        reps: ankiCard.reps,
+        lapses: ankiCard.lapses,
+        createdAt: now,
+        updatedAt: now,
+      });
+      cardCount += 1;
+    }
+
+    return {
+      deckCount: data.decks.length,
+      noteCount,
+      cardCount,
+    };
+  }
+}
