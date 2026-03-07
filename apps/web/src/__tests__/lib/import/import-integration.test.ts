@@ -5,7 +5,10 @@ import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb } from "../../test-utils";
-import { ImportService } from "../../../lib/services/import-service";
+import {
+  ImportService,
+  detectFormat,
+} from "../../../lib/services/import-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { parseCsv } from "../../../lib/import/csv-parser";
 import { eq } from "drizzle-orm";
@@ -574,6 +577,353 @@ describe("Import Integration", () => {
 
       const allCards = db.select().from(cards).all();
       expect(allCards.length).toBeGreaterThan(0);
+    });
+  });
+
+  // --- CSV Edge Cases ---
+
+  describe("CSV edge cases", () => {
+    it("auto-generates field names when no header row is present", () => {
+      const csvText = "apple,red\nbanana,yellow\n";
+      const parsed = parseCsv(csvText, { hasHeader: false });
+      const result = importService.importFromCsv(userId, {
+        rows: parsed.rows,
+        deckName: "No Header Deck",
+      });
+
+      expect(result.noteCount).toBe(2);
+      expect(result.cardCount).toBe(2);
+
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(2);
+      const fields = allNotes.map((n) => n.fields);
+      expect(fields).toContainEqual({ "Field 1": "apple", "Field 2": "red" });
+      expect(fields).toContainEqual({
+        "Field 1": "banana",
+        "Field 2": "yellow",
+      });
+
+      const allNoteTypes = db
+        .select()
+        .from(noteTypes)
+        .where(eq(noteTypes.userId, userId))
+        .all();
+      expect(allNoteTypes).toHaveLength(1);
+      const fieldDefs = allNoteTypes[0].fields as Array<{
+        name: string;
+        ordinal: number;
+      }>;
+      expect(fieldDefs.map((f) => f.name)).toEqual(["Field 1", "Field 2"]);
+    });
+
+    it("handles single-column CSV with header", () => {
+      const csvText = "Term\napple\nbanana\ncherry\n";
+      const parsed = parseCsv(csvText, { hasHeader: true });
+      const result = importService.importFromCsv(userId, {
+        headers: parsed.headers,
+        rows: parsed.rows,
+        deckName: "Single Column Deck",
+      });
+
+      expect(result.noteCount).toBe(3);
+      expect(result.cardCount).toBe(3);
+
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(3);
+      const fields = allNotes.map((n) => n.fields);
+      expect(fields).toContainEqual({ Term: "apple" });
+      expect(fields).toContainEqual({ Term: "banana" });
+      expect(fields).toContainEqual({ Term: "cherry" });
+
+      const allTemplates = db.select().from(cardTemplates).all();
+      expect(allTemplates).toHaveLength(1);
+      expect(allTemplates[0].questionTemplate).toBe("{{Term}}");
+      expect(allTemplates[0].answerTemplate).toBe("{{Term}}");
+    });
+
+    it("preserves quoted fields with embedded commas and newlines", () => {
+      const csvText = 'Front,Back\n"hello, world","line1\nline2"\n';
+      const parsed = parseCsv(csvText, { hasHeader: true });
+      const result = importService.importFromCsv(userId, {
+        headers: parsed.headers,
+        rows: parsed.rows,
+        deckName: "Quoted Fields Deck",
+      });
+
+      expect(result.noteCount).toBe(1);
+      expect(result.cardCount).toBe(1);
+
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(1);
+      expect(allNotes[0].fields).toEqual({
+        Front: "hello, world",
+        Back: "line1\nline2",
+      });
+    });
+
+    it("creates deck with 0 cards for empty CSV", () => {
+      const result = importService.importFromCsv(userId, {
+        rows: [],
+        headers: ["Front", "Back"],
+        deckName: "Empty Deck",
+      });
+
+      expect(result.noteCount).toBe(0);
+      expect(result.cardCount).toBe(0);
+      expect(result.deckId).toBeDefined();
+
+      const allDecks = db
+        .select()
+        .from(decks)
+        .where(eq(decks.userId, userId))
+        .all();
+      expect(allDecks).toHaveLength(1);
+      expect(allDecks[0].name).toBe("Empty Deck");
+
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(0);
+    });
+  });
+
+  // --- CrowdAnki Edge Cases ---
+
+  describe("CrowdAnki edge cases", () => {
+    it("preserves nested deck hierarchy with parent-child relationships", () => {
+      const json = {
+        name: "Languages",
+        children: [
+          {
+            name: "Spanish",
+            children: [
+              {
+                name: "Verbs",
+                children: [],
+                note_models: [],
+                notes: [],
+                media_files: [],
+              },
+            ],
+            note_models: [],
+            notes: [],
+            media_files: [],
+          },
+          {
+            name: "French",
+            children: [],
+            note_models: [],
+            notes: [],
+            media_files: [],
+          },
+        ],
+        note_models: [
+          {
+            crowdanki_uuid: "model-uuid-1",
+            name: "Basic",
+            flds: [
+              { name: "Front", ord: 0 },
+              { name: "Back", ord: 1 },
+            ],
+            tmpls: [
+              {
+                name: "Card 1",
+                qfmt: "{{Front}}",
+                afmt: "{{FrontSide}}<hr>{{Back}}",
+                ord: 0,
+              },
+            ],
+            css: ".card {}",
+          },
+        ],
+        notes: [],
+        media_files: [],
+      };
+
+      const result = importService.importFromCrowdAnki(userId, json);
+      expect(result.deckCount).toBe(4);
+      expect(result.noteCount).toBe(0);
+      expect(result.cardCount).toBe(0);
+
+      const allDecks = db
+        .select()
+        .from(decks)
+        .where(eq(decks.userId, userId))
+        .all();
+      expect(allDecks).toHaveLength(4);
+
+      const root = allDecks.find((d) => d.name === "Languages")!;
+      const spanish = allDecks.find((d) => d.name === "Spanish")!;
+      const verbs = allDecks.find((d) => d.name === "Verbs")!;
+      const french = allDecks.find((d) => d.name === "French")!;
+
+      expect(root.parentId).toBeNull();
+      expect(spanish.parentId).toBe(root.id);
+      expect(verbs.parentId).toBe(spanish.id);
+      expect(french.parentId).toBe(root.id);
+    });
+
+    it("handles empty notes array", () => {
+      const json = {
+        name: "Empty Deck",
+        children: [],
+        note_models: [
+          {
+            crowdanki_uuid: "model-uuid-1",
+            name: "Basic",
+            flds: [
+              { name: "Front", ord: 0 },
+              { name: "Back", ord: 1 },
+            ],
+            tmpls: [
+              {
+                name: "Card 1",
+                qfmt: "{{Front}}",
+                afmt: "{{FrontSide}}<hr>{{Back}}",
+                ord: 0,
+              },
+            ],
+            css: "",
+          },
+        ],
+        notes: [],
+        media_files: [],
+      };
+
+      const result = importService.importFromCrowdAnki(userId, json);
+      expect(result.deckCount).toBe(1);
+      expect(result.noteCount).toBe(0);
+      expect(result.cardCount).toBe(0);
+
+      const allDecks = db
+        .select()
+        .from(decks)
+        .where(eq(decks.userId, userId))
+        .all();
+      expect(allDecks).toHaveLength(1);
+      expect(allDecks[0].name).toBe("Empty Deck");
+    });
+  });
+
+  // --- APKG Edge Cases ---
+
+  describe("APKG with multiple note types", () => {
+    it("imports Basic and Cloze note types with correct template references", () => {
+      const dbBytes = createAnkiDb({
+        decks: { "1": { id: 1, name: "Mixed" } },
+        models: {
+          "111": {
+            id: 111,
+            name: "Basic",
+            flds: [
+              { name: "Front", ord: 0 },
+              { name: "Back", ord: 1 },
+            ],
+            tmpls: [
+              {
+                name: "Card 1",
+                qfmt: "{{Front}}",
+                afmt: "{{Back}}",
+                ord: 0,
+              },
+            ],
+          },
+          "222": {
+            id: 222,
+            name: "Cloze",
+            flds: [{ name: "Text", ord: 0 }],
+            tmpls: [
+              {
+                name: "Cloze",
+                qfmt: "{{cloze:Text}}",
+                afmt: "{{cloze:Text}}",
+                ord: 0,
+              },
+            ],
+            css: ".cloze { color: blue; }",
+          },
+        },
+        notes: [
+          { id: 1, mid: 111, flds: "Q\u001FA", tags: "" },
+          { id: 2, mid: 222, flds: "{{c1::answer}}", tags: "" },
+        ],
+        cards: [
+          {
+            id: 10,
+            nid: 1,
+            did: 1,
+            ord: 0,
+            type: 0,
+            queue: 0,
+            due: 0,
+            ivl: 0,
+            factor: 0,
+            reps: 0,
+            lapses: 0,
+          },
+          {
+            id: 11,
+            nid: 2,
+            did: 1,
+            ord: 0,
+            type: 0,
+            queue: 0,
+            due: 0,
+            ivl: 0,
+            factor: 0,
+            reps: 0,
+            lapses: 0,
+          },
+        ],
+      });
+
+      const buffer = createApkgBuffer({ dbBytes });
+      const apkgData = parseApkg(buffer);
+      const result = importService.importFromApkg(userId, apkgData);
+
+      expect(result.noteCount).toBe(2);
+      expect(result.cardCount).toBe(2);
+
+      const allNoteTypes = db
+        .select()
+        .from(noteTypes)
+        .where(eq(noteTypes.userId, userId))
+        .all();
+      expect(allNoteTypes).toHaveLength(2);
+      const names = allNoteTypes.map((nt) => nt.name).toSorted();
+      expect(names).toStrictEqual(["Basic", "Cloze"]);
+
+      const allCards = db.select().from(cards).all();
+      const allTemplates = db.select().from(cardTemplates).all();
+      const templateIds = new Set(allTemplates.map((t) => t.id));
+      for (const card of allCards) {
+        expect(templateIds.has(card.templateId)).toBe(true);
+      }
+    });
+  });
+
+  // --- Format Detection ---
+
+  describe("Format detection", () => {
+    it("rejects unsupported file formats", () => {
+      expect(detectFormat("file.pdf")).toBeUndefined();
+      expect(detectFormat("file.docx")).toBeUndefined();
+      expect(detectFormat("file.xlsx")).toBeUndefined();
+      expect(detectFormat("noextension")).toBeUndefined();
     });
   });
 });
