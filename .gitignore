@@ -29,6 +29,9 @@ out/
 # Database
 *.db
 
+# User data (media uploads)
+data/
+
 # OS
 .DS_Store
 Thumbs.db
