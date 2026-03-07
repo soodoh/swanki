@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, ResponsiveContainer, Tooltip } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCardStates } from "@/lib/hooks/use-stats";
@@ -14,7 +14,7 @@ const STATE_COLORS: Record<string, string> = {
 type PieEntry = {
   name: string;
   value: number;
-  color: string;
+  fill: string;
 };
 
 export function CardStateChart(): React.ReactElement {
@@ -24,17 +24,17 @@ export function CardStateChart(): React.ReactElement {
     () =>
       data
         ? [
-            { name: "New", value: data.new, color: STATE_COLORS.New },
+            { name: "New", value: data.new, fill: STATE_COLORS.New },
             {
               name: "Learning",
               value: data.learning,
-              color: STATE_COLORS.Learning,
+              fill: STATE_COLORS.Learning,
             },
-            { name: "Review", value: data.review, color: STATE_COLORS.Review },
+            { name: "Review", value: data.review, fill: STATE_COLORS.Review },
             {
               name: "Relearning",
               value: data.relearning,
-              color: STATE_COLORS.Relearning,
+              fill: STATE_COLORS.Relearning,
             },
           ].filter((e) => e.value > 0)
         : [],
@@ -66,11 +66,7 @@ export function CardStateChart(): React.ReactElement {
                   outerRadius={90}
                   paddingAngle={2}
                   dataKey="value"
-                >
-                  {entries.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(var(--popover))",
@@ -86,7 +82,7 @@ export function CardStateChart(): React.ReactElement {
                 <div key={entry.name} className="flex items-center gap-2">
                   <div
                     className="size-3 rounded-full"
-                    style={{ backgroundColor: entry.color }}
+                    style={{ backgroundColor: entry.fill }}
                   />
                   <span className="text-sm text-muted-foreground">
                     {entry.name}:{" "}
