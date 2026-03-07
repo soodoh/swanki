@@ -1,7 +1,13 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import type * as schema from "../../db/schema";
-import { cards, reviewLogs } from "../../db/schema";
+import {
+  cards,
+  notes,
+  cardTemplates,
+  noteTypes,
+  reviewLogs,
+} from "../../db/schema";
 import { generateId } from "../id";
 import { CardService } from "./card-service";
 import { scheduleFsrs, previewAll } from "../fsrs";
@@ -10,9 +16,17 @@ import type { Grade, FsrsResult, IntervalPreview } from "../fsrs";
 
 type Db = BunSQLiteDatabase<typeof schema>;
 
+export type StudyCardTemplate = {
+  id: string;
+  questionTemplate: string;
+  answerTemplate: string;
+};
+
 export type StudySession = {
   cards: CardWithNote[];
   counts: CardCounts;
+  templates: Record<string, StudyCardTemplate>;
+  css: Record<string, string>;
 };
 
 export type ReviewResult = {
@@ -33,9 +47,56 @@ export class StudyService {
     const dueCards = await this.cardService.getDueCards(userId, deckId);
     const counts = await this.cardService.getCounts(userId, deckId);
 
+    // Collect unique template IDs from the due cards
+    const templateIds = [...new Set(dueCards.map((c) => c.templateId))];
+
+    // Fetch templates
+    const templateMap: Record<string, StudyCardTemplate> = {};
+    if (templateIds.length > 0) {
+      const templates = await this.db
+        .select()
+        .from(cardTemplates)
+        .where(inArray(cardTemplates.id, templateIds))
+        .all();
+
+      for (const t of templates) {
+        templateMap[t.id] = {
+          id: t.id,
+          questionTemplate: t.questionTemplate,
+          answerTemplate: t.answerTemplate,
+        };
+      }
+    }
+
+    // Collect unique note IDs to find note types for CSS
+    const noteIds = [...new Set(dueCards.map((c) => c.noteId))];
+    const cssMap: Record<string, string> = {};
+    if (noteIds.length > 0) {
+      const noteRows = await this.db
+        .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
+        .from(notes)
+        .where(inArray(notes.id, noteIds))
+        .all();
+
+      const noteTypeIds = [...new Set(noteRows.map((n) => n.noteTypeId))];
+      if (noteTypeIds.length > 0) {
+        const noteTypeRows = await this.db
+          .select({ id: noteTypes.id, css: noteTypes.css })
+          .from(noteTypes)
+          .where(inArray(noteTypes.id, noteTypeIds))
+          .all();
+
+        for (const nt of noteTypeRows) {
+          cssMap[nt.id] = nt.css ?? "";
+        }
+      }
+    }
+
     return {
       cards: dueCards,
       counts,
+      templates: templateMap,
+      css: cssMap,
     };
   }
 

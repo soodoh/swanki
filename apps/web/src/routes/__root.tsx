@@ -6,6 +6,8 @@ import {
   createRootRoute,
 } from "@tanstack/react-router";
 
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 const queryClient = new QueryClient();
 
 export const Route = createRootRoute({
@@ -28,7 +30,9 @@ function RootComponent(): React.ReactElement {
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
-          <Outlet />
+          <TooltipProvider>
+            <Outlet />
+          </TooltipProvider>
         </QueryClientProvider>
         <Scripts />
       </body>

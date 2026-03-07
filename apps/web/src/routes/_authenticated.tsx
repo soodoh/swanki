@@ -1,6 +1,15 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
+import { AppShell } from "@/components/app-shell";
 import { authClient } from "@/lib/auth-client";
+
+type SessionData = {
+  user: {
+    name: string;
+    email: string;
+    image?: string | undefined;
+  };
+};
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
@@ -10,10 +19,26 @@ export const Route = createFileRoute("/_authenticated")({
       // eslint-disable-next-line only-throw-error -- TanStack Router requires throwing redirect()
       throw redirect({ to: "/login" });
     }
+
+    return {
+      session: {
+        user: {
+          name: session.user.name,
+          email: session.user.email,
+          image: session.user.image ?? undefined,
+        },
+      } satisfies SessionData,
+    };
   },
   component: AuthenticatedLayout,
 });
 
 function AuthenticatedLayout(): React.ReactElement {
-  return <Outlet />;
+  const { session } = Route.useRouteContext();
+
+  return (
+    <AppShell user={session.user}>
+      <Outlet />
+    </AppShell>
+  );
 }
