@@ -244,6 +244,139 @@ function createApkgBuffer(options?: {
   return zipped.buffer;
 }
 
+// --- Protobuf encoding helpers ---
+
+function encodeVarint(value: number): Uint8Array {
+  const bytes: number[] = [];
+  let v = value;
+  while (v >= 128) {
+    bytes.push((v % 128) + 128);
+    v = Math.floor(v / 128);
+  }
+  bytes.push(v);
+  return new Uint8Array(bytes);
+}
+
+function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+  const total = arrays.reduce((sum, a) => sum + a.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const a of arrays) {
+    result.set(a, offset);
+    offset += a.length;
+  }
+  return result;
+}
+
+function encodeProtobufString(fieldNum: number, value: string): Uint8Array {
+  const tag = encodeVarint(fieldNum * 8 + 2);
+  const strBytes = new TextEncoder().encode(value);
+  const len = encodeVarint(strBytes.length);
+  return concatBytes(tag, len, strBytes);
+}
+
+function encodeTemplateConfig(qfmt: string, afmt: string): Uint8Array {
+  return concatBytes(
+    encodeProtobufString(1, qfmt),
+    encodeProtobufString(2, afmt),
+  );
+}
+
+function encodeNoteTypeConfig(css: string): Uint8Array {
+  return encodeProtobufString(3, css);
+}
+
+function createProtobufNewSchemaDb(options: {
+  noteTypes: Array<{
+    id: number;
+    name: string;
+    css: string;
+    fields: Array<{ name: string; ord: number }>;
+    templates: Array<{ name: string; qfmt: string; afmt: string; ord: number }>;
+  }>;
+  decks: Array<{ id: number; name: string }>;
+  notes: Array<{ id: number; mid: number; flds: string; tags: string }>;
+  cards: Array<{
+    id: number;
+    nid: number;
+    did: number;
+    ord: number;
+    type: number;
+  }>;
+}): Uint8Array {
+  const dbPath = join(
+    tmpdir(),
+    `anki-proto-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  );
+  const sqliteDb = new Database(dbPath);
+
+  try {
+    sqliteDb.run(
+      "CREATE TABLE notetypes (id integer PRIMARY KEY, name text, config blob)",
+    );
+    sqliteDb.run(
+      "CREATE TABLE templates (ntid integer, ord integer, name text, config blob)",
+    );
+    sqliteDb.run("CREATE TABLE fields (ntid integer, ord integer, name text)");
+    sqliteDb.run("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
+    sqliteDb.run(
+      "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
+    );
+    sqliteDb.run(
+      "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
+    );
+
+    for (const nt of options.noteTypes) {
+      sqliteDb
+        .prepare("INSERT INTO notetypes VALUES (?, ?, ?)")
+        .run(nt.id, nt.name, encodeNoteTypeConfig(nt.css));
+
+      for (const f of nt.fields) {
+        sqliteDb
+          .prepare("INSERT INTO fields VALUES (?, ?, ?)")
+          .run(nt.id, f.ord, f.name);
+      }
+
+      for (const t of nt.templates) {
+        sqliteDb
+          .prepare("INSERT INTO templates VALUES (?, ?, ?, ?)")
+          .run(nt.id, t.ord, t.name, encodeTemplateConfig(t.qfmt, t.afmt));
+      }
+    }
+
+    for (const d of options.decks) {
+      sqliteDb.prepare("INSERT INTO decks VALUES (?, ?)").run(d.id, d.name);
+    }
+
+    for (const n of options.notes) {
+      sqliteDb
+        .prepare(
+          "INSERT INTO notes VALUES (?, 'guid', ?, 0, 0, ?, ?, '', 0, 0, '')",
+        )
+        .run(n.id, n.mid, n.tags, n.flds);
+    }
+
+    for (const c of options.cards) {
+      sqliteDb
+        .prepare(
+          "INSERT INTO cards VALUES (?, ?, ?, ?, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '')",
+        )
+        .run(c.id, c.nid, c.did, c.ord, c.type);
+    }
+
+    sqliteDb.close();
+    return new Uint8Array(readFileSync(dbPath));
+  } finally {
+    try {
+      if (existsSync(dbPath)) {
+        unlinkSync(dbPath);
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
 describe("Import Integration", () => {
   let db: TestDb;
   let importService: ImportService;
@@ -1018,6 +1151,98 @@ describe("Import Integration", () => {
         } catch {
           // ignore cleanup errors
         }
+      }
+    });
+
+    it("imports deck from protobuf config database end-to-end", () => {
+      const dbBytes = createProtobufNewSchemaDb({
+        noteTypes: [
+          {
+            id: 1,
+            name: "Geography",
+            css: ".card { background: #eee; font-size: 18px; }",
+            fields: [
+              { name: "Country", ord: 0 },
+              { name: "Capital", ord: 1 },
+              { name: "Flag", ord: 2 },
+            ],
+            templates: [
+              {
+                name: "Country → Capital",
+                qfmt: "<div>{{Country}}</div>",
+                afmt: "<div>{{Capital}}</div>",
+                ord: 0,
+              },
+              {
+                name: "Capital → Country",
+                qfmt: "<div>{{Capital}}</div>",
+                afmt: "<div>{{Country}}</div>",
+                ord: 1,
+              },
+            ],
+          },
+        ],
+        decks: [{ id: 1, name: "World Capitals" }],
+        notes: [
+          { id: 10, mid: 1, flds: "France\u001FParis\u001F🇫🇷", tags: "europe" },
+          { id: 11, mid: 1, flds: "Japan\u001FTokyo\u001F🇯🇵", tags: "asia" },
+        ],
+        cards: [
+          { id: 100, nid: 10, did: 1, ord: 0, type: 0 },
+          { id: 101, nid: 10, did: 1, ord: 1, type: 0 },
+          { id: 102, nid: 11, did: 1, ord: 0, type: 0 },
+          { id: 103, nid: 11, did: 1, ord: 1, type: 0 },
+        ],
+      });
+
+      const buffer = createApkgBuffer({
+        dbBytes,
+        dbFilename: "collection.anki21b",
+      });
+      const apkgData = parseApkg(buffer);
+      const result = importService.importFromApkg(userId, apkgData);
+
+      expect(result.deckCount).toBe(1);
+      expect(result.noteCount).toBe(2);
+      expect(result.cardCount).toBe(4);
+
+      // Verify CSS preserved from protobuf
+      const allNoteTypes = db
+        .select()
+        .from(noteTypes)
+        .where(eq(noteTypes.userId, userId))
+        .all();
+      expect(allNoteTypes).toHaveLength(1);
+      expect(allNoteTypes[0].css).toBe(
+        ".card { background: #eee; font-size: 18px; }",
+      );
+
+      // Verify templates have correct qfmt/afmt from protobuf
+      const allTemplates = db.select().from(cardTemplates).all();
+      expect(allTemplates).toHaveLength(2);
+      const sorted = allTemplates.toSorted((a, b) => a.ordinal - b.ordinal);
+      expect(sorted[0].questionTemplate).toBe("<div>{{Country}}</div>");
+      expect(sorted[0].answerTemplate).toBe("<div>{{Capital}}</div>");
+      expect(sorted[1].questionTemplate).toBe("<div>{{Capital}}</div>");
+      expect(sorted[1].answerTemplate).toBe("<div>{{Country}}</div>");
+
+      // Verify notes have 3 fields
+      const allNotes = db
+        .select()
+        .from(notes)
+        .where(eq(notes.userId, userId))
+        .all();
+      expect(allNotes).toHaveLength(2);
+      const france = allNotes.find((n) => n.fields.Country === "France");
+      expect(france).toBeDefined();
+      expect(france!.fields.Capital).toBe("Paris");
+      expect(france!.fields.Flag).toBe("🇫🇷");
+
+      // Verify all cards reference valid templates
+      const allCards = db.select().from(cards).all();
+      const templateIds = new Set(allTemplates.map((t) => t.id));
+      for (const card of allCards) {
+        expect(templateIds.has(card.templateId)).toBe(true);
       }
     });
   });
