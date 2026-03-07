@@ -34,10 +34,13 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout(): React.ReactElement {
+  // oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via beforeLoad return
   const { session } = Route.useRouteContext();
+  // oxlint-disable-next-line typescript/no-unsafe-member-access -- typed via beforeLoad return
+  const user = (session as SessionData).user;
 
   return (
-    <AppShell user={session.user}>
+    <AppShell user={user}>
       <Outlet />
     </AppShell>
   );

@@ -1,8 +1,9 @@
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type * as schema from "../../db/schema";
 import { cards, notes, reviewLogs } from "../../db/schema";
 
-type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+type Db = BunSQLiteDatabase<typeof schema>;
 
 export type ReviewsPerDay = {
   date: string; // YYYY-MM-DD
@@ -24,12 +25,12 @@ export type Streak = {
 export type Heatmap = Record<string, number>; // date (YYYY-MM-DD) -> count
 
 export class StatsService {
-  constructor(private db: Db) {}
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
+  }
 
-  async getReviewsPerDay(
-    userId: string,
-    days: number,
-  ): Promise<ReviewsPerDay[]> {
+  getReviewsPerDay(userId: string, days: number): ReviewsPerDay[] {
     const now = new Date();
     now.setUTCHours(0, 0, 0, 0);
 
@@ -38,7 +39,7 @@ export class StatsService {
     startDate.setUTCDate(startDate.getUTCDate() - (days - 1));
 
     // Query review counts grouped by date, filtered by user
-    const rows = await this.db
+    const rows = this.db
       .select({
         date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
         count: sql<number>`count(*)`,
@@ -73,8 +74,8 @@ export class StatsService {
     return result;
   }
 
-  async getCardStates(userId: string): Promise<CardStates> {
-    const rows = await this.db
+  getCardStates(userId: string): CardStates {
+    const rows = this.db
       .select({
         state: cards.state,
         count: sql<number>`count(*)`,
@@ -108,9 +109,9 @@ export class StatsService {
     return states;
   }
 
-  async getStreak(userId: string): Promise<Streak> {
+  getStreak(userId: string): Streak {
     // Get all distinct dates (UTC) with reviews for this user, ordered desc
-    const rows = await this.db
+    const rows = this.db
       .select({
         date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
       })
@@ -150,7 +151,9 @@ export class StatsService {
     }
 
     // Calculate longest streak: walk through all dates sorted ascending
-    const sortedDates = [...reviewDates].sort();
+    const reviewDateArray: string[] = rows.map((r) => r.date);
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- toSorted() returns any due to ES2017 target
+    const sortedDates: string[] = reviewDateArray.toSorted();
     let longest = 0;
     let streak = 0;
 
@@ -177,11 +180,11 @@ export class StatsService {
     return { current, longest };
   }
 
-  async getHeatmap(userId: string, year: number): Promise<Heatmap> {
+  getHeatmap(userId: string, year: number): Heatmap {
     const startDate = new Date(`${year}-01-01T00:00:00Z`);
     const endDate = new Date(`${year + 1}-01-01T00:00:00Z`);
 
-    const rows = await this.db
+    const rows = this.db
       .select({
         date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
         count: sql<number>`count(*)`,

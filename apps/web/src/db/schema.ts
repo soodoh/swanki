@@ -1,5 +1,3 @@
-export { user, session, account, verification } from "./auth-schema";
-
 import {
   sqliteTable,
   text,
@@ -7,6 +5,8 @@ import {
   real,
   index,
 } from "drizzle-orm/sqlite-core";
+
+export { user, session, account, verification } from "./auth-schema";
 
 export const decks = sqliteTable(
   "decks",

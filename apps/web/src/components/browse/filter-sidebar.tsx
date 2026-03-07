@@ -21,8 +21,10 @@ type FilterSidebarProps = {
   cards: BrowseCard[] | undefined;
 };
 
-function flattenDecks(nodes: DeckTreeNode[]): { id: string; name: string }[] {
-  const result: { id: string; name: string }[] = [];
+function flattenDecks(
+  nodes: DeckTreeNode[],
+): Array<{ id: string; name: string }> {
+  const result: Array<{ id: string; name: string }> = [];
   for (const node of nodes) {
     result.push({ id: node.id, name: node.name });
     if (node.children.length > 0) {
@@ -48,7 +50,13 @@ function extractTags(cards: BrowseCard[] | undefined): string[] {
       }
     }
   }
-  return [...tagSet].sort();
+  const tags: string[] = [...tagSet];
+  tags.sort();
+  return tags;
+}
+
+function collapseWhitespace(str: string): string {
+  return str.split(/\s+/).filter(Boolean).join(" ").trim();
 }
 
 function hasFilter(query: string, prefix: string, value: string): boolean {
@@ -64,10 +72,8 @@ function toggleFilter(query: string, prefix: string, value: string): string {
 
   if (hasFilter(query, prefix, value)) {
     // Remove the filter
-    return query
-      .replace(filterStr, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    const removed = query.replace(filterStr, "");
+    return collapseWhitespace(removed);
   }
 
   // Add the filter
@@ -94,7 +100,7 @@ export function FilterSidebar({
           : `deck:${deck.name}`;
         cleaned = cleaned.replace(filterStr, "");
       }
-      cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
+      cleaned = collapseWhitespace(cleaned);
 
       if (deckName === "__all__") {
         onSearchChange(cleaned);

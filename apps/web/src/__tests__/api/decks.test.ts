@@ -48,7 +48,10 @@ describe("DeckService", () => {
       const decks = await deckService.listByUser(userId);
 
       expect(decks).toHaveLength(2);
-      expect(decks.map((d) => d.name).sort()).toEqual(["Deck A", "Deck B"]);
+      expect(decks.map((d) => d.name).toSorted()).toStrictEqual([
+        "Deck A",
+        "Deck B",
+      ]);
     });
   });
 
@@ -74,8 +77,8 @@ describe("DeckService", () => {
       expect(tree[0].name).toBe("Parent");
       expect(tree[0].children).toHaveLength(2);
 
-      const childNames = tree[0].children.map((c) => c.name).sort();
-      expect(childNames).toEqual(["Child 1", "Child 2"]);
+      const childNames = tree[0].children.map((c) => c.name).toSorted();
+      expect(childNames).toStrictEqual(["Child 1", "Child 2"]);
 
       const child1Node = tree[0].children.find((c) => c.id === child1.id);
       expect(child1Node).toBeDefined();
@@ -95,8 +98,8 @@ describe("DeckService", () => {
       const tree = await deckService.getTree(userId);
 
       expect(tree).toHaveLength(2);
-      const names = tree.map((d) => d.name).sort();
-      expect(names).toEqual(["Root A", "Root B"]);
+      const names = tree.map((d) => d.name).toSorted();
+      expect(names).toStrictEqual(["Root A", "Root B"]);
     });
   });
 

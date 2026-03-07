@@ -26,17 +26,20 @@ export const Route = createFileRoute("/_authenticated/browse")({
 
 function BrowsePage(): React.ReactElement {
   const navigate = useNavigate({ from: "/browse" });
+  // oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via validateSearch
   const { q = "", page = 1 } = Route.useSearch();
+  const typedQ = q as string;
+  const typedPage = page as number;
 
-  const [searchInput, setSearchInput] = useState(q);
+  const [searchInput, setSearchInput] = useState<string>(typedQ);
   const [selectedCardId, setSelectedCardId] = useState<string | undefined>(
     undefined,
   );
   const [sortBy, setSortBy] = useState<BrowseOptions["sortBy"]>(undefined);
   const [sortDir, setSortDir] = useState<BrowseOptions["sortDir"]>(undefined);
 
-  const { data, isLoading } = useBrowse(q, {
-    page,
+  const { data, isLoading } = useBrowse(typedQ, {
+    page: typedPage,
     sortBy,
     sortDir,
   });
@@ -69,10 +72,13 @@ function BrowsePage(): React.ReactElement {
   const handlePageChange = useCallback(
     (newPage: number) => {
       void navigate({
-        search: { q: q || undefined, page: newPage > 1 ? newPage : undefined },
+        search: {
+          q: typedQ || undefined,
+          page: newPage > 1 ? newPage : undefined,
+        },
       });
     },
-    [navigate, q],
+    [navigate, typedQ],
   );
 
   const handleSortChange = useCallback(
@@ -105,7 +111,7 @@ function BrowsePage(): React.ReactElement {
       <div className="flex min-h-0 flex-1 gap-0 p-4">
         {/* Filter sidebar */}
         <FilterSidebar
-          searchQuery={q}
+          searchQuery={typedQ}
           onSearchChange={handleFilterChange}
           cards={data?.cards}
         />
@@ -115,7 +121,7 @@ function BrowsePage(): React.ReactElement {
           <CardTable
             cards={data?.cards}
             total={data?.total ?? 0}
-            page={data?.page ?? page}
+            page={data?.page ?? typedPage}
             limit={data?.limit ?? 50}
             selectedCardId={selectedCardId}
             onSelectCard={handleSelectCard}

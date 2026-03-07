@@ -11,6 +11,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useReviewsPerDay } from "@/lib/hooks/use-stats";
 
+const BAR_RADIUS: [number, number, number, number] = [4, 4, 0, 0];
+
 type ReviewChartProps = {
   days: number;
 };
@@ -63,7 +65,7 @@ export function ReviewChart({ days }: ReviewChartProps): React.ReactElement {
                 dataKey="count"
                 name="Reviews"
                 fill="hsl(var(--primary))"
-                radius={[4, 4, 0, 0]}
+                radius={BAR_RADIUS}
               />
             </BarChart>
           </ResponsiveContainer>

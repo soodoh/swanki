@@ -36,8 +36,10 @@ const RATING_LABELS: Record<number, string> = {
   4: "Easy",
 };
 
-function flattenDecks(nodes: DeckTreeNode[]): { id: string; name: string }[] {
-  const result: { id: string; name: string }[] = [];
+function flattenDecks(
+  nodes: DeckTreeNode[],
+): Array<{ id: string; name: string }> {
+  const result: Array<{ id: string; name: string }> = [];
   for (const node of nodes) {
     result.push({ id: node.id, name: node.name });
     if (node.children.length > 0) {

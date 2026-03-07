@@ -41,7 +41,7 @@ export const Route = createFileRoute("/api/import")({
           if (format === "apkg" || format === "colpkg") {
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
-            const result = await importService.importFromApkg(userId, apkgData);
+            const result = importService.importFromApkg(userId, apkgData);
             return Response.json(result, { status: 201 });
           }
 
@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/import")({
               hasHeader: true,
             });
             const deckName = file.name.replace(/\.(csv|txt)$/i, "") || "Import";
-            const result = await importService.importFromCsv(userId, {
+            const result = importService.importFromCsv(userId, {
               headers: parsed.headers,
               rows: parsed.rows,
               deckName,
@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/import")({
           // format === "crowdanki"
           const text = await file.text();
           const json: unknown = JSON.parse(text);
-          const result = await importService.importFromCrowdAnki(userId, json);
+          const result = importService.importFromCrowdAnki(userId, json);
           return Response.json(result, { status: 201 });
         } catch (error) {
           const message =

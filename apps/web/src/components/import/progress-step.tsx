@@ -4,6 +4,26 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
+function getHeading(status: string): string {
+  if (status === "complete") {
+    return "Import Complete";
+  }
+  if (status === "error") {
+    return "Import Failed";
+  }
+  return "Importing...";
+}
+
+function getSubheading(status: string): string {
+  if (status === "complete") {
+    return "Your cards have been imported successfully.";
+  }
+  if (status === "error") {
+    return "Something went wrong during the import.";
+  }
+  return "Please wait while your file is being processed.";
+}
+
 export type ImportProgress = {
   status: "idle" | "uploading" | "processing" | "complete" | "error";
   progress: number;
@@ -31,19 +51,9 @@ export function ProgressStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">
-          {status === "complete"
-            ? "Import Complete"
-            : status === "error"
-              ? "Import Failed"
-              : "Importing..."}
-        </h2>
+        <h2 className="text-lg font-semibold">{getHeading(status)}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {status === "complete"
-            ? "Your cards have been imported successfully."
-            : status === "error"
-              ? "Something went wrong during the import."
-              : "Please wait while your file is being processed."}
+          {getSubheading(status)}
         </p>
       </div>
 
@@ -98,12 +108,12 @@ export function ProgressStep({
                 <AlertTriangle className="size-4 text-amber-500" />
                 <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
                   {result.errors.length} warning
-                  {result.errors.length !== 1 ? "s" : ""}
+                  {result.errors.length === 1 ? "" : "s"}
                 </p>
               </div>
               <ul className="mt-2 space-y-1">
-                {result.errors.slice(0, 5).map((err, i) => (
-                  <li key={i} className="text-xs text-muted-foreground">
+                {result.errors.slice(0, 5).map((err) => (
+                  <li key={err} className="text-xs text-muted-foreground">
                     {err}
                   </li>
                 ))}

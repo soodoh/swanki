@@ -58,7 +58,7 @@ function NoteTypeEditor(): React.ReactElement {
     );
   }
 
-  if (error || !data) {
+  if (error ?? !data) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -183,7 +183,9 @@ function NameEditor({
           onChange={(e) => setEditName(e.target.value)}
           onBlur={handleSave}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave();
+            if (e.key === "Enter") {
+              handleSave();
+            }
           }}
         />
       </div>
@@ -215,7 +217,9 @@ function FieldsTab({
   const [newFieldName, setNewFieldName] = useState("");
 
   function addField(): void {
-    if (!newFieldName.trim()) return;
+    if (!newFieldName.trim()) {
+      return;
+    }
     const nextOrdinal =
       localFields.length > 0
         ? Math.max(...localFields.map((f) => f.ordinal)) + 1
@@ -228,20 +232,29 @@ function FieldsTab({
   }
 
   function removeField(ordinal: number): void {
-    const updated = localFields
-      .filter((f) => f.ordinal !== ordinal)
-      .map((f, i) => ({ ...f, ordinal: i }));
+    const filtered = localFields.filter((f) => f.ordinal !== ordinal);
+    const updated = filtered.map((f, i) => {
+      const copy: NoteTypeField = { name: f.name, ordinal: i };
+      return copy;
+    });
     setLocalFields(updated);
   }
 
   function moveField(index: number, direction: -1 | 1): void {
     const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= localFields.length) return;
+    if (newIndex < 0 || newIndex >= localFields.length) {
+      return;
+    }
     const updated = [...localFields];
     const temp = updated[index];
     updated[index] = updated[newIndex];
     updated[newIndex] = temp;
-    setLocalFields(updated.map((f, i) => ({ ...f, ordinal: i })));
+    setLocalFields(
+      updated.map((f, i) => {
+        const copy: NoteTypeField = { name: f.name, ordinal: i };
+        return copy;
+      }),
+    );
   }
 
   function handleSave(): void {
@@ -301,7 +314,9 @@ function FieldsTab({
               value={newFieldName}
               onChange={(e) => setNewFieldName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") addField();
+                if (e.key === "Enter") {
+                  addField();
+                }
               }}
             />
             <Button
@@ -346,7 +361,9 @@ function TemplatesTab({
   const [newTemplateName, setNewTemplateName] = useState("");
 
   async function handleCreate(): Promise<void> {
-    if (!newTemplateName.trim()) return;
+    if (!newTemplateName.trim()) {
+      return;
+    }
     await createTemplate.mutateAsync({
       noteTypeId,
       name: newTemplateName.trim(),
@@ -391,7 +408,9 @@ function TemplatesTab({
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleCreate();
+                  if (e.key === "Enter") {
+                    void handleCreate();
+                  }
                 }}
               />
             </div>
@@ -590,7 +609,9 @@ function PreviewTab({
   const template = templates.find((t) => t.id === selectedTemplate);
 
   const questionHtml = useMemo(() => {
-    if (!template) return "";
+    if (!template) {
+      return "";
+    }
     return renderTemplate(template.questionTemplate, sampleData, {
       showAnswer: false,
       cardOrdinal: 1,
@@ -598,7 +619,9 @@ function PreviewTab({
   }, [template, sampleData]);
 
   const answerHtml = useMemo(() => {
-    if (!template) return "";
+    if (!template) {
+      return "";
+    }
     const front = renderTemplate(template.questionTemplate, sampleData, {
       showAnswer: false,
       cardOrdinal: 1,
@@ -672,10 +695,12 @@ function PreviewTab({
             </CardHeader>
             <CardContent>
               {css && <style>{sanitizeCss(css)}</style>}
+              {/* oxlint-disable react/no-danger -- sanitized HTML */}
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(questionHtml) }}
               />
+              {/* oxlint-enable react/no-danger */}
             </CardContent>
           </Card>
 
@@ -685,10 +710,12 @@ function PreviewTab({
             </CardHeader>
             <CardContent>
               {css && <style>{sanitizeCss(css)}</style>}
+              {/* oxlint-disable react/no-danger -- sanitized HTML */}
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(answerHtml) }}
               />
+              {/* oxlint-enable react/no-danger */}
             </CardContent>
           </Card>
         </div>

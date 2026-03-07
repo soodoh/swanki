@@ -15,7 +15,7 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
           questionTemplate?: string;
           answerTemplate?: string;
         };
-        const template = await noteTypeService.updateTemplate(
+        const template = noteTypeService.updateTemplate(
           params.templateId,
           userId,
           body,
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
         const userId = session.user.id;
-        await noteTypeService.deleteTemplate(params.templateId, userId);
+        noteTypeService.deleteTemplate(params.templateId, userId);
         return new Response(undefined, { status: 204 });
       },
     },

@@ -10,10 +10,7 @@ export const Route = createFileRoute("/api/cards/$cardId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const result = await cardService.getById(
-          params.cardId,
-          session.user.id,
-        );
+        const result = cardService.getById(params.cardId, session.user.id);
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }

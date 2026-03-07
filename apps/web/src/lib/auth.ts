@@ -3,7 +3,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db";
 import { NoteTypeService } from "./services/note-type-service";
 
-async function createDefaultNoteTypes(userId: string): Promise<void> {
+// oxlint-disable-next-line typescript-eslint(no-unsafe-member-access) -- process.env typed as any in Bun
+const envVars = process.env as Record<string, string | undefined>;
+
+function createDefaultNoteTypes(userId: string): void {
   const noteTypeService = new NoteTypeService(db);
 
   const basicFields = [
@@ -12,27 +15,27 @@ async function createDefaultNoteTypes(userId: string): Promise<void> {
   ];
 
   // 1. Basic note type
-  const basic = await noteTypeService.create(userId, {
+  const basic = noteTypeService.create(userId, {
     name: "Basic",
     fields: basicFields,
   });
-  await noteTypeService.addTemplate(basic.id, userId, {
+  noteTypeService.addTemplate(basic.id, userId, {
     name: "Card 1",
     questionTemplate: "{{Front}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Back}}',
   });
 
   // 2. Basic (and reversed card)
-  const basicReversed = await noteTypeService.create(userId, {
+  const basicReversed = noteTypeService.create(userId, {
     name: "Basic (and reversed card)",
     fields: basicFields,
   });
-  await noteTypeService.addTemplate(basicReversed.id, userId, {
+  noteTypeService.addTemplate(basicReversed.id, userId, {
     name: "Card 1",
     questionTemplate: "{{Front}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Back}}',
   });
-  await noteTypeService.addTemplate(basicReversed.id, userId, {
+  noteTypeService.addTemplate(basicReversed.id, userId, {
     name: "Card 2",
     questionTemplate: "{{Back}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Front}}',
@@ -44,12 +47,12 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: envVars.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: envVars.GOOGLE_CLIENT_SECRET ?? "",
     },
     github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      clientId: envVars.GITHUB_CLIENT_ID ?? "",
+      clientSecret: envVars.GITHUB_CLIENT_SECRET ?? "",
     },
   },
   session: {
@@ -59,8 +62,8 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        after: async (user) => {
-          await createDefaultNoteTypes(user.id);
+        after: (user) => {
+          createDefaultNoteTypes(user.id);
         },
       },
     },

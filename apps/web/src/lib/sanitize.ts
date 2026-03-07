@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import { sanitize } from "isomorphic-dompurify";
 
 /**
  * Sanitize HTML to prevent XSS attacks from imported card content.
@@ -6,7 +6,7 @@ import DOMPurify from "isomorphic-dompurify";
  * but strips scripts, event handlers, iframes, and dangerous elements.
  */
 export function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
+  return sanitize(html, {
     ADD_TAGS: ["audio", "source"],
     ADD_ATTR: ["controls"],
   });
@@ -18,5 +18,7 @@ export function sanitizeHtml(html: string): string {
  * and allow injection of arbitrary HTML. This escapes such sequences.
  */
 export function sanitizeCss(css: string): string {
-  return css.replace(/<\/style/gi, "<\\/style");
+  // Escape closing style tag sequences to prevent style tag breakout
+  // oxlint-disable-next-line eslint-plugin-unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
+  return css.replace(/<\/style/gi, String.raw`<\/style`);
 }

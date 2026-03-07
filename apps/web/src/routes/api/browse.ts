@@ -40,17 +40,14 @@ export const Route = createFileRoute("/api/browse")({
         // Check for card detail request
         const cardId = url.searchParams.get("cardId");
         if (cardId) {
-          const detail = await browseService.getCardDetail(
-            session.user.id,
-            cardId,
-          );
+          const detail = browseService.getCardDetail(session.user.id, cardId);
           if (!detail) {
             return Response.json({ error: "Card not found" }, { status: 404 });
           }
           return Response.json(detail);
         }
 
-        const result = await browseService.search(session.user.id, q, {
+        const result = browseService.search(session.user.id, q, {
           page,
           limit,
           sortBy,

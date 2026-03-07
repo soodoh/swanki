@@ -1,8 +1,21 @@
 import { unzipSync, strFromU8 } from "fflate";
 import { Database } from "bun:sqlite";
-import { writeFileSync, unlinkSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import {
+  writeFileSync as fsWriteFileSync,
+  unlinkSync as fsUnlinkSync,
+  existsSync as fsExistsSync,
+} from "node:fs";
+import { join as pathJoin } from "node:path";
+import { tmpdir as osTmpdir } from "node:os";
+
+const writeFileSync = fsWriteFileSync as (
+  path: string,
+  data: Uint8Array,
+) => void;
+const unlinkSync = fsUnlinkSync as (path: string) => void;
+const existsSync = fsExistsSync as (path: string) => boolean;
+const join = pathJoin as (...paths: string[]) => string;
+const tmpdir = osTmpdir as () => string;
 
 export type ApkgNoteType = {
   id: number;
@@ -106,8 +119,10 @@ export function parseApkg(buffer: ArrayBuffer): ApkgData {
 
   try {
     writeFileSync(tempPath, dbBytes);
-    const rawDb = new Database(tempPath, { readonly: true });
-    const db = rawDb as unknown as TypedDatabase;
+    const db = new (Database as unknown as new (
+      path: string,
+      opts: { readonly: boolean },
+    ) => TypedDatabase)(tempPath, { readonly: true });
 
     try {
       const deckData = readDecks(db);

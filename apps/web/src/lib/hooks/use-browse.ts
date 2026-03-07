@@ -63,13 +63,13 @@ export type CardDetail = {
     name: string;
     fields: string;
   };
-  templates: {
+  templates: Array<{
     id: string;
     name: string;
     questionTemplate: string;
     answerTemplate: string;
-  }[];
-  recentReviews: {
+  }>;
+  recentReviews: Array<{
     id: string;
     cardId: string;
     rating: number;
@@ -78,7 +78,7 @@ export type CardDetail = {
     elapsedDays: number | undefined;
     scheduledDays: number | undefined;
     timeTakenMs: number | undefined;
-  }[];
+  }>;
   deckName: string;
 };
 

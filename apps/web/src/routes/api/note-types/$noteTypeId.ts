@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const result = await noteTypeService.getById(
+        const result = noteTypeService.getById(
           params.noteTypeId,
           session.user.id,
         );
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId")({
           fields?: Array<{ name: string; ordinal: number }>;
           css?: string;
         };
-        const noteType = await noteTypeService.update(
+        const noteType = noteTypeService.update(
           params.noteTypeId,
           session.user.id,
           body,
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId")({
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
         try {
-          await noteTypeService.delete(params.noteTypeId, session.user.id);
+          noteTypeService.delete(params.noteTypeId, session.user.id);
           return new Response(undefined, { status: 204 });
         } catch (error) {
           if (

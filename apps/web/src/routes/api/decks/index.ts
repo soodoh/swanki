@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/decks/")({
     handlers: {
       GET: async ({ request }) => {
         const session = await requireSession(request);
-        const tree = await deckService.getTree(session.user.id);
+        const tree = deckService.getTree(session.user.id);
         return Response.json(tree);
       },
       POST: async ({ request }) => {
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/decks/")({
           name: string;
           parentId?: string;
         };
-        const deck = await deckService.create(session.user.id, body);
+        const deck = deckService.create(session.user.id, body);
         return Response.json(deck, { status: 201 });
       },
     },

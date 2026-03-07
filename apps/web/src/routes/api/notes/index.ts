@@ -15,12 +15,12 @@ export const Route = createFileRoute("/api/notes/")({
         const query = url.searchParams.get("q");
 
         if (query) {
-          const results = await noteService.search(session.user.id, query);
+          const results = noteService.search(session.user.id, query);
           return Response.json(results);
         }
 
         if (deckId) {
-          const notes = await noteService.listByDeck(deckId, session.user.id);
+          const notes = noteService.listByDeck(deckId, session.user.id);
           return Response.json(notes);
         }
 
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/notes/")({
           fields: Record<string, string>;
           tags?: string;
         };
-        const note = await noteService.create(session.user.id, body);
+        const note = noteService.create(session.user.id, body);
         return Response.json(note, { status: 201 });
       },
     },

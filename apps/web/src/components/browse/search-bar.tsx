@@ -106,7 +106,7 @@ export function SearchBar({
                 </li>
                 <li>
                   <code className="rounded bg-background/20 px-1">
-                    "exact phrase"
+                    &quot;exact phrase&quot;
                   </code>{" "}
                   - quoted search
                 </li>

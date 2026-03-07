@@ -1,8 +1,9 @@
 import { eq, and, lte, inArray, sql } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type * as schema from "../../db/schema";
 import { cards, notes, decks } from "../../db/schema";
 
-type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+type Db = BunSQLiteDatabase<typeof schema>;
 
 type Card = typeof cards.$inferSelect;
 
@@ -17,24 +18,27 @@ export type CardCounts = {
 };
 
 export class CardService {
-  constructor(private db: Db) {}
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
+  }
 
-  async getDueCards(
+  getDueCards(
     userId: string,
     deckId: string,
     options?: { includeChildren?: boolean },
-  ): Promise<CardWithNote[]> {
+  ): CardWithNote[] {
     const now = new Date();
 
     // Collect deck IDs to query
     const deckIds = [deckId];
     if (options?.includeChildren) {
-      const childDecks = await this.getDescendantDeckIds(deckId, userId);
+      const childDecks = this.getDescendantDeckIds(deckId, userId);
       deckIds.push(...childDecks);
     }
 
     // Get deck settings for limits
-    const deck = await this.db
+    const deck = this.db
       .select()
       .from(decks)
       .where(and(eq(decks.id, deckId), eq(decks.userId, userId)))
@@ -51,7 +55,7 @@ export class CardService {
 
     // Query all due cards: due <= now OR state in (learning=1, relearning=3)
     // Join with notes to get note data and filter by userId
-    const dueRows = await this.db
+    const dueRows = this.db
       .select({
         card: cards,
         noteFields: notes.fields,
@@ -99,8 +103,8 @@ export class CardService {
     return [...limitedReviews, ...learningCards, ...limitedNew];
   }
 
-  async getById(id: string, userId: string): Promise<CardWithNote | undefined> {
-    const row = await this.db
+  getById(id: string, userId: string): CardWithNote | undefined {
+    const row = this.db
       .select({
         card: cards,
         noteFields: notes.fields,
@@ -120,17 +124,13 @@ export class CardService {
     };
   }
 
-  async moveToDeck(
-    cardIds: string[],
-    deckId: string,
-    userId: string,
-  ): Promise<void> {
+  moveToDeck(cardIds: string[], deckId: string, userId: string): void {
     if (cardIds.length === 0) {
       return;
     }
 
     // Verify cards belong to the user by joining with notes
-    const userCards = await this.db
+    const userCards = this.db
       .select({ cardId: cards.id })
       .from(cards)
       .innerJoin(notes, eq(cards.noteId, notes.id))
@@ -140,15 +140,15 @@ export class CardService {
     const validCardIds = userCards.map((c) => c.cardId);
 
     if (validCardIds.length > 0) {
-      await this.db
+      this.db
         .update(cards)
         .set({ deckId, updatedAt: new Date() })
         .where(inArray(cards.id, validCardIds));
     }
   }
 
-  async getCounts(userId: string, deckId: string): Promise<CardCounts> {
-    const rows = await this.db
+  getCounts(userId: string, deckId: string): CardCounts {
+    const rows = this.db
       .select({
         state: cards.state,
         count: sql<number>`count(*)`,
@@ -175,11 +175,8 @@ export class CardService {
     return counts;
   }
 
-  private async getDescendantDeckIds(
-    parentId: string,
-    userId: string,
-  ): Promise<string[]> {
-    const children = await this.db
+  private getDescendantDeckIds(parentId: string, userId: string): string[] {
+    const children = this.db
       .select({ id: decks.id })
       .from(decks)
       .where(and(eq(decks.parentId, parentId), eq(decks.userId, userId)))
@@ -188,7 +185,7 @@ export class CardService {
     const result: string[] = [];
     for (const child of children) {
       result.push(child.id);
-      const grandchildren = await this.getDescendantDeckIds(child.id, userId);
+      const grandchildren = this.getDescendantDeckIds(child.id, userId);
       result.push(...grandchildren);
     }
 

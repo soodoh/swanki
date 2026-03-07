@@ -39,8 +39,10 @@ type ConfigureStepProps = {
   csvHeaders: string[] | undefined;
 };
 
-function flattenDecks(nodes: DeckTreeNode[]): { id: string; name: string }[] {
-  const result: { id: string; name: string }[] = [];
+function flattenDecks(
+  nodes: DeckTreeNode[],
+): Array<{ id: string; name: string }> {
+  const result: Array<{ id: string; name: string }> = [];
   for (const node of nodes) {
     result.push({ id: node.id, name: node.name });
     if (node.children.length > 0) {
@@ -83,8 +85,7 @@ function CsvConfigPanel({
     (columnIndex: number, fieldName: string) => {
       const newMapping = { ...config.fieldMapping };
       if (fieldName === "__skip__") {
-        // oxlint-disable-next-line -- safe delete on plain object
-        delete newMapping[columnIndex];
+        Reflect.deleteProperty(newMapping, columnIndex);
       } else {
         newMapping[columnIndex] = fieldName;
       }
@@ -119,6 +120,7 @@ function CsvConfigPanel({
       </div>
 
       {/* Header toggle */}
+      {/* oxlint-disable-next-line eslint-plugin-jsx-a11y(label-has-associated-control) -- wraps Checkbox */}
       <label className="flex items-center gap-2">
         <Checkbox
           checked={config.hasHeader}
@@ -235,6 +237,7 @@ function ApkgConfigPanel({
           Import Mode
         </Label>
         <div className="space-y-2">
+          {/* oxlint-disable-next-line eslint-plugin-jsx-a11y(label-has-associated-control) -- wraps Checkbox */}
           <label className="flex cursor-pointer items-center gap-2">
             <Checkbox
               checked={config.mergeMode === "merge"}
@@ -249,6 +252,7 @@ function ApkgConfigPanel({
               </p>
             </div>
           </label>
+          {/* oxlint-disable-next-line eslint-plugin-jsx-a11y(label-has-associated-control) -- wraps Checkbox */}
           <label className="flex cursor-pointer items-center gap-2">
             <Checkbox
               checked={config.mergeMode === "create"}

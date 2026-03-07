@@ -13,7 +13,7 @@ import {
 type PreviewStepProps = {
   file: File | undefined;
   format: string | undefined;
-  sampleCards: { fields: Record<string, string> }[];
+  sampleCards: Array<{ fields: Record<string, string> }>;
   totalCards: number;
   duplicateCount: number;
 };
@@ -88,12 +88,13 @@ export function PreviewStep({
               </TableHeader>
               <TableBody>
                 {sampleCards.slice(0, 5).map((card, index) => (
-                  <TableRow key={index}>
+                  <TableRow key={Object.values(card.fields).join("|")}>
                     <TableCell className="text-muted-foreground">
                       {index + 1}
                     </TableCell>
                     {fieldNames.map((name) => {
-                      const value = card.fields[name] ?? "";
+                      const value: string = card.fields[name] ?? "";
+                      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
                       const stripped = value.replace(/<[^>]*>/g, "");
                       const display =
                         stripped.length > 80
@@ -104,7 +105,7 @@ export function PreviewStep({
                           key={name}
                           className="max-w-[200px] truncate"
                         >
-                          {display || (
+                          {display ?? (
                             <span className="text-muted-foreground italic">
                               empty
                             </span>
@@ -132,7 +133,7 @@ export function PreviewStep({
             <AlertTriangle className="mt-0.5 size-4 text-amber-500" />
             <div>
               <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                {duplicateCount} duplicate{duplicateCount !== 1 ? "s" : ""}{" "}
+                {duplicateCount} duplicate{duplicateCount === 1 ? "" : "s"}{" "}
                 detected
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">

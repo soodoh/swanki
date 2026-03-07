@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/study/undo")({
           );
         }
 
-        const result = await studyService.undoLastReview(
+        const result = studyService.undoLastReview(
           session.user.id,
           body.cardId,
         );

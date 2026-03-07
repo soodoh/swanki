@@ -1,26 +1,33 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
+import type * as schema from "../../db/schema";
 import { media } from "../../db/schema";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+type Db = BunSQLiteDatabase<typeof schema>;
 
 type MediaRecord = typeof media.$inferSelect;
 
-const MEDIA_DIR = join(process.cwd(), "data", "media");
+// oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- node:path and process are untyped in this project
+const MEDIA_DIR: string = join(process.cwd(), "data", "media");
 
 const ALLOWED_MIME_PREFIXES = ["image/", "audio/", "video/"] as const;
 
 function ensureMediaDir(): void {
+  // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
   if (!existsSync(MEDIA_DIR)) {
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
     mkdirSync(MEDIA_DIR, { recursive: true });
   }
 }
 
 export class MediaService {
-  constructor(private db: Db) {}
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
+  }
 
   async upload(userId: string, file: File): Promise<MediaRecord> {
     ensureMediaDir();
@@ -56,18 +63,22 @@ export class MediaService {
     }
 
     // Generate a unique filename preserving the extension
-    const ext = file.name.includes(".") ? `.${file.name.split(".").pop()}` : "";
+    const ext: string = file.name.includes(".")
+      ? `.${file.name.split(".").pop()}`
+      : "";
     const filename = `${hash}${ext}`;
 
     // Write to disk
-    const filePath = join(MEDIA_DIR, filename);
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
+    const filePath: string = join(MEDIA_DIR, filename);
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped in this project
     await Bun.write(filePath, bytes);
 
     // Record in DB
     const id = generateId();
     const now = new Date();
 
-    await this.db.insert(media).values({
+    this.db.insert(media).values({
       id,
       userId,
       filename,
@@ -95,7 +106,8 @@ export class MediaService {
       return undefined;
     }
 
-    const filePath = join(MEDIA_DIR, record.filename);
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
+    const filePath: string = join(MEDIA_DIR, record.filename);
     return { record, filePath };
   }
 }

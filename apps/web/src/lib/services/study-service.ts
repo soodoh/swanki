@@ -51,9 +51,9 @@ export class StudyService {
     this.cardService = new CardService(db);
   }
 
-  async getStudySession(userId: string, deckId: string): Promise<StudySession> {
-    const dueCards = await this.cardService.getDueCards(userId, deckId);
-    const counts = await this.cardService.getCounts(userId, deckId);
+  getStudySession(userId: string, deckId: string): StudySession {
+    const dueCards = this.cardService.getDueCards(userId, deckId);
+    const counts = this.cardService.getCounts(userId, deckId);
 
     // Collect unique template IDs from the due cards
     const templateIds = [...new Set(dueCards.map((c) => c.templateId))];
@@ -61,7 +61,7 @@ export class StudyService {
     // Fetch templates
     const templateMap: Record<string, StudyCardTemplate> = {};
     if (templateIds.length > 0) {
-      const templates = await this.db
+      const templates = this.db
         .select()
         .from(cardTemplates)
         .where(inArray(cardTemplates.id, templateIds))
@@ -80,7 +80,7 @@ export class StudyService {
     const noteIds = [...new Set(dueCards.map((c) => c.noteId))];
     const cssMap: Record<string, string> = {};
     if (noteIds.length > 0) {
-      const noteRows = await this.db
+      const noteRows = this.db
         .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
         .from(notes)
         .where(inArray(notes.id, noteIds))
@@ -88,7 +88,7 @@ export class StudyService {
 
       const noteTypeIds = [...new Set(noteRows.map((n) => n.noteTypeId))];
       if (noteTypeIds.length > 0) {
-        const noteTypeRows = await this.db
+        const noteTypeRows = this.db
           .select({ id: noteTypes.id, css: noteTypes.css })
           .from(noteTypes)
           .where(inArray(noteTypes.id, noteTypeIds))
@@ -108,11 +108,11 @@ export class StudyService {
     };
   }
 
-  async getCustomSession(
+  getCustomSession(
     userId: string,
     deckId: string,
     options: CustomStudyOptions,
-  ): Promise<StudySession> {
+  ): StudySession {
     const now = new Date();
 
     // Determine the cutoff date for due cards
@@ -124,7 +124,7 @@ export class StudyService {
     }
 
     // Get deck settings
-    const deck = await this.db
+    const deck = this.db
       .select()
       .from(decks)
       .where(and(eq(decks.id, deckId), eq(decks.userId, userId)))
@@ -145,7 +145,7 @@ export class StudyService {
     };
 
     // Query cards due by cutoff
-    const dueRows = await this.db
+    const dueRows = this.db
       .select({
         card: cards,
         noteFields: notes.fields,
@@ -206,7 +206,7 @@ export class StudyService {
     const templateIds = [...new Set(allCards.map((c) => c.templateId))];
     const templateMap: Record<string, StudyCardTemplate> = {};
     if (templateIds.length > 0) {
-      const templates = await this.db
+      const templates = this.db
         .select()
         .from(cardTemplates)
         .where(inArray(cardTemplates.id, templateIds))
@@ -225,7 +225,7 @@ export class StudyService {
     const noteIds = [...new Set(allCards.map((c) => c.noteId))];
     const cssMap: Record<string, string> = {};
     if (noteIds.length > 0) {
-      const noteRows = await this.db
+      const noteRows = this.db
         .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
         .from(notes)
         .where(inArray(notes.id, noteIds))
@@ -233,7 +233,7 @@ export class StudyService {
 
       const noteTypeIds = [...new Set(noteRows.map((n) => n.noteTypeId))];
       if (noteTypeIds.length > 0) {
-        const noteTypeRows = await this.db
+        const noteTypeRows = this.db
           .select({ id: noteTypes.id, css: noteTypes.css })
           .from(noteTypes)
           .where(inArray(noteTypes.id, noteTypeIds))
@@ -245,7 +245,7 @@ export class StudyService {
       }
     }
 
-    const counts = await this.cardService.getCounts(userId, deckId);
+    const counts = this.cardService.getCounts(userId, deckId);
 
     return {
       cards: allCards,
@@ -255,14 +255,14 @@ export class StudyService {
     };
   }
 
-  async submitReview(
+  submitReview(
     userId: string,
     cardId: string,
     rating: Grade,
     timeTakenMs: number,
-  ): Promise<ReviewResult> {
+  ): ReviewResult {
     // Load the card
-    const cardWithNote = await this.cardService.getById(cardId, userId);
+    const cardWithNote = this.cardService.getById(cardId, userId);
     if (!cardWithNote) {
       throw new Error("Card not found");
     }
@@ -273,7 +273,7 @@ export class StudyService {
     const result = scheduleFsrs(cardWithNote, rating, now);
 
     // Update card in DB
-    await this.db
+    this.db
       .update(cards)
       .set({
         due: result.card.due,
@@ -290,7 +290,7 @@ export class StudyService {
       .where(eq(cards.id, cardId));
 
     // Insert review log (captures pre-review state)
-    await this.db.insert(reviewLogs).values({
+    this.db.insert(reviewLogs).values({
       id: generateId(),
       cardId,
       rating: result.log.rating,
@@ -306,7 +306,7 @@ export class StudyService {
     });
 
     // Reload the card to get the updated version with noteFields
-    const updated = await this.cardService.getById(cardId, userId);
+    const updated = this.cardService.getById(cardId, userId);
 
     return {
       card: updated!,
@@ -314,12 +314,9 @@ export class StudyService {
     };
   }
 
-  async undoLastReview(
-    userId: string,
-    cardId: string,
-  ): Promise<CardWithNote | undefined> {
+  undoLastReview(userId: string, cardId: string): CardWithNote | undefined {
     // Verify the card belongs to the user
-    const cardWithNote = await this.cardService.getById(cardId, userId);
+    const cardWithNote = this.cardService.getById(cardId, userId);
     if (!cardWithNote) {
       return undefined;
     }
@@ -338,7 +335,7 @@ export class StudyService {
     }
 
     // Restore card to pre-review state from the log
-    await this.db
+    this.db
       .update(cards)
       .set({
         due: lastLog.due,
@@ -359,17 +356,17 @@ export class StudyService {
       .where(eq(cards.id, cardId));
 
     // Delete the review log entry
-    await this.db.delete(reviewLogs).where(eq(reviewLogs.id, lastLog.id));
+    this.db.delete(reviewLogs).where(eq(reviewLogs.id, lastLog.id));
 
     // Reload and return updated card
     return this.cardService.getById(cardId, userId);
   }
 
-  async getIntervalPreviews(
+  getIntervalPreviews(
     userId: string,
     cardId: string,
-  ): Promise<Record<number, IntervalPreview> | undefined> {
-    const cardWithNote = await this.cardService.getById(cardId, userId);
+  ): Record<number, IntervalPreview> | undefined {
+    const cardWithNote = this.cardService.getById(cardId, userId);
     if (!cardWithNote) {
       return undefined;
     }

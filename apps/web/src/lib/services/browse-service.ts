@@ -1,6 +1,7 @@
 import { eq, and, lte, like, sql, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type * as schema from "../../db/schema";
 import {
   cards,
   notes,
@@ -12,7 +13,7 @@ import {
 import { parseSearchQuery } from "../search-parser";
 import type { SearchNode } from "../search-parser";
 
-type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+type Db = BunSQLiteDatabase<typeof schema>;
 
 type Card = typeof cards.$inferSelect;
 type Note = typeof notes.$inferSelect;
@@ -154,13 +155,16 @@ function toBrowseCard(row: {
 }
 
 export class BrowseService {
-  constructor(private db: Db) {}
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
+  }
 
-  async search(
+  search(
     userId: string,
     query: string,
     options?: SearchOptions,
-  ): Promise<BrowseSearchResult> {
+  ): BrowseSearchResult {
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 50;
     const offset = (page - 1) * limit;
@@ -169,7 +173,7 @@ export class BrowseService {
     const conditions = buildWhereClause(ast, userId);
 
     // Count total matching cards
-    const countResult = await this.db
+    const countResult = this.db
       .select({ count: sql<number>`count(*)` })
       .from(cards)
       .innerJoin(notes, eq(cards.noteId, notes.id))
@@ -180,7 +184,7 @@ export class BrowseService {
     const total = countResult ? Number(countResult.count) : 0;
 
     // Fetch paginated results
-    const rows = await this.db
+    const rows = this.db
       .select({
         card: cards,
         noteFields: notes.fields,
@@ -205,12 +209,9 @@ export class BrowseService {
     };
   }
 
-  async getCardDetail(
-    userId: string,
-    cardId: string,
-  ): Promise<CardDetail | undefined> {
+  getCardDetail(userId: string, cardId: string): CardDetail | undefined {
     // Get card with note and deck
-    const row = await this.db
+    const row = this.db
       .select({
         card: cards,
         note: notes,
@@ -227,7 +228,7 @@ export class BrowseService {
     }
 
     // Get note type
-    const noteType = await this.db
+    const noteType = this.db
       .select()
       .from(noteTypes)
       .where(eq(noteTypes.id, row.note.noteTypeId))
@@ -238,14 +239,14 @@ export class BrowseService {
     }
 
     // Get templates for this note type
-    const templates = await this.db
+    const templates = this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, noteType.id))
       .all();
 
     // Get recent review logs (last 10)
-    const recentReviews = await this.db
+    const recentReviews = this.db
       .select()
       .from(reviewLogs)
       .where(eq(reviewLogs.cardId, cardId))

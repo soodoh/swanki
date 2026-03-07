@@ -1,9 +1,10 @@
 import { eq, and, like } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
+import type * as schema from "../../db/schema";
 import { notes, cards, cardTemplates } from "../../db/schema";
 
-type Db = BunSQLiteDatabase<typeof import("../../db/schema")>;
+type Db = BunSQLiteDatabase<typeof schema>;
 
 type Note = typeof notes.$inferSelect;
 type Card = typeof cards.$inferSelect;
@@ -14,9 +15,12 @@ export type NoteWithCards = {
 };
 
 export class NoteService {
-  constructor(private db: Db) {}
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
+  }
 
-  async create(
+  create(
     userId: string,
     data: {
       noteTypeId: string;
@@ -24,11 +28,11 @@ export class NoteService {
       fields: Record<string, string>;
       tags?: string;
     },
-  ): Promise<Note> {
+  ): Note {
     const id = generateId();
     const now = new Date();
 
-    await this.db.insert(notes).values({
+    this.db.insert(notes).values({
       id,
       userId,
       noteTypeId: data.noteTypeId,
@@ -39,14 +43,14 @@ export class NoteService {
     });
 
     // Auto-generate cards: one per template in the note type
-    const templates = await this.db
+    const templates = this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, data.noteTypeId))
       .all();
 
     for (const template of templates) {
-      await this.db.insert(cards).values({
+      this.db.insert(cards).values({
         id: generateId(),
         noteId: id,
         deckId: data.deckId,
@@ -59,20 +63,13 @@ export class NoteService {
       });
     }
 
-    const note = await this.db
-      .select()
-      .from(notes)
-      .where(eq(notes.id, id))
-      .get();
+    const note = this.db.select().from(notes).where(eq(notes.id, id)).get();
 
     return note!;
   }
 
-  async getById(
-    id: string,
-    userId: string,
-  ): Promise<NoteWithCards | undefined> {
-    const note = await this.db
+  getById(id: string, userId: string): NoteWithCards | undefined {
+    const note = this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
@@ -82,7 +79,7 @@ export class NoteService {
       return undefined;
     }
 
-    const noteCards = await this.db
+    const noteCards = this.db
       .select()
       .from(cards)
       .where(eq(cards.noteId, id))
@@ -91,12 +88,12 @@ export class NoteService {
     return { note, cards: noteCards };
   }
 
-  async update(
+  update(
     id: string,
     userId: string,
     data: { fields?: Record<string, string>; tags?: string },
-  ): Promise<Note | undefined> {
-    const existing = await this.db
+  ): Note | undefined {
+    const existing = this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
@@ -116,7 +113,7 @@ export class NoteService {
       updateData.tags = data.tags;
     }
 
-    await this.db
+    this.db
       .update(notes)
       .set(updateData)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)));
@@ -128,8 +125,8 @@ export class NoteService {
       .get();
   }
 
-  async delete(id: string, userId: string): Promise<void> {
-    const existing = await this.db
+  delete(id: string, userId: string): void {
+    const existing = this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
@@ -140,17 +137,17 @@ export class NoteService {
     }
 
     // Delete all cards for this note first
-    await this.db.delete(cards).where(eq(cards.noteId, id));
+    this.db.delete(cards).where(eq(cards.noteId, id));
 
     // Delete the note
-    await this.db
+    this.db
       .delete(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)));
   }
 
-  async listByDeck(deckId: string, userId: string): Promise<Note[]> {
+  listByDeck(deckId: string, userId: string): Note[] {
     // Find notes that have cards in the given deck
-    const deckCards = await this.db
+    const deckCards = this.db
       .select({ noteId: cards.noteId })
       .from(cards)
       .where(eq(cards.deckId, deckId))
@@ -162,7 +159,7 @@ export class NoteService {
       return [];
     }
 
-    const allNotes = await this.db
+    const allNotes = this.db
       .select()
       .from(notes)
       .where(eq(notes.userId, userId))
@@ -171,9 +168,9 @@ export class NoteService {
     return allNotes.filter((n) => noteIds.includes(n.id));
   }
 
-  async search(userId: string, query: string): Promise<Note[]> {
+  search(userId: string, query: string): Note[] {
     // Basic text search across note fields using SQL LIKE
-    const userNotes = await this.db
+    const userNotes = this.db
       .select()
       .from(notes)
       .where(and(eq(notes.userId, userId), like(notes.fields, `%${query}%`)))
