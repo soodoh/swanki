@@ -1,0 +1,14 @@
+{
+  "name": "mobile",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'mobile dev placeholder'",
+    "build": "mkdir -p dist && echo 'mobile build placeholder' > dist/.keep",
+    "start": "echo 'mobile start placeholder'",
+    "lint": "echo 'mobile lint placeholder'",
+    "lint:fix": "echo 'mobile lint fix placeholder'",
+    "test": "echo 'mobile test placeholder'",
+    "test:run": "echo 'mobile test:run placeholder'"
+  }
+}
