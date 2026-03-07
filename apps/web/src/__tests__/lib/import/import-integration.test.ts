@@ -617,7 +617,10 @@ describe("Import Integration", () => {
         name: string;
         ordinal: number;
       }>;
-      expect(fieldDefs.map((f) => f.name)).toEqual(["Field 1", "Field 2"]);
+      expect(fieldDefs.map((f) => f.name)).toStrictEqual([
+        "Field 1",
+        "Field 2",
+      ]);
     });
 
     it("handles single-column CSV with header", () => {
@@ -667,7 +670,7 @@ describe("Import Integration", () => {
         .where(eq(notes.userId, userId))
         .all();
       expect(allNotes).toHaveLength(1);
-      expect(allNotes[0].fields).toEqual({
+      expect(allNotes[0].fields).toStrictEqual({
         Front: "hello, world",
         Back: "line1\nline2",
       });

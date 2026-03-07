@@ -57,13 +57,16 @@ export class ImportService {
       // Still create the deck, but no notes/cards
       const deckId = generateId();
       const now = new Date();
-      this.db.insert(decks).values({
-        id: deckId,
-        userId,
-        name: deckName,
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(decks)
+        .values({
+          id: deckId,
+          userId,
+          name: deckName,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
 
       return { deckId, noteCount: 0, cardCount: 0 };
     }
@@ -77,25 +80,31 @@ export class ImportService {
     // Create deck
     const deckId = generateId();
     const now = new Date();
-    this.db.insert(decks).values({
-      id: deckId,
-      userId,
-      name: deckName,
-      createdAt: now,
-      updatedAt: now,
-    });
+    this.db
+      .insert(decks)
+      .values({
+        id: deckId,
+        userId,
+        name: deckName,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
 
     // Create note type
     const noteTypeId = generateId();
     const fields = fieldNames.map((name, i) => ({ name, ordinal: i }));
-    this.db.insert(noteTypes).values({
-      id: noteTypeId,
-      userId,
-      name: `${deckName} - Note Type`,
-      fields,
-      createdAt: now,
-      updatedAt: now,
-    });
+    this.db
+      .insert(noteTypes)
+      .values({
+        id: noteTypeId,
+        userId,
+        name: `${deckName} - Note Type`,
+        fields,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
 
     // Create a basic card template
     const templateId = generateId();
@@ -106,14 +115,17 @@ export class ImportService {
         ? remainingFields.map((f) => `{{${f}}}`).join("<br>")
         : `{{${firstField}}}`;
 
-    this.db.insert(cardTemplates).values({
-      id: templateId,
-      noteTypeId,
-      name: "Card 1",
-      ordinal: 0,
-      questionTemplate: `{{${firstField}}}`,
-      answerTemplate: answerContent,
-    });
+    this.db
+      .insert(cardTemplates)
+      .values({
+        id: templateId,
+        noteTypeId,
+        name: "Card 1",
+        ordinal: 0,
+        questionTemplate: `{{${firstField}}}`,
+        answerTemplate: answerContent,
+      })
+      .run();
 
     // Create notes and cards
     let noteCount = 0;
@@ -126,28 +138,34 @@ export class ImportService {
         noteFields[fieldNames[i]] = row[i] ?? "";
       }
 
-      this.db.insert(notes).values({
-        id: noteId,
-        userId,
-        noteTypeId,
-        fields: noteFields,
-        tags: "",
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(notes)
+        .values({
+          id: noteId,
+          userId,
+          noteTypeId,
+          fields: noteFields,
+          tags: "",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
       noteCount += 1;
 
-      this.db.insert(cards).values({
-        id: generateId(),
-        noteId,
-        deckId,
-        templateId,
-        ordinal: 0,
-        state: 0,
-        due: now,
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(cards)
+        .values({
+          id: generateId(),
+          noteId,
+          deckId,
+          templateId,
+          ordinal: 0,
+          state: 0,
+          due: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
       cardCount += 1;
     }
 
@@ -175,26 +193,32 @@ export class ImportService {
         ordinal: f.ordinal,
       }));
 
-      this.db.insert(noteTypes).values({
-        id: noteTypeId,
-        userId,
-        name: model.name,
-        fields,
-        css: model.css,
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(noteTypes)
+        .values({
+          id: noteTypeId,
+          userId,
+          name: model.name,
+          fields,
+          css: model.css,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
 
       // Create templates
       for (const tmpl of model.templates) {
-        this.db.insert(cardTemplates).values({
-          id: generateId(),
-          noteTypeId,
-          name: tmpl.name,
-          ordinal: tmpl.ordinal,
-          questionTemplate: tmpl.questionFormat,
-          answerTemplate: tmpl.answerFormat,
-        });
+        this.db
+          .insert(cardTemplates)
+          .values({
+            id: generateId(),
+            noteTypeId,
+            name: tmpl.name,
+            ordinal: tmpl.ordinal,
+            questionTemplate: tmpl.questionFormat,
+            answerTemplate: tmpl.answerFormat,
+          })
+          .run();
       }
     }
 
@@ -227,14 +251,17 @@ export class ImportService {
 
     // Create deck
     const deckId = generateId();
-    this.db.insert(decks).values({
-      id: deckId,
-      userId,
-      name: data.name,
-      parentId: parentId ?? undefined,
-      createdAt: now,
-      updatedAt: now,
-    });
+    this.db
+      .insert(decks)
+      .values({
+        id: deckId,
+        userId,
+        name: data.name,
+        parentId: parentId ?? undefined,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
     deckCount += 1;
 
     // Create notes for this deck
@@ -266,15 +293,18 @@ export class ImportService {
         noteFields[field.name] = note.fields[field.ordinal] ?? "";
       }
 
-      this.db.insert(notes).values({
-        id: noteId,
-        userId,
-        noteTypeId,
-        fields: noteFields,
-        tags: note.tags.join(" "),
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(notes)
+        .values({
+          id: noteId,
+          userId,
+          noteTypeId,
+          fields: noteFields,
+          tags: note.tags.join(" "),
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
       noteCount += 1;
 
       // Get templates for this note type and create cards
@@ -285,17 +315,20 @@ export class ImportService {
         .all();
 
       for (const template of templates) {
-        this.db.insert(cards).values({
-          id: generateId(),
-          noteId,
-          deckId,
-          templateId: template.id,
-          ordinal: template.ordinal,
-          state: 0,
-          due: now,
-          createdAt: now,
-          updatedAt: now,
-        });
+        this.db
+          .insert(cards)
+          .values({
+            id: generateId(),
+            noteId,
+            deckId,
+            templateId: template.id,
+            ordinal: template.ordinal,
+            state: 0,
+            due: now,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
         cardCount += 1;
       }
     }
