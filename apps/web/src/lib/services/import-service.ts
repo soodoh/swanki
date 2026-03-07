@@ -328,17 +328,21 @@ export class ImportService {
       const deckId = generateId();
       deckMap.set(ankiDeck.id, deckId);
 
-      this.db.insert(decks).values({
-        id: deckId,
-        userId,
-        name: ankiDeck.name,
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(decks)
+        .values({
+          id: deckId,
+          userId,
+          name: ankiDeck.name,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
     }
 
     // Create note types, mapping anki model id -> our note type id
     const noteTypeMap = new Map<number, string>();
+    const templateMap = new Map<string, string>();
     for (const ankiNoteType of data.noteTypes) {
       const noteTypeId = generateId();
       noteTypeMap.set(ankiNoteType.id, noteTypeId);
@@ -348,26 +352,34 @@ export class ImportService {
         ordinal: f.ordinal,
       }));
 
-      this.db.insert(noteTypes).values({
-        id: noteTypeId,
-        userId,
-        name: ankiNoteType.name,
-        fields,
-        css: ankiNoteType.css,
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(noteTypes)
+        .values({
+          id: noteTypeId,
+          userId,
+          name: ankiNoteType.name,
+          fields,
+          css: ankiNoteType.css,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
 
       // Create templates
       for (const tmpl of ankiNoteType.templates) {
-        this.db.insert(cardTemplates).values({
-          id: generateId(),
-          noteTypeId,
-          name: tmpl.name,
-          ordinal: tmpl.ordinal,
-          questionTemplate: tmpl.questionFormat,
-          answerTemplate: tmpl.answerFormat,
-        });
+        const tmplId = generateId();
+        this.db
+          .insert(cardTemplates)
+          .values({
+            id: tmplId,
+            noteTypeId,
+            name: tmpl.name,
+            ordinal: tmpl.ordinal,
+            questionTemplate: tmpl.questionFormat,
+            answerTemplate: tmpl.answerFormat,
+          })
+          .run();
+        templateMap.set(`${noteTypeId}:${tmpl.ordinal}`, tmplId);
       }
     }
 
@@ -393,15 +405,18 @@ export class ImportService {
         }
       }
 
-      this.db.insert(notes).values({
-        id: noteId,
-        userId,
-        noteTypeId,
-        fields: noteFields,
-        tags: ankiNote.tags.trim(),
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(notes)
+        .values({
+          id: noteId,
+          userId,
+          noteTypeId,
+          fields: noteFields,
+          tags: ankiNote.tags.trim(),
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
       noteCount += 1;
     }
 
@@ -424,22 +439,28 @@ export class ImportService {
         continue;
       }
 
-      // Use a generated template id
-      const templateId = generateId();
+      // Look up the correct template by note type and ordinal
+      const templateId = templateMap.get(`${noteTypeId}:${ankiCard.ordinal}`);
+      if (!templateId) {
+        continue;
+      }
 
-      this.db.insert(cards).values({
-        id: generateId(),
-        noteId,
-        deckId,
-        templateId,
-        ordinal: ankiCard.ordinal,
-        state: ankiCard.type,
-        due: now,
-        reps: ankiCard.reps,
-        lapses: ankiCard.lapses,
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(cards)
+        .values({
+          id: generateId(),
+          noteId,
+          deckId,
+          templateId,
+          ordinal: ankiCard.ordinal,
+          state: ankiCard.type,
+          due: now,
+          reps: ankiCard.reps,
+          lapses: ankiCard.lapses,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
       cardCount += 1;
     }
 
