@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ChevronRight,
@@ -7,7 +7,6 @@ import {
   BookOpen,
   Layers,
   MoreHorizontal,
-  Pencil,
   Settings,
   Trash2,
 } from "lucide-react";
@@ -15,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +34,8 @@ import {
 import {
   useCreateDeck,
   useDeckCounts,
-  useRenameDeck,
   useDeleteDeck,
+  useUpdateDeck,
 } from "@/lib/hooks/use-decks";
 import type { DeckTreeNode } from "@/lib/hooks/use-decks";
 
@@ -76,22 +76,143 @@ function DeckCountBadges({
   );
 }
 
-function DeckActionMenu({
-  deckId,
-  deckName,
-  hasChildren,
-  onRename,
+function DeckOptionsDialog({
+  deck,
+  allDecks,
+  open,
+  onOpenChange,
 }: {
-  deckId: string;
-  deckName: string;
-  hasChildren: boolean;
-  onRename: () => void;
+  deck: DeckTreeNode;
+  allDecks: DeckTreeNode[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}): React.ReactElement {
+  const [name, setName] = useState(deck.name);
+  const [description, setDescription] = useState(deck.description ?? "");
+  const [parentId, setParentId] = useState<string>(deck.parentId ?? "");
+  const [newCardsPerDay, setNewCardsPerDay] = useState(
+    String(deck.settings?.newCardsPerDay ?? 20),
+  );
+  const [maxReviewsPerDay, setMaxReviewsPerDay] = useState(
+    String(deck.settings?.maxReviewsPerDay ?? 200),
+  );
+  const updateDeck = useUpdateDeck();
+
+  const parentOptions = allDecks.filter((d) => d.id !== deck.id);
+
+  async function handleSave(): Promise<void> {
+    await updateDeck.mutateAsync({
+      deckId: deck.id,
+      name: name.trim(),
+      description: description.trim(),
+      parentId: parentId || undefined,
+      settings: {
+        newCardsPerDay: Number(newCardsPerDay) || 20,
+        maxReviewsPerDay: Number(maxReviewsPerDay) || 200,
+      },
+    });
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Deck Options</DialogTitle>
+          <DialogDescription>
+            Configure settings for this deck.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label htmlFor="opt-name">Name</Label>
+            <Input
+              id="opt-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="opt-description">Description</Label>
+            <textarea
+              id="opt-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional description"
+              className="h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="opt-parent">Parent Deck</Label>
+            <select
+              id="opt-parent"
+              className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+            >
+              <option value="">None (top-level)</option>
+              {parentOptions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="opt-new-cards">New Cards/Day</Label>
+              <Input
+                id="opt-new-cards"
+                type="number"
+                min="0"
+                max="9999"
+                value={newCardsPerDay}
+                onChange={(e) => setNewCardsPerDay(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="opt-max-reviews">Max Reviews/Day</Label>
+              <Input
+                id="opt-max-reviews"
+                type="number"
+                min="0"
+                max="9999"
+                value={maxReviewsPerDay}
+                onChange={(e) => setMaxReviewsPerDay(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => void handleSave()}
+            disabled={!name.trim() || updateDeck.isPending}
+          >
+            {updateDeck.isPending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeckActionMenu({
+  node,
+  allDecks,
+}: {
+  node: DeckTreeNode;
+  allDecks: DeckTreeNode[];
 }): React.ReactElement {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const deleteDeck = useDeleteDeck();
+  const hasChildren = node.children.length > 0;
 
   async function handleDelete(): Promise<void> {
-    await deleteDeck.mutateAsync(deckId);
+    await deleteDeck.mutateAsync(node.id);
     setDeleteOpen(false);
   }
 
@@ -106,18 +227,10 @@ function DeckActionMenu({
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onRename}>
-            <Pencil className="size-4" />
-            Rename
+          <DropdownMenuItem onClick={() => setOptionsOpen(true)}>
+            <Settings className="size-4" />
+            Options
           </DropdownMenuItem>
-          <DropdownMenuItem
-            render={
-              <Link to="/decks/$deckId" params={{ deckId }}>
-                <Settings className="size-4" />
-                Options
-              </Link>
-            }
-          />
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
@@ -129,12 +242,19 @@ function DeckActionMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <DeckOptionsDialog
+        deck={node}
+        allDecks={allDecks}
+        open={optionsOpen}
+        onOpenChange={setOptionsOpen}
+      />
+
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Deck</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{deckName}</strong>?
+              Are you sure you want to delete <strong>{node.name}</strong>?
               {hasChildren && " Child decks will be moved to the parent deck."}
             </DialogDescription>
           </DialogHeader>
@@ -158,45 +278,15 @@ function DeckActionMenu({
 
 function DeckTreeItem({
   node,
+  allDecks,
   depth = 0,
 }: {
   node: DeckTreeNode;
+  allDecks: DeckTreeNode[];
   depth?: number;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(true);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameName, setRenameName] = useState("");
-  const renameDeck = useRenameDeck();
   const hasChildren = node.children.length > 0;
-
-  function startRename(): void {
-    setRenameName(node.name);
-    setIsRenaming(true);
-  }
-
-  function submitRename(): void {
-    const trimmed = renameName.trim();
-    setIsRenaming(false);
-    if (trimmed && trimmed !== node.name) {
-      renameDeck.mutate({ deckId: node.id, name: trimmed });
-    }
-  }
-
-  function handleRenameKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
-    if (e.key === "Enter") {
-      submitRename();
-    } else if (e.key === "Escape") {
-      setIsRenaming(false);
-    }
-  }
-
-  const renameInputRef = useRef<HTMLInputElement>(undefined);
-
-  useEffect(() => {
-    if (isRenaming) {
-      renameInputRef.current?.focus();
-    }
-  }, [isRenaming]);
 
   return (
     <div>
@@ -222,48 +312,33 @@ function DeckTreeItem({
 
         <Layers className="size-4 shrink-0 text-muted-foreground" />
 
-        {isRenaming ? (
-          <Input
-            ref={renameInputRef}
-            className="h-6 flex-1 text-sm"
-            value={renameName}
-            onChange={(e) => setRenameName(e.target.value)}
-            onBlur={submitRename}
-            onKeyDown={handleRenameKeyDown}
-          />
-        ) : (
-          <>
-            <span className="flex-1 truncate text-sm font-medium">
-              {node.name}
-            </span>
+        <span className="flex-1 truncate text-sm font-medium">{node.name}</span>
 
-            <DeckCountBadges deckId={node.id} />
+        <DeckCountBadges deckId={node.id} />
 
-            <Link
-              to="/study/$deckId"
-              params={{ deckId: node.id }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Button variant="ghost" size="xs">
-                <BookOpen className="size-3.5" />
-                Study
-              </Button>
-            </Link>
+        <Link
+          to="/study/$deckId"
+          params={{ deckId: node.id }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Button variant="ghost" size="xs">
+            <BookOpen className="size-3.5" />
+            Study
+          </Button>
+        </Link>
 
-            <DeckActionMenu
-              deckId={node.id}
-              deckName={node.name}
-              hasChildren={hasChildren}
-              onRename={startRename}
-            />
-          </>
-        )}
+        <DeckActionMenu node={node} allDecks={allDecks} />
       </div>
 
       {hasChildren && expanded && (
         <div>
           {node.children.map((child) => (
-            <DeckTreeItem key={child.id} node={child} depth={depth + 1} />
+            <DeckTreeItem
+              key={child.id}
+              node={child}
+              allDecks={allDecks}
+              depth={depth + 1}
+            />
           ))}
         </div>
       )}
@@ -334,11 +409,24 @@ function AddDeckDialog({
   );
 }
 
+function flattenDecks(nodes: DeckTreeNode[]): DeckTreeNode[] {
+  const result: DeckTreeNode[] = [];
+  for (const node of nodes) {
+    result.push(node);
+    if (node.children.length > 0) {
+      result.push(...flattenDecks(node.children));
+    }
+  }
+  return result;
+}
+
 export function DeckTree({
   decks,
 }: {
   decks: DeckTreeNode[];
 }): React.ReactElement {
+  const allDecks = useMemo(() => flattenDecks(decks), [decks]);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -365,7 +453,7 @@ export function DeckTree({
           </div>
           <div className="py-1">
             {decks.map((deck) => (
-              <DeckTreeItem key={deck.id} node={deck} />
+              <DeckTreeItem key={deck.id} node={deck} allDecks={allDecks} />
             ))}
           </div>
         </div>
