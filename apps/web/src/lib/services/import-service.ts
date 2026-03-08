@@ -58,12 +58,14 @@ export function rewriteMediaUrls(
   let result = text;
 
   // Rewrite src="filename" (handles img, audio, video source tags)
+  // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll triggers no-unsafe-* lint errors
   result = result.replace(/src="([^"]+)"/g, (match, filename: string) => {
     const newUrl = mapping.get(filename);
     return newUrl ? `src="${newUrl}"` : match;
   });
 
   // Rewrite [sound:filename] (Anki audio syntax)
+  // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll triggers no-unsafe-* lint errors
   result = result.replace(/\[sound:([^\]]+)\]/g, (match, filename: string) => {
     const newUrl = mapping.get(filename);
     return newUrl ? `[sound:${newUrl}]` : match;

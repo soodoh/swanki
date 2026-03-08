@@ -214,6 +214,7 @@ function ImportPage(): React.ReactElement {
         noteCount: number;
         deckCount?: number;
         deckId?: string;
+        mediaWarnings?: string[];
       };
 
       setImportProgress({
@@ -224,7 +225,7 @@ function ImportPage(): React.ReactElement {
           noteCount: result.noteCount,
           deckCount: result.deckCount,
           duplicatesSkipped: 0,
-          errors: [],
+          errors: result.mediaWarnings ?? [],
         },
       });
     } catch (error) {

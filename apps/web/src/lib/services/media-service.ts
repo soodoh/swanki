@@ -23,11 +23,22 @@ function guessMimeType(filename: string): string {
     png: "image/png",
     gif: "image/gif",
     webp: "image/webp",
+    bmp: "image/bmp",
+    tiff: "image/tiff",
+    tif: "image/tiff",
+    avif: "image/avif",
+    ico: "image/x-icon",
+    svg: "image/svg+xml",
     mp3: "audio/mpeg",
     wav: "audio/wav",
     ogg: "audio/ogg",
+    m4a: "audio/mp4",
+    aac: "audio/aac",
+    flac: "audio/flac",
+    opus: "audio/opus",
     mp4: "video/mp4",
     webm: "video/webm",
+    "3gp": "video/3gpp",
   };
   return mimeMap[ext] ?? "application/octet-stream";
 }
@@ -116,13 +127,15 @@ export class MediaService {
   async importBatch(
     userId: string,
     entries: Array<{ filename: string; index: string; data: Uint8Array }>,
-  ): Promise<Map<string, string>> {
+  ): Promise<{ mapping: Map<string, string>; warnings: string[] }> {
     ensureMediaDir();
 
     const mapping = new Map<string, string>();
+    const warnings: string[] = [];
 
     for (const entry of entries) {
       if (entry.data.length === 0) {
+        warnings.push(`Skipped empty file: ${entry.filename}`);
         continue;
       }
 
@@ -154,6 +167,9 @@ export class MediaService {
         mimeType.startsWith(prefix),
       );
       if (!isAllowed) {
+        warnings.push(
+          `Skipped unsupported file type: ${entry.filename} (${mimeType})`,
+        );
         continue;
       }
 
@@ -178,7 +194,7 @@ export class MediaService {
       mapping.set(entry.filename, `/api/media/${filename}`);
     }
 
-    return mapping;
+    return { mapping, warnings };
   }
 
   getByFilename(
