@@ -37,6 +37,11 @@ export const Route = createFileRoute("/api/notes/$noteId")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
+        // Verify ownership before cleaning up media references
+        const existing = noteService.getById(params.noteId, session.user.id);
+        if (!existing) {
+          return new Response(undefined, { status: 204 });
+        }
         const mediaService = new MediaService(db);
         mediaService.reconcileNoteReferences(params.noteId, []);
         noteService.delete(params.noteId, session.user.id);
