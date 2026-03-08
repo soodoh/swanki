@@ -84,11 +84,13 @@ export class DeckService {
     this.db
       .update(decks)
       .set({ parentId: existing.parentId })
-      .where(and(eq(decks.parentId, id), eq(decks.userId, userId)));
+      .where(and(eq(decks.parentId, id), eq(decks.userId, userId)))
+      .run();
 
     this.db
       .delete(decks)
-      .where(and(eq(decks.id, id), eq(decks.userId, userId)));
+      .where(and(eq(decks.id, id), eq(decks.userId, userId)))
+      .run();
   }
 }
 

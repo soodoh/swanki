@@ -174,17 +174,17 @@ function DeckTreeItem({
     setIsRenaming(true);
   }
 
-  async function submitRename(): Promise<void> {
+  function submitRename(): void {
     const trimmed = renameName.trim();
-    if (trimmed && trimmed !== node.name) {
-      await renameDeck.mutateAsync({ deckId: node.id, name: trimmed });
-    }
     setIsRenaming(false);
+    if (trimmed && trimmed !== node.name) {
+      renameDeck.mutate({ deckId: node.id, name: trimmed });
+    }
   }
 
   function handleRenameKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
     if (e.key === "Enter") {
-      void submitRename();
+      submitRename();
     } else if (e.key === "Escape") {
       setIsRenaming(false);
     }
@@ -228,7 +228,7 @@ function DeckTreeItem({
             className="h-6 flex-1 text-sm"
             value={renameName}
             onChange={(e) => setRenameName(e.target.value)}
-            onBlur={() => void submitRename()}
+            onBlur={submitRename}
             onKeyDown={handleRenameKeyDown}
           />
         ) : (
