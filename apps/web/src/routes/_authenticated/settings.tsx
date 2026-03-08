@@ -183,7 +183,7 @@ function AppearanceSection(): React.ReactElement {
             <label
               key={option.value}
               aria-label={option.label}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring ${
                 theme === option.value
                   ? "border-primary bg-primary/5"
                   : "border-border hover:bg-muted/50"
