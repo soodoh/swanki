@@ -1,6 +1,21 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestDb } from "../test-utils";
 import { DeckService } from "../../lib/services/deck-service";
+import { MediaService } from "../../lib/services/media-service";
+import {
+  cards,
+  notes,
+  noteTypes,
+  cardTemplates,
+  reviewLogs,
+  noteMedia,
+  media,
+} from "../../db/schema";
+import { generateId } from "../../lib/id";
+import { existsSync, rmSync } from "node:fs";
+import { join } from "node:path";
+
+const TEST_MEDIA_DIR = join(process.cwd(), "data", "media");
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -12,6 +27,12 @@ describe("DeckService", () => {
   beforeEach(() => {
     db = createTestDb();
     deckService = new DeckService(db);
+  });
+
+  afterEach(() => {
+    if (existsSync(TEST_MEDIA_DIR)) {
+      rmSync(TEST_MEDIA_DIR, { recursive: true, force: true });
+    }
   });
 
   describe("create", () => {
@@ -192,6 +213,163 @@ describe("DeckService", () => {
       const updatedChild = await deckService.getById(child.id, userId);
       expect(updatedChild).toBeDefined();
       expect(updatedChild!.parentId).toBeNull();
+    });
+
+    it("cascades delete to cards and review logs", () => {
+      const deck = deckService.create(userId, { name: "Cascade Test" });
+
+      // Create a note type, template, note, and card
+      const noteTypeId = generateId();
+      db.insert(noteTypes)
+        .values({
+          id: noteTypeId,
+          userId,
+          name: "Basic",
+          fields: [{ name: "Front", ordinal: 0 }],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+      const templateId = generateId();
+      db.insert(cardTemplates)
+        .values({
+          id: templateId,
+          noteTypeId,
+          name: "Card 1",
+          ordinal: 0,
+          questionTemplate: "{{Front}}",
+          answerTemplate: "{{Front}}",
+        })
+        .run();
+      const noteId = generateId();
+      db.insert(notes)
+        .values({
+          id: noteId,
+          userId,
+          noteTypeId,
+          fields: { Front: "hello" },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+      const cardId = generateId();
+      db.insert(cards)
+        .values({
+          id: cardId,
+          noteId,
+          deckId: deck.id,
+          templateId,
+          ordinal: 0,
+          due: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+      db.insert(reviewLogs)
+        .values({
+          id: generateId(),
+          cardId,
+          rating: 3,
+          state: 0,
+          due: new Date(),
+          stability: 1,
+          difficulty: 5,
+          elapsedDays: 0,
+          lastElapsedDays: 0,
+          scheduledDays: 1,
+          reviewedAt: new Date(),
+          timeTakenMs: 1000,
+        })
+        .run();
+
+      deckService.delete(deck.id, userId);
+
+      expect(db.select().from(cards).all()).toHaveLength(0);
+      expect(db.select().from(reviewLogs).all()).toHaveLength(0);
+      expect(db.select().from(notes).all()).toHaveLength(0);
+    });
+
+    it("deletes orphaned media files when deck is deleted", async () => {
+      const deck = deckService.create(userId, { name: "Media Test" });
+      const mediaService = new MediaService(db);
+
+      // Import a media file
+      const { mapping } = await mediaService.importBatch(userId, [
+        {
+          filename: "test.png",
+          index: "0",
+          data: new Uint8Array([1, 2, 3, 4]),
+        },
+      ]);
+      const mediaUrl = mapping.get("test.png")!;
+      const mediaFilename = mediaUrl.replace("/api/media/", "");
+
+      // Create note referencing the media
+      const noteTypeId = generateId();
+      db.insert(noteTypes)
+        .values({
+          id: noteTypeId,
+          userId,
+          name: "Basic",
+          fields: [{ name: "Front", ordinal: 0 }],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+      const templateId = generateId();
+      db.insert(cardTemplates)
+        .values({
+          id: templateId,
+          noteTypeId,
+          name: "Card 1",
+          ordinal: 0,
+          questionTemplate: "{{Front}}",
+          answerTemplate: "{{Front}}",
+        })
+        .run();
+      const noteId = generateId();
+      db.insert(notes)
+        .values({
+          id: noteId,
+          userId,
+          noteTypeId,
+          fields: { Front: `<img src="${mediaUrl}">` },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+      db.insert(cards)
+        .values({
+          id: generateId(),
+          noteId,
+          deckId: deck.id,
+          templateId,
+          ordinal: 0,
+          due: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+
+      // Link note to media
+      const mediaRecord = db.select().from(media).all()[0];
+      db.insert(noteMedia)
+        .values({ id: generateId(), noteId, mediaId: mediaRecord.id })
+        .run();
+
+      // Verify media file exists before delete
+      const filePath = join(TEST_MEDIA_DIR, mediaFilename);
+      expect(existsSync(filePath)).toBe(true);
+
+      // Delete the deck
+      deckService.delete(deck.id, userId);
+
+      // Everything should be cleaned up
+      expect(db.select().from(cards).all()).toHaveLength(0);
+      expect(db.select().from(notes).all()).toHaveLength(0);
+      expect(db.select().from(noteMedia).all()).toHaveLength(0);
+      expect(db.select().from(media).all()).toHaveLength(0);
+      expect(existsSync(filePath)).toBe(false);
     });
   });
 });

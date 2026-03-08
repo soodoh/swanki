@@ -584,8 +584,12 @@ function readMedia(files: Record<string, Uint8Array>): ApkgMediaEntry[] {
 
   const entries: ApkgMediaEntry[] = [];
   for (const [index, filename] of Object.entries(mediaMap)) {
-    const data = files[index];
+    let data = files[index];
     if (data) {
+      // Anki 2.1.50+ may zstd-compress individual media files
+      if (isZstdCompressed(data)) {
+        data = zstdDecompress(data);
+      }
       entries.push({ filename, index, data });
     }
   }
@@ -618,11 +622,13 @@ function parseMediaMap(data: Uint8Array): Record<string, string> {
 /**
  * Parse protobuf-encoded media map.
  * The protobuf schema has repeated MediaEntry messages (field 1),
- * each containing: field 1 = index (uint32), field 2 = filename (string).
+ * each containing: field 1 = name (string), field 2 = usn (uint32), field 3 = sha256 (bytes).
+ * The zip index is determined by the entry's position in the repeated field (0-indexed).
  */
 function parseMediaMapProtobuf(data: Uint8Array): Record<string, string> {
   const result: Record<string, string> = {};
   let pos = 0;
+  let entryIndex = 0;
 
   while (pos < data.length) {
     const [tagAndType, tagBytes] = readVarint(data, pos);
@@ -637,10 +643,11 @@ function parseMediaMapProtobuf(data: Uint8Array): Record<string, string> {
       if (fieldNum === 1) {
         // Embedded MediaEntry message
         const entryData = data.slice(pos, pos + len);
-        const entry = parseMediaEntry(entryData);
-        if (entry) {
-          result[entry.index] = entry.filename;
+        const filename = parseMediaEntryName(entryData);
+        if (filename) {
+          result[String(entryIndex)] = filename;
         }
+        entryIndex += 1;
       }
 
       pos += len;
@@ -659,11 +666,8 @@ function parseMediaMapProtobuf(data: Uint8Array): Record<string, string> {
   return result;
 }
 
-function parseMediaEntry(
-  data: Uint8Array,
-): { index: string; filename: string } | undefined {
-  let index = -1;
-  let filename = "";
+/** Extract the filename (field 1, string) from a MediaEntry protobuf message */
+function parseMediaEntryName(data: Uint8Array): string | undefined {
   let pos = 0;
 
   while (pos < data.length) {
@@ -672,19 +676,16 @@ function parseMediaEntry(
     const wireType = tagAndType % 8;
     const fieldNum = Math.floor(tagAndType / 8);
 
-    if (wireType === 0) {
-      const [val, vBytes] = readVarint(data, pos);
-      pos += vBytes;
-      if (fieldNum === 1) {
-        index = val;
-      }
-    } else if (wireType === 2) {
+    if (wireType === 2) {
       const [len, lenBytes] = readVarint(data, pos);
       pos += lenBytes;
-      if (fieldNum === 2) {
-        filename = readProtobufString(data, pos, len);
+      if (fieldNum === 1) {
+        return readProtobufString(data, pos, len);
       }
       pos += len;
+    } else if (wireType === 0) {
+      const [, vBytes] = readVarint(data, pos);
+      pos += vBytes;
     } else if (wireType === 1) {
       pos += 8;
     } else if (wireType === 5) {
@@ -694,8 +695,5 @@ function parseMediaEntry(
     }
   }
 
-  if (index < 0) {
-    return undefined;
-  }
-  return { index: String(index), filename };
+  return undefined;
 }

@@ -46,16 +46,14 @@ export const Route = createFileRoute("/api/import")({
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
             const mediaService = new MediaService(db);
-            const mediaMapping = await mediaService.importBatch(
-              userId,
-              apkgData.media,
-            );
+            const { mapping: mediaMapping, warnings: mediaWarnings } =
+              await mediaService.importBatch(userId, apkgData.media);
             const result = importService.importFromApkg(
               userId,
               apkgData,
               mediaMapping,
             );
-            return Response.json(result, { status: 201 });
+            return Response.json({ ...result, mediaWarnings }, { status: 201 });
           }
 
           if (format === "csv" || format === "txt") {

@@ -294,10 +294,14 @@ function encodeNoteTypeConfig(css: string): Uint8Array {
 function encodeMediaMapProtobuf(
   entries: Array<{ index: number; filename: string }>,
 ): Uint8Array {
+  // Anki protobuf schema: repeated MediaEntry (field 1), each with:
+  //   field 1 = name (string), field 2 = usn (varint), field 3 = sha256 (bytes)
+  // The zip index is determined by position in the repeated field.
   const encodedEntries = entries.map((e) => {
-    const indexField = encodeProtobufField(1, 0, encodeVarint(e.index));
-    const filenameField = encodeProtobufString(2, e.filename);
-    const entryBytes = concatBytes(indexField, filenameField);
+    const filenameField = encodeProtobufString(1, e.filename);
+    // Include a dummy usn field to match real Anki format
+    const usnField = encodeProtobufField(2, 0, encodeVarint(0));
+    const entryBytes = concatBytes(filenameField, usnField);
 
     // Wrap as embedded message (field 1, wire type 2)
     const len = encodeVarint(entryBytes.length);

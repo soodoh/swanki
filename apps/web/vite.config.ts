@@ -11,7 +11,10 @@ export default defineConfig(({ mode }) => {
     process.env[key] ??= env[key];
   }
   return {
-    server: { port: 3000 },
+    server: {
+      port: 3000,
+      watch: { ignored: ["**/data/**"] },
+    },
     plugins: [
       tailwindcss(),
       tsconfigPaths(),

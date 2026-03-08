@@ -31,6 +31,7 @@ describe("MediaService.importBatch", () => {
       {
         filename: "image.jpg",
         index: "0",
+        // oxlint-disable-next-line eslint-plugin-unicorn(number-literal-case) -- prettier enforces lowercase hex
         data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
       },
       {
@@ -40,24 +41,26 @@ describe("MediaService.importBatch", () => {
       },
     ];
 
-    const mapping = await service.importBatch("user-1", entries);
+    const { mapping, warnings } = await service.importBatch("user-1", entries);
 
     expect(mapping.size).toBe(2);
     expect(mapping.get("image.jpg")).toMatch(/^\/api\/media\/[a-f0-9]+\.jpg$/);
     expect(mapping.get("sound.mp3")).toMatch(/^\/api\/media\/[a-f0-9]+\.mp3$/);
+    expect(warnings).toHaveLength(0);
 
     const records = db.select().from(media).all();
     expect(records).toHaveLength(2);
   });
 
   it("should deduplicate identical files", async () => {
+    // oxlint-disable-next-line eslint-plugin-unicorn(number-literal-case) -- prettier enforces lowercase hex
     const sameData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const entries = [
       { filename: "copy1.png", index: "0", data: sameData },
       { filename: "copy2.png", index: "1", data: sameData },
     ];
 
-    const mapping = await service.importBatch("user-1", entries);
+    const { mapping } = await service.importBatch("user-1", entries);
 
     expect(mapping.get("copy1.png")).toBe(mapping.get("copy2.png"));
 
@@ -65,13 +68,31 @@ describe("MediaService.importBatch", () => {
     expect(records).toHaveLength(1);
   });
 
-  it("should skip entries with no data", async () => {
+  it("should skip entries with no data and return warning", async () => {
     const entries = [
       { filename: "missing.jpg", index: "0", data: new Uint8Array(0) },
     ];
 
-    const mapping = await service.importBatch("user-1", entries);
+    const { mapping, warnings } = await service.importBatch("user-1", entries);
     expect(mapping.size).toBe(0);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("missing.jpg");
+  });
+
+  it("should skip unsupported MIME types and return warning", async () => {
+    const entries = [
+      {
+        filename: "document.pdf",
+        index: "0",
+        data: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+      },
+    ];
+
+    const { mapping, warnings } = await service.importBatch("user-1", entries);
+    expect(mapping.size).toBe(0);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("document.pdf");
+    expect(warnings[0]).toContain("unsupported");
   });
 });
 
@@ -98,7 +119,7 @@ describe("MediaService.reconcileNoteReferences", () => {
         data: new Uint8Array([1, 2, 3, 4]),
       },
     ];
-    const mapping = await service.importBatch("user-1", entries);
+    const { mapping } = await service.importBatch("user-1", entries);
     const url = mapping.get("test.jpg")!;
     const filename = url.replace("/api/media/", "");
 
