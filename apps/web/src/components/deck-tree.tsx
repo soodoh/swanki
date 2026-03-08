@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ChevronRight,
@@ -6,6 +6,10 @@ import {
   Plus,
   BookOpen,
   Layers,
+  MoreHorizontal,
+  Pencil,
+  Settings,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +24,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useCreateDeck, useDeckCounts } from "@/lib/hooks/use-decks";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  useCreateDeck,
+  useDeckCounts,
+  useRenameDeck,
+  useDeleteDeck,
+} from "@/lib/hooks/use-decks";
 import type { DeckTreeNode } from "@/lib/hooks/use-decks";
 
 function DeckCountBadges({
@@ -60,6 +76,87 @@ function DeckCountBadges({
   );
 }
 
+function DeckActionMenu({
+  deckId,
+  deckName,
+  hasChildren,
+  onRename,
+}: {
+  deckId: string;
+  deckName: string;
+  hasChildren: boolean;
+  onRename: () => void;
+}): React.ReactElement {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const deleteDeck = useDeleteDeck();
+
+  async function handleDelete(): Promise<void> {
+    await deleteDeck.mutateAsync(deckId);
+    setDeleteOpen(false);
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-xs">
+              <MoreHorizontal className="size-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onRename}>
+            <Pencil className="size-4" />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            render={
+              <Link to="/decks/$deckId" params={{ deckId }}>
+                <Settings className="size-4" />
+                Options
+              </Link>
+            }
+          />
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Deck</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deckName}</strong>?
+              {hasChildren &&
+                " This will also delete all child decks and their cards."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteDeck.isPending}
+            >
+              {deleteDeck.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function DeckTreeItem({
   node,
   depth = 0,
@@ -68,7 +165,39 @@ function DeckTreeItem({
   depth?: number;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(true);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameName, setRenameName] = useState("");
+  const renameDeck = useRenameDeck();
   const hasChildren = node.children.length > 0;
+
+  function startRename(): void {
+    setRenameName(node.name);
+    setIsRenaming(true);
+  }
+
+  async function submitRename(): Promise<void> {
+    const trimmed = renameName.trim();
+    if (trimmed && trimmed !== node.name) {
+      await renameDeck.mutateAsync({ deckId: node.id, name: trimmed });
+    }
+    setIsRenaming(false);
+  }
+
+  function handleRenameKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
+    if (e.key === "Enter") {
+      void submitRename();
+    } else if (e.key === "Escape") {
+      setIsRenaming(false);
+    }
+  }
+
+  const renameInputRef = useRef<HTMLInputElement>(undefined);
+
+  useEffect(() => {
+    if (isRenaming) {
+      renameInputRef.current?.focus();
+    }
+  }, [isRenaming]);
 
   return (
     <div>
@@ -94,20 +223,42 @@ function DeckTreeItem({
 
         <Layers className="size-4 shrink-0 text-muted-foreground" />
 
-        <span className="flex-1 truncate text-sm font-medium">{node.name}</span>
+        {isRenaming ? (
+          <Input
+            ref={renameInputRef}
+            className="h-6 flex-1 text-sm"
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            onBlur={() => void submitRename()}
+            onKeyDown={handleRenameKeyDown}
+          />
+        ) : (
+          <>
+            <span className="flex-1 truncate text-sm font-medium">
+              {node.name}
+            </span>
 
-        <DeckCountBadges deckId={node.id} />
+            <DeckCountBadges deckId={node.id} />
 
-        <Link
-          to="/study/$deckId"
-          params={{ deckId: node.id }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <Button variant="ghost" size="xs">
-            <BookOpen className="size-3.5" />
-            Study
-          </Button>
-        </Link>
+            <Link
+              to="/study/$deckId"
+              params={{ deckId: node.id }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Button variant="ghost" size="xs">
+                <BookOpen className="size-3.5" />
+                Study
+              </Button>
+            </Link>
+
+            <DeckActionMenu
+              deckId={node.id}
+              deckName={node.name}
+              hasChildren={hasChildren}
+              onRename={startRename}
+            />
+          </>
+        )}
       </div>
 
       {hasChildren && expanded && (
