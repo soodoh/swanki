@@ -135,8 +135,7 @@ function DeckActionMenu({
             <DialogTitle>Delete Deck</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete <strong>{deckName}</strong>?
-              {hasChildren &&
-                " This will also delete all child decks and their cards."}
+              {hasChildren && " Child decks will be moved to the parent deck."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
