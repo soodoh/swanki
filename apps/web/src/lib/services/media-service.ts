@@ -15,6 +15,24 @@ const MEDIA_DIR: string = join(process.cwd(), "data", "media");
 
 const ALLOWED_MIME_PREFIXES = ["image/", "audio/", "video/"] as const;
 
+function guessMimeType(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const mimeMap: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    svg: "image/svg+xml",
+    webp: "image/webp",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    mp4: "video/mp4",
+    webm: "video/webm",
+  };
+  return mimeMap[ext] ?? "application/octet-stream";
+}
+
 function ensureMediaDir(): void {
   // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
   if (!existsSync(MEDIA_DIR)) {
@@ -94,6 +112,66 @@ export class MediaService {
     const record = this.db.select().from(media).where(eq(media.id, id)).get();
 
     return record!;
+  }
+
+  async importBatch(
+    userId: string,
+    entries: Array<{ filename: string; index: string; data: Uint8Array }>,
+  ): Promise<Map<string, string>> {
+    ensureMediaDir();
+
+    const mapping = new Map<string, string>();
+
+    for (const entry of entries) {
+      if (entry.data.length === 0) {
+        continue;
+      }
+
+      const hashBuffer = await crypto.subtle.digest("SHA-256", entry.data);
+      const hashArray = [...new Uint8Array(hashBuffer)];
+      const hash = hashArray
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      const existing = this.db
+        .select()
+        .from(media)
+        .where(eq(media.hash, hash))
+        .get();
+
+      if (existing) {
+        mapping.set(entry.filename, `/api/media/${existing.filename}`);
+        continue;
+      }
+
+      const ext = entry.filename.includes(".")
+        ? `.${entry.filename.split(".").pop()}`
+        : "";
+      const filename = `${hash}${ext}`;
+      const mimeType = guessMimeType(entry.filename);
+
+      // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
+      const filePath: string = join(MEDIA_DIR, filename);
+      // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped in this project
+      await Bun.write(filePath, entry.data);
+
+      this.db
+        .insert(media)
+        .values({
+          id: generateId(),
+          userId,
+          filename,
+          hash,
+          mimeType,
+          size: entry.data.length,
+          createdAt: new Date(),
+        })
+        .run();
+
+      mapping.set(entry.filename, `/api/media/${filename}`);
+    }
+
+    return mapping;
   }
 
   getByFilename(
