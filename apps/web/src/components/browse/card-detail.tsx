@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FieldAttachments } from "./field-attachments";
 import { useCardDetail, useUpdateCard } from "@/lib/hooks/use-browse";
 import { useDecks } from "@/lib/hooks/use-decks";
 import type { DeckTreeNode } from "@/lib/hooks/use-decks";
@@ -195,6 +196,12 @@ export function CardDetailPanel({
                     }
                     className="text-xs"
                   />
+                  <FieldAttachments
+                    fieldValue={editFields[fieldName] ?? ""}
+                    onFieldChange={(newValue) =>
+                      handleFieldChange(fieldName, newValue)
+                    }
+                  />
                 </div>
               ))}
               {/* Fallback if no field names available */}
@@ -206,6 +213,12 @@ export function CardDetailPanel({
                       value={value}
                       onChange={(e) => handleFieldChange(key, e.target.value)}
                       className="text-xs"
+                    />
+                    <FieldAttachments
+                      fieldValue={value}
+                      onFieldChange={(newValue) =>
+                        handleFieldChange(key, newValue)
+                      }
                     />
                   </div>
                 ))}
