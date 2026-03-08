@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
+import { useTheme } from "@/lib/theme";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -49,6 +50,10 @@ function SettingsPage(): React.ReactElement {
 
         <div className="grid gap-6">
           <UserInfoSection name={user.name} email={user.email} />
+
+          <Separator />
+
+          <AppearanceSection />
 
           <Separator />
 
@@ -141,6 +146,65 @@ function UserInfoSection({
               Email cannot be changed.
             </p>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------- Appearance ---------- */
+
+const themeOptions: Array<{
+  value: "light" | "dark" | "system";
+  label: string;
+  description: string;
+}> = [
+  { value: "light", label: "Light", description: "Always use light theme" },
+  { value: "dark", label: "Dark", description: "Always use dark theme" },
+  {
+    value: "system",
+    label: "System",
+    description: "Follow your operating system setting",
+  },
+];
+
+function AppearanceSection(): React.ReactElement {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Appearance</CardTitle>
+        <CardDescription>Choose how Swanki looks to you.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-2">
+          {themeOptions.map((option) => (
+            <label
+              key={option.value}
+              aria-label={option.label}
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                theme === option.value
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="theme"
+                value={option.value}
+                checked={theme === option.value}
+                onChange={() => setTheme(option.value)}
+                className="sr-only"
+              />
+              <div>
+                <p className="text-sm font-medium">{option.label}</p>
+                <p className="text-xs text-muted-foreground">
+                  {option.description}
+                </p>
+              </div>
+            </label>
+          ))}
         </div>
       </CardContent>
     </Card>
