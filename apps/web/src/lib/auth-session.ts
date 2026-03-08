@@ -22,7 +22,9 @@ export const getUserTheme = createServerFn({ method: "GET" }).handler(
     const session = await auth.api.getSession({
       headers: headers,
     });
-    if (!session) return "system";
+    if (!session) {
+      return "system";
+    }
     return settingsService.getTheme(session.user.id);
   },
 );
