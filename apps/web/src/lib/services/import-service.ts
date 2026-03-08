@@ -405,9 +405,16 @@ export class ImportService {
     let noteCount = 0;
     let cardCount = 0;
 
-    // Create decks, mapping anki deck id -> our deck id
+    // Collect which Anki deck IDs are actually referenced by cards
+    const usedDeckIds = new Set(data.cards.map((c) => c.deckId));
+
+    // Create only decks that have cards, mapping anki deck id -> our deck id
     const deckMap = new Map<number, string>();
     for (const ankiDeck of data.decks) {
+      if (!usedDeckIds.has(ankiDeck.id)) {
+        continue;
+      }
+
       const deckId = generateId();
       deckMap.set(ankiDeck.id, deckId);
 
@@ -582,7 +589,7 @@ export class ImportService {
     }
 
     return {
-      deckCount: data.decks.length,
+      deckCount: deckMap.size,
       noteCount,
       cardCount,
     };
