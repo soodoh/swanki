@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestDb } from "../../test-utils";
 import { MediaService } from "@/lib/services/media-service";
-import { media } from "@/db/schema";
+import { media, noteMedia } from "@/db/schema";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
@@ -72,5 +72,98 @@ describe("MediaService.importBatch", () => {
 
     const mapping = await service.importBatch("user-1", entries);
     expect(mapping.size).toBe(0);
+  });
+});
+
+describe("MediaService.reconcileNoteReferences", () => {
+  let db: Db;
+  let service: MediaService;
+
+  beforeEach(() => {
+    db = createTestDb();
+    service = new MediaService(db);
+  });
+
+  afterEach(() => {
+    if (existsSync(TEST_MEDIA_DIR)) {
+      rmSync(TEST_MEDIA_DIR, { recursive: true, force: true });
+    }
+  });
+
+  it("should remove references and delete orphaned media", async () => {
+    const entries = [
+      {
+        filename: "test.jpg",
+        index: "0",
+        data: new Uint8Array([1, 2, 3, 4]),
+      },
+    ];
+    const mapping = await service.importBatch("user-1", entries);
+    const url = mapping.get("test.jpg")!;
+    const filename = url.replace("/api/media/", "");
+
+    const mediaRecord = db.select().from(media).all()[0];
+    db.insert(noteMedia)
+      .values({ id: "ref-1", noteId: "note-1", mediaId: mediaRecord.id })
+      .run();
+
+    // Reconcile with empty array (simulating delete)
+    service.reconcileNoteReferences("note-1", []);
+
+    const refs = db.select().from(noteMedia).all();
+    expect(refs).toHaveLength(0);
+
+    const records = db.select().from(media).all();
+    expect(records).toHaveLength(0);
+
+    const filePath = join(TEST_MEDIA_DIR, filename);
+    expect(existsSync(filePath)).toBe(false);
+  });
+
+  it("should not delete media still referenced by other notes", async () => {
+    const entries = [
+      {
+        filename: "shared.png",
+        index: "0",
+        data: new Uint8Array([5, 6, 7]),
+      },
+    ];
+    await service.importBatch("user-1", entries);
+    const mediaRecord = db.select().from(media).all()[0];
+
+    db.insert(noteMedia)
+      .values({ id: "ref-1", noteId: "note-1", mediaId: mediaRecord.id })
+      .run();
+    db.insert(noteMedia)
+      .values({ id: "ref-2", noteId: "note-2", mediaId: mediaRecord.id })
+      .run();
+
+    service.reconcileNoteReferences("note-1", []);
+
+    const records = db.select().from(media).all();
+    expect(records).toHaveLength(1);
+
+    const refs = db.select().from(noteMedia).all();
+    expect(refs).toHaveLength(1);
+    expect(refs[0].noteId).toBe("note-2");
+  });
+
+  it("should add new references for newly added media", async () => {
+    const entries = [
+      {
+        filename: "new.jpg",
+        index: "0",
+        data: new Uint8Array([8, 9, 10]),
+      },
+    ];
+    await service.importBatch("user-1", entries);
+    const mediaRecord = db.select().from(media).all()[0];
+
+    service.reconcileNoteReferences("note-1", [mediaRecord.filename]);
+
+    const refs = db.select().from(noteMedia).all();
+    expect(refs).toHaveLength(1);
+    expect(refs[0].noteId).toBe("note-1");
+    expect(refs[0].mediaId).toBe(mediaRecord.id);
   });
 });
