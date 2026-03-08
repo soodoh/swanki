@@ -73,22 +73,30 @@ export function useDeckCounts(
   });
 }
 
-export function useRenameDeck(): UseMutationResult<
+export type DeckUpdatePayload = {
+  deckId: string;
+  name?: string;
+  description?: string;
+  parentId?: string;
+  settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
+};
+
+export function useUpdateDeck(): UseMutationResult<
   void,
   Error,
-  { deckId: string; name: string }
+  DeckUpdatePayload
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { deckId: string; name: string }) => {
-      const res = await fetch(`/api/decks/${data.deckId}`, {
+    mutationFn: async ({ deckId, ...data }: DeckUpdatePayload) => {
+      const res = await fetch(`/api/decks/${deckId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: data.name }),
+        body: JSON.stringify(data),
       });
       if (!res.ok) {
-        throw new Error("Failed to rename deck");
+        throw new Error("Failed to update deck");
       }
     },
     onSuccess: () => {

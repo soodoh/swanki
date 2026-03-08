@@ -18,7 +18,12 @@ export const Route = createFileRoute("/api/decks/$deckId")({
       },
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
-        const body = (await request.json()) as { name?: string };
+        const body = (await request.json()) as {
+          name?: string;
+          description?: string;
+          parentId?: string;
+          settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
+        };
         const deck = deckService.update(params.deckId, session.user.id, body);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });

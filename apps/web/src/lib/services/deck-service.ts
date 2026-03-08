@@ -56,7 +56,12 @@ export class DeckService {
   update(
     id: string,
     userId: string,
-    data: { name?: string },
+    data: {
+      name?: string;
+      description?: string;
+      parentId?: string;
+      settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
+    },
   ): Deck | undefined {
     const existing = this.getById(id, userId);
     if (!existing) {
@@ -69,7 +74,8 @@ export class DeckService {
         ...data,
         updatedAt: new Date(),
       })
-      .where(and(eq(decks.id, id), eq(decks.userId, userId)));
+      .where(and(eq(decks.id, id), eq(decks.userId, userId)))
+      .run();
 
     return this.getById(id, userId);
   }
