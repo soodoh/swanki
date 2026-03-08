@@ -36,11 +36,19 @@ type ThemeProviderProps = {
   children: React.ReactNode;
 };
 
+const VALID_THEMES: ReadonlySet<string> = new Set(["light", "dark", "system"]);
+
+function validateTheme(value: unknown): Theme {
+  return typeof value === "string" && VALID_THEMES.has(value)
+    ? (value as Theme)
+    : "system";
+}
+
 export function ThemeProvider({
   initialTheme,
   children,
 }: ThemeProviderProps): React.ReactElement {
-  const [theme, setThemeState] = useState<Theme>(initialTheme);
+  const [theme, setThemeState] = useState<Theme>(validateTheme(initialTheme));
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
