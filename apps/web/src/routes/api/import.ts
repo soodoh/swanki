@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "../../lib/auth-middleware";
 import { ImportService, detectFormat } from "../../lib/services/import-service";
+import { MediaService } from "../../lib/services/media-service";
 import { parseApkg } from "../../lib/import/apkg-parser";
 import { parseCsv } from "../../lib/import/csv-parser";
 import { db } from "../../db";
@@ -44,7 +45,16 @@ export const Route = createFileRoute("/api/import")({
           if (format === "apkg" || format === "colpkg") {
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
-            const result = importService.importFromApkg(userId, apkgData);
+            const mediaService = new MediaService(db);
+            const mediaMapping = await mediaService.importBatch(
+              userId,
+              apkgData.media,
+            );
+            const result = importService.importFromApkg(
+              userId,
+              apkgData,
+              mediaMapping,
+            );
             return Response.json(result, { status: 201 });
           }
 
