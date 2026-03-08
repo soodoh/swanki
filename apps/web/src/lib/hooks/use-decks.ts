@@ -72,3 +72,45 @@ export function useDeckCounts(
     enabled: Boolean(deckId),
   });
 }
+
+export function useRenameDeck(): UseMutationResult<
+  void,
+  Error,
+  { deckId: string; name: string }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { deckId: string; name: string }) => {
+      const res = await fetch(`/api/decks/${data.deckId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: data.name }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to rename deck");
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["decks"] });
+    },
+  });
+}
+
+export function useDeleteDeck(): UseMutationResult<void, Error, string> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (deckId: string) => {
+      const res = await fetch(`/api/decks/${deckId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete deck");
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["decks"] });
+    },
+  });
+}
