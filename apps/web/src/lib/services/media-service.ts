@@ -22,7 +22,6 @@ function guessMimeType(filename: string): string {
     jpeg: "image/jpeg",
     png: "image/png",
     gif: "image/gif",
-    svg: "image/svg+xml",
     webp: "image/webp",
     mp3: "audio/mpeg",
     wav: "audio/wav",
@@ -149,6 +148,14 @@ export class MediaService {
         : "";
       const filename = `${hash}${ext}`;
       const mimeType = guessMimeType(entry.filename);
+
+      // Skip files with unsupported MIME types (e.g. SVG can execute JS)
+      const isAllowed = ALLOWED_MIME_PREFIXES.some((prefix) =>
+        mimeType.startsWith(prefix),
+      );
+      if (!isAllowed) {
+        continue;
+      }
 
       // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
       const filePath: string = join(MEDIA_DIR, filename);

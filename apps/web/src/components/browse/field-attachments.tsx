@@ -134,7 +134,8 @@ export function FieldAttachments({
       new RegExp(`<video[^>]*src="${escaped}"[^>]*>[^<]*</video>`),
       "",
     );
-    newValue = replaceAllMatches(newValue, /\s+/, " ").trim();
+    // Clean up double spaces left by tag removal, but preserve intentional formatting
+    newValue = replaceAllMatches(newValue, /  +/, " ").trim();
     onFieldChange(newValue);
   }
 
