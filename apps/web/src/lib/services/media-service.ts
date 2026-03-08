@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
 import type * as schema from "../../db/schema";
-import { media } from "../../db/schema";
-import { existsSync, mkdirSync } from "node:fs";
+import { media, noteMedia } from "../../db/schema";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 type Db = BunSQLiteDatabase<typeof schema>;
@@ -190,5 +190,80 @@ export class MediaService {
     // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
     const filePath: string = join(MEDIA_DIR, record.filename);
     return { record, filePath };
+  }
+
+  reconcileNoteReferences(noteId: string, currentFilenames: string[]): void {
+    const existingRefs = this.db
+      .select()
+      .from(noteMedia)
+      .where(eq(noteMedia.noteId, noteId))
+      .all();
+
+    const existingMediaIds = new Set(existingRefs.map((r) => r.mediaId));
+
+    const currentMediaIds = new Set<string>();
+    for (const filename of currentFilenames) {
+      const record = this.db
+        .select()
+        .from(media)
+        .where(eq(media.filename, filename))
+        .get();
+      if (record) {
+        currentMediaIds.add(record.id);
+      }
+    }
+
+    // Add new references
+    for (const mediaId of currentMediaIds) {
+      if (!existingMediaIds.has(mediaId)) {
+        this.db
+          .insert(noteMedia)
+          .values({ id: generateId(), noteId, mediaId })
+          .onConflictDoNothing()
+          .run();
+      }
+    }
+
+    // Remove stale references and clean up orphans
+    for (const ref of existingRefs) {
+      if (!currentMediaIds.has(ref.mediaId)) {
+        this.db
+          .delete(noteMedia)
+          .where(
+            and(
+              eq(noteMedia.noteId, noteId),
+              eq(noteMedia.mediaId, ref.mediaId),
+            ),
+          )
+          .run();
+
+        // Check if media is now orphaned
+        const remaining = this.db
+          .select()
+          .from(noteMedia)
+          .where(eq(noteMedia.mediaId, ref.mediaId))
+          .all();
+
+        if (remaining.length === 0) {
+          const mediaRecord = this.db
+            .select()
+            .from(media)
+            .where(eq(media.id, ref.mediaId))
+            .get();
+
+          if (mediaRecord) {
+            // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
+            const filePath: string = join(MEDIA_DIR, mediaRecord.filename);
+            try {
+              // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
+              unlinkSync(filePath);
+            } catch {
+              // File may already be gone
+            }
+            this.db.delete(media).where(eq(media.id, ref.mediaId)).run();
+          }
+        }
+      }
+    }
   }
 }
