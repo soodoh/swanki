@@ -35,24 +35,57 @@ function parseCsvLocal(
   return { headers, rows: rows.slice(1) };
 }
 
+type WizardState = {
+  currentStep: number;
+  file: File | undefined;
+  detectedFormat: string | undefined;
+  config: ImportConfig;
+  csvData: { headers: string[]; rows: string[][] } | undefined;
+  importProgress: ImportProgress;
+};
+
+let cachedState: WizardState | undefined;
+
 function ImportPage(): React.ReactElement {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [file, setFile] = useState<File | undefined>(undefined);
+  const [currentStep, setCurrentStep] = useState(cachedState?.currentStep ?? 0);
+  const [file, setFile] = useState<File | undefined>(cachedState?.file);
   const [detectedFormat, setDetectedFormat] = useState<string | undefined>(
-    undefined,
+    cachedState?.detectedFormat,
   );
-  const [config, setConfig] = useState<ImportConfig>({});
+  const [config, setConfig] = useState<ImportConfig>(cachedState?.config ?? {});
   const [csvData, setCsvData] = useState<
     | {
         headers: string[];
         rows: string[][];
       }
     | undefined
-  >(undefined);
-  const [importProgress, setImportProgress] = useState<ImportProgress>({
-    status: "idle",
-    progress: 0,
+  >(cachedState?.csvData);
+  const [importProgress, setImportProgress] = useState<ImportProgress>(() => {
+    if (!cachedState) {
+      return { status: "idle", progress: 0 };
+    }
+    const cached = cachedState.importProgress;
+    if (cached.status === "uploading" || cached.status === "processing") {
+      return {
+        status: "error",
+        progress: 0,
+        errorMessage:
+          "Import was interrupted. It may have completed — check your decks before retrying.",
+      };
+    }
+    return cached;
   });
+
+  useEffect(() => {
+    cachedState = {
+      currentStep,
+      file,
+      detectedFormat,
+      config,
+      csvData,
+      importProgress,
+    };
+  }, [currentStep, file, detectedFormat, config, csvData, importProgress]);
 
   // Parse CSV when file is selected and format is csv/txt
   useEffect(() => {
@@ -143,6 +176,7 @@ function ImportPage(): React.ReactElement {
   }, [currentStep]);
 
   const handleRetry = useCallback(() => {
+    cachedState = undefined;
     setImportProgress({ status: "idle", progress: 0 });
     setCurrentStep(0);
     setFile(undefined);

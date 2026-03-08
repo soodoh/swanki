@@ -131,11 +131,9 @@ export function ProgressStep({
             <Link to="/" className="flex-1">
               <Button className="w-full">Go to Dashboard</Button>
             </Link>
-            <Link to="/import" className="flex-1">
-              <Button variant="outline" className="w-full">
-                Import Another
-              </Button>
-            </Link>
+            <Button variant="outline" className="flex-1" onClick={onRetry}>
+              Import Another
+            </Button>
           </div>
         </div>
       )}
