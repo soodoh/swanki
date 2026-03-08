@@ -51,7 +51,7 @@ export function renderTemplate(
   result = processConditionals(result, fields);
 
   // 3. Handle {{cloze:FieldName}}
-  result = replaceAllMatches(result, /\{\{cloze:(\w+)\}\}/g, (m) => {
+  result = replaceAllMatches(result, /\{\{cloze:([^{}]+?)\}\}/g, (m) => {
     const fieldName = m[1];
     const fieldValue = fields[fieldName];
     if (fieldValue === undefined) {
@@ -67,7 +67,7 @@ export function renderTemplate(
   // 4. Handle basic {{FieldName}} — replace with field value or empty string
   result = replaceAllMatches(
     result,
-    /\{\{(\w+)\}\}/g,
+    /\{\{([^{}]+?)\}\}/g,
     (m) => fields[m[1]] ?? "",
   );
 
@@ -80,7 +80,7 @@ function processConditionals(
 ): string {
   // Process from innermost to outermost by repeatedly replacing
   // until no more conditional blocks remain.
-  const conditionalPattern = /\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
+  const conditionalPattern = /\{\{#([^{}]+?)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
 
   let result = template;
   let previous = "";

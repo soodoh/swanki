@@ -78,15 +78,18 @@ export class MediaService {
     const id = generateId();
     const now = new Date();
 
-    this.db.insert(media).values({
-      id,
-      userId,
-      filename,
-      hash,
-      mimeType,
-      size: bytes.length,
-      createdAt: now,
-    });
+    this.db
+      .insert(media)
+      .values({
+        id,
+        userId,
+        filename,
+        hash,
+        mimeType,
+        size: bytes.length,
+        createdAt: now,
+      })
+      .run();
 
     const record = this.db.select().from(media).where(eq(media.id, id)).get();
 

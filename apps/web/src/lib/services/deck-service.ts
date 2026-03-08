@@ -22,14 +22,17 @@ export class DeckService {
     const id = generateId();
     const now = new Date();
 
-    this.db.insert(decks).values({
-      id,
-      userId,
-      name: data.name,
-      parentId: data.parentId ?? null,
-      createdAt: now,
-      updatedAt: now,
-    });
+    this.db
+      .insert(decks)
+      .values({
+        id,
+        userId,
+        name: data.name,
+        parentId: data.parentId ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
 
     const deck = this.db.select().from(decks).where(eq(decks.id, id)).get();
 

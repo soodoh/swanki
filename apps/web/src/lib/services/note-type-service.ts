@@ -31,15 +31,18 @@ export class NoteTypeService {
     const id = generateId();
     const now = new Date();
 
-    this.db.insert(noteTypes).values({
-      id,
-      userId,
-      name: data.name,
-      fields: data.fields,
-      css: data.css ?? "",
-      createdAt: now,
-      updatedAt: now,
-    });
+    this.db
+      .insert(noteTypes)
+      .values({
+        id,
+        userId,
+        name: data.name,
+        fields: data.fields,
+        css: data.css ?? "",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
 
     const noteType = this.db
       .select()
@@ -82,14 +85,17 @@ export class NoteTypeService {
     const ordinal =
       existing.length > 0 ? Math.max(...existing.map((t) => t.ordinal)) + 1 : 0;
 
-    this.db.insert(cardTemplates).values({
-      id,
-      noteTypeId,
-      name: data.name,
-      ordinal,
-      questionTemplate: data.questionTemplate,
-      answerTemplate: data.answerTemplate,
-    });
+    this.db
+      .insert(cardTemplates)
+      .values({
+        id,
+        noteTypeId,
+        name: data.name,
+        ordinal,
+        questionTemplate: data.questionTemplate,
+        answerTemplate: data.answerTemplate,
+      })
+      .run();
 
     const template = this.db
       .select()
@@ -172,7 +178,8 @@ export class NoteTypeService {
     this.db
       .update(cardTemplates)
       .set(updateData)
-      .where(eq(cardTemplates.id, templateId));
+      .where(eq(cardTemplates.id, templateId))
+      .run();
 
     return this.db
       .select()
@@ -196,7 +203,7 @@ export class NoteTypeService {
       return;
     }
 
-    this.db.delete(cardTemplates).where(eq(cardTemplates.id, templateId));
+    this.db.delete(cardTemplates).where(eq(cardTemplates.id, templateId)).run();
   }
 
   update(
@@ -234,7 +241,8 @@ export class NoteTypeService {
     this.db
       .update(noteTypes)
       .set(updateData)
-      .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)));
+      .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
+      .run();
 
     return this.db
       .select()
@@ -268,11 +276,12 @@ export class NoteTypeService {
     }
 
     // Delete all templates first
-    this.db.delete(cardTemplates).where(eq(cardTemplates.noteTypeId, id));
+    this.db.delete(cardTemplates).where(eq(cardTemplates.noteTypeId, id)).run();
 
     // Delete the note type
     this.db
       .delete(noteTypes)
-      .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)));
+      .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
+      .run();
   }
 }

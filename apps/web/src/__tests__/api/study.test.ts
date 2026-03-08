@@ -223,10 +223,10 @@ describe("StudyService", () => {
       expect(dbCard!.reps).toBe(1);
     });
 
-    it("throws error for non-existent card", async () => {
-      await expect(
+    it("throws error for non-existent card", () => {
+      expect(() =>
         studyService.submitReview(userId, "nonexistent", Rating.Good, 1000),
-      ).rejects.toThrow("Card not found");
+      ).toThrow("Card not found");
     });
   });
 

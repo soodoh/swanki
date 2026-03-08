@@ -389,7 +389,7 @@ describe("NoteTypeService", () => {
         updatedAt: now,
       });
 
-      await expect(service.delete(noteType.id, userId)).rejects.toThrow(
+      expect(() => service.delete(noteType.id, userId)).toThrow(
         "Cannot delete note type that is referenced by existing notes",
       );
 
