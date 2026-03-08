@@ -28,16 +28,16 @@ const themeOrder: Array<"light" | "dark" | "system"> = [
   "dark",
   "system",
 ];
-const themeIcons = {
+const themeIcons: Record<string, typeof Sun> = {
   light: Sun,
   dark: Moon,
   system: Monitor,
-} as const;
-const themeLabels = {
+};
+const themeLabels: Record<string, string> = {
   light: "Light",
   dark: "Dark",
   system: "System",
-} as const;
+};
 
 export function AppShell({
   user,
@@ -46,12 +46,14 @@ export function AppShell({
   const { theme, setTheme } = useTheme();
 
   function cycleTheme(): void {
-    const currentIndex = themeOrder.indexOf(theme);
+    const currentIndex = themeOrder.indexOf(
+      theme as "light" | "dark" | "system",
+    );
     const nextIndex = (currentIndex + 1) % themeOrder.length;
     setTheme(themeOrder[nextIndex]);
   }
 
-  const Icon = themeIcons[theme];
+  const Icon = themeIcons[theme] ?? Monitor;
 
   return (
     <SidebarProvider>
@@ -74,9 +76,13 @@ export function AppShell({
                 }
               >
                 <Icon className="size-4" />
-                <span className="sr-only">Theme: {themeLabels[theme]}</span>
+                <span className="sr-only">
+                  Theme: {themeLabels[theme] ?? "System"}
+                </span>
               </TooltipTrigger>
-              <TooltipContent>Theme: {themeLabels[theme]}</TooltipContent>
+              <TooltipContent>
+                Theme: {themeLabels[theme] ?? "System"}
+              </TooltipContent>
             </Tooltip>
           </div>
         </header>
