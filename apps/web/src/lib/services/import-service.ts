@@ -43,6 +43,27 @@ export function detectFormat(filename: string): ImportFormat | undefined {
   return FORMAT_MAP[ext];
 }
 
+export function rewriteMediaUrls(
+  text: string,
+  mapping: Map<string, string>,
+): string {
+  let result = text;
+
+  // Rewrite src="filename" (handles img, audio, video source tags)
+  result = result.replace(/src="([^"]+)"/g, (match, filename: string) => {
+    const newUrl = mapping.get(filename);
+    return newUrl ? `src="${newUrl}"` : match;
+  });
+
+  // Rewrite [sound:filename] (Anki audio syntax)
+  result = result.replace(/\[sound:([^\]]+)\]/g, (match, filename: string) => {
+    const newUrl = mapping.get(filename);
+    return newUrl ? `[sound:${newUrl}]` : match;
+  });
+
+  return result;
+}
+
 export class ImportService {
   private db: Db;
   constructor(db: Db) {
@@ -350,7 +371,11 @@ export class ImportService {
     return { deckCount, noteCount, cardCount };
   }
 
-  importFromApkg(userId: string, data: ApkgData): ImportResult {
+  importFromApkg(
+    userId: string,
+    data: ApkgData,
+    mediaMapping?: Map<string, string>,
+  ): ImportResult {
     const now = new Date();
     let noteCount = 0;
     let cardCount = 0;
@@ -435,6 +460,16 @@ export class ImportService {
       if (ankiNoteType) {
         for (const field of ankiNoteType.fields) {
           noteFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
+        }
+      }
+
+      // Rewrite media URLs if mapping is provided
+      if (mediaMapping) {
+        for (const fieldName of Object.keys(noteFields)) {
+          noteFields[fieldName] = rewriteMediaUrls(
+            noteFields[fieldName],
+            mediaMapping,
+          );
         }
       }
 
