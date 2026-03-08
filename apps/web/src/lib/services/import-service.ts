@@ -2,7 +2,15 @@ import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
 import type * as schema from "../../db/schema";
-import { decks, noteTypes, cardTemplates, notes, cards } from "../../db/schema";
+import {
+  decks,
+  noteTypes,
+  cardTemplates,
+  notes,
+  cards,
+  noteMedia,
+  media,
+} from "../../db/schema";
 import { parseCrowdAnki } from "../import/crowdanki-parser";
 import type { CrowdAnkiData } from "../import/crowdanki-parser";
 import type { ApkgData } from "../import/apkg-parser";
@@ -62,6 +70,21 @@ export function rewriteMediaUrls(
   });
 
   return result;
+}
+
+export function extractMediaFilenames(
+  fields: Record<string, string>,
+): string[] {
+  const filenames: string[] = [];
+  const allText = Object.values(fields).join(" ");
+
+  const srcRegex = /\/api\/media\/([^\s"'<>\]]+)/g;
+  let match;
+  while ((match = srcRegex.exec(allText)) !== null) {
+    filenames.push(match[1]);
+  }
+
+  return [...new Set(filenames)];
 }
 
 export class ImportService {
@@ -485,6 +508,30 @@ export class ImportService {
           updatedAt: now,
         })
         .run();
+
+      // Track media references
+      if (mediaMapping) {
+        const mediaFilenames = extractMediaFilenames(noteFields);
+        for (const filename of mediaFilenames) {
+          const mediaRecord = this.db
+            .select()
+            .from(media)
+            .where(eq(media.filename, filename))
+            .get();
+          if (mediaRecord) {
+            this.db
+              .insert(noteMedia)
+              .values({
+                id: generateId(),
+                noteId,
+                mediaId: mediaRecord.id,
+              })
+              .onConflictDoNothing()
+              .run();
+          }
+        }
+      }
+
       noteCount += 1;
     }
 
