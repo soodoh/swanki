@@ -111,6 +111,7 @@ export function useDeleteDeck(): UseMutationResult<void, Error, string> {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["decks"] });
+      void queryClient.invalidateQueries({ queryKey: ["deck-counts"] });
     },
   });
 }
