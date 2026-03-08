@@ -4,6 +4,7 @@ import {
   integer,
   real,
   index,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 export { user, session, account, verification } from "./auth-schema";
@@ -165,5 +166,19 @@ export const media = sqliteTable(
   (table) => [
     index("media_user_id_idx").on(table.userId),
     index("media_hash_idx").on(table.hash),
+  ],
+);
+
+export const noteMedia = sqliteTable(
+  "note_media",
+  {
+    id: text("id").primaryKey(),
+    noteId: text("note_id").notNull(),
+    mediaId: text("media_id").notNull(),
+  },
+  (table) => [
+    index("note_media_note_id_idx").on(table.noteId),
+    index("note_media_media_id_idx").on(table.mediaId),
+    uniqueIndex("note_media_note_media_unique").on(table.noteId, table.mediaId),
   ],
 );
