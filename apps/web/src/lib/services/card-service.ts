@@ -143,7 +143,8 @@ export class CardService {
       this.db
         .update(cards)
         .set({ deckId, updatedAt: new Date() })
-        .where(inArray(cards.id, validCardIds));
+        .where(inArray(cards.id, validCardIds))
+        .run();
     }
   }
 

@@ -287,23 +287,27 @@ export class StudyService {
         lastReview: result.card.lastReview,
         updatedAt: now,
       })
-      .where(eq(cards.id, cardId));
+      .where(eq(cards.id, cardId))
+      .run();
 
     // Insert review log (captures pre-review state)
-    this.db.insert(reviewLogs).values({
-      id: generateId(),
-      cardId,
-      rating: result.log.rating,
-      state: result.log.state,
-      due: result.log.due,
-      stability: result.log.stability,
-      difficulty: result.log.difficulty,
-      elapsedDays: result.log.elapsedDays,
-      lastElapsedDays: result.log.lastElapsedDays,
-      scheduledDays: result.log.scheduledDays,
-      reviewedAt: now,
-      timeTakenMs,
-    });
+    this.db
+      .insert(reviewLogs)
+      .values({
+        id: generateId(),
+        cardId,
+        rating: result.log.rating,
+        state: result.log.state,
+        due: result.log.due,
+        stability: result.log.stability,
+        difficulty: result.log.difficulty,
+        elapsedDays: result.log.elapsedDays,
+        lastElapsedDays: result.log.lastElapsedDays,
+        scheduledDays: result.log.scheduledDays,
+        reviewedAt: now,
+        timeTakenMs,
+      })
+      .run();
 
     // Reload the card to get the updated version with noteFields
     const updated = this.cardService.getById(cardId, userId);
@@ -353,10 +357,11 @@ export class StudyService {
         lastReview: undefined,
         updatedAt: new Date(),
       })
-      .where(eq(cards.id, cardId));
+      .where(eq(cards.id, cardId))
+      .run();
 
     // Delete the review log entry
-    this.db.delete(reviewLogs).where(eq(reviewLogs.id, lastLog.id));
+    this.db.delete(reviewLogs).where(eq(reviewLogs.id, lastLog.id)).run();
 
     // Reload and return updated card
     return this.cardService.getById(cardId, userId);

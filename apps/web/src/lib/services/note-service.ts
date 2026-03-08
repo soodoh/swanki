@@ -32,15 +32,18 @@ export class NoteService {
     const id = generateId();
     const now = new Date();
 
-    this.db.insert(notes).values({
-      id,
-      userId,
-      noteTypeId: data.noteTypeId,
-      fields: data.fields,
-      tags: data.tags ?? "",
-      createdAt: now,
-      updatedAt: now,
-    });
+    this.db
+      .insert(notes)
+      .values({
+        id,
+        userId,
+        noteTypeId: data.noteTypeId,
+        fields: data.fields,
+        tags: data.tags ?? "",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
 
     // Auto-generate cards: one per template in the note type
     const templates = this.db
@@ -50,17 +53,20 @@ export class NoteService {
       .all();
 
     for (const template of templates) {
-      this.db.insert(cards).values({
-        id: generateId(),
-        noteId: id,
-        deckId: data.deckId,
-        templateId: template.id,
-        ordinal: template.ordinal,
-        state: 0,
-        due: now,
-        createdAt: now,
-        updatedAt: now,
-      });
+      this.db
+        .insert(cards)
+        .values({
+          id: generateId(),
+          noteId: id,
+          deckId: data.deckId,
+          templateId: template.id,
+          ordinal: template.ordinal,
+          state: 0,
+          due: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
     }
 
     const note = this.db.select().from(notes).where(eq(notes.id, id)).get();
@@ -116,7 +122,8 @@ export class NoteService {
     this.db
       .update(notes)
       .set(updateData)
-      .where(and(eq(notes.id, id), eq(notes.userId, userId)));
+      .where(and(eq(notes.id, id), eq(notes.userId, userId)))
+      .run();
 
     return this.db
       .select()
@@ -137,12 +144,13 @@ export class NoteService {
     }
 
     // Delete all cards for this note first
-    this.db.delete(cards).where(eq(cards.noteId, id));
+    this.db.delete(cards).where(eq(cards.noteId, id)).run();
 
     // Delete the note
     this.db
       .delete(notes)
-      .where(and(eq(notes.id, id), eq(notes.userId, userId)));
+      .where(and(eq(notes.id, id), eq(notes.userId, userId)))
+      .run();
   }
 
   listByDeck(deckId: string, userId: string): Note[] {
