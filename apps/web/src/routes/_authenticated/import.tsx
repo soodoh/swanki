@@ -290,6 +290,7 @@ function ImportPage(): React.ReactElement {
     try {
       const formData = new FormData();
       formData.append("file", previewFile);
+      formData.append("mergeMode", config.apkg?.mergeMode ?? "merge");
 
       const res = await fetch("/api/import/preview", {
         method: "POST",
@@ -322,6 +323,7 @@ function ImportPage(): React.ReactElement {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("mergeMode", config.apkg?.mergeMode ?? "merge");
 
       setImportProgress({ status: "processing", progress: 50 });
 
@@ -340,6 +342,8 @@ function ImportPage(): React.ReactElement {
         noteCount: number;
         deckCount?: number;
         deckId?: string;
+        duplicatesSkipped?: number;
+        notesUpdated?: number;
         mediaWarnings?: string[];
         mediaCount?: number;
       };
@@ -351,7 +355,8 @@ function ImportPage(): React.ReactElement {
           cardCount: result.cardCount,
           noteCount: result.noteCount,
           deckCount: result.deckCount,
-          duplicatesSkipped: 0,
+          duplicatesSkipped: result.duplicatesSkipped ?? 0,
+          notesUpdated: result.notesUpdated,
           errors: result.mediaWarnings ?? [],
           mediaCount: result.mediaCount,
         },

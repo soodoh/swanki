@@ -48,6 +48,7 @@ export const Route = createFileRoute("/api/import/")({
           if (format === "apkg" || format === "colpkg") {
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
+            const mergeMode = formData.get("mergeMode") as string | undefined;
             const mediaService = new MediaService(db);
             const {
               mapping: mediaMapping,
@@ -58,6 +59,7 @@ export const Route = createFileRoute("/api/import/")({
               userId,
               apkgData,
               mediaMapping,
+              mergeMode === "merge",
             );
             return Response.json(
               // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- mediaCount is number from importBatch

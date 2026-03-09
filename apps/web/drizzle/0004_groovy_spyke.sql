@@ -1,0 +1,1 @@
+ALTER TABLE `notes` ADD `anki_fields_hash` text;
