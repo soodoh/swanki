@@ -2,9 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
 
 import { SearchBar } from "@/components/browse/search-bar";
-import { FilterSidebar } from "@/components/browse/filter-sidebar";
-import { CardTable } from "@/components/browse/card-table";
-import { CardDetailPanel } from "@/components/browse/card-detail";
+import { BrowseFilters } from "@/components/browse/browse-filters";
+import { NoteTable } from "@/components/browse/note-table";
+import { NoteEditorDialog } from "@/components/browse/note-editor-dialog";
 import { useBrowse } from "@/lib/hooks/use-browse";
 import type { BrowseOptions } from "@/lib/hooks/use-browse";
 
@@ -32,7 +32,7 @@ function BrowsePage(): React.ReactElement {
   const typedPage = page as number;
 
   const [searchInput, setSearchInput] = useState<string>(typedQ);
-  const [selectedCardId, setSelectedCardId] = useState<string | undefined>(
+  const [selectedNoteId, setSelectedNoteId] = useState<string | undefined>(
     undefined,
   );
   const [sortBy, setSortBy] = useState<BrowseOptions["sortBy"]>(undefined);
@@ -49,7 +49,7 @@ function BrowsePage(): React.ReactElement {
       void navigate({
         search: { q: value || undefined, page: undefined },
       });
-      setSelectedCardId(undefined);
+      setSelectedNoteId(undefined);
     },
     [navigate],
   );
@@ -64,7 +64,7 @@ function BrowsePage(): React.ReactElement {
       void navigate({
         search: { q: query || undefined, page: undefined },
       });
-      setSelectedCardId(undefined);
+      setSelectedNoteId(undefined);
     },
     [navigate],
   );
@@ -92,50 +92,51 @@ function BrowsePage(): React.ReactElement {
     [],
   );
 
-  const handleSelectCard = useCallback((cardId: string) => {
-    setSelectedCardId((prev) => (prev === cardId ? undefined : cardId));
-  }, []);
-
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      {/* Search bar */}
+      {/* Search bar + filters */}
       <div className="shrink-0 border-b p-4">
         <SearchBar
           value={searchInput}
           onChange={handleSearchChange}
           onSubmit={handleSearchSubmit}
         />
-      </div>
-
-      {/* Three-panel layout */}
-      <div className="flex min-h-0 flex-1 gap-0 p-4">
-        {/* Filter sidebar */}
-        <FilterSidebar
+        <BrowseFilters
           searchQuery={typedQ}
           onSearchChange={handleFilterChange}
-          cards={data?.cards}
+          notes={data?.notes}
         />
-
-        {/* Card table */}
-        <div className="flex min-w-0 flex-1 flex-col px-4">
-          <CardTable
-            cards={data?.cards}
-            total={data?.total ?? 0}
-            page={data?.page ?? typedPage}
-            limit={data?.limit ?? 50}
-            selectedCardId={selectedCardId}
-            onSelectCard={handleSelectCard}
-            sortBy={sortBy}
-            sortDir={sortDir}
-            onSortChange={handleSortChange}
-            onPageChange={handlePageChange}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* Card detail panel */}
-        <CardDetailPanel cardId={selectedCardId} />
       </div>
+
+      {/* Note table — full width, no sidebar */}
+      <div className="min-h-0 flex-1 p-4">
+        <NoteTable
+          notes={data?.notes}
+          total={data?.total ?? 0}
+          page={data?.page ?? typedPage}
+          limit={data?.limit ?? 50}
+          selectedNoteId={selectedNoteId}
+          onSelectNote={setSelectedNoteId}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSortChange={handleSortChange}
+          onPageChange={handlePageChange}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Note editor modal */}
+      {selectedNoteId && (
+        <NoteEditorDialog
+          noteId={selectedNoteId}
+          open={Boolean(selectedNoteId)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedNoteId(undefined);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
