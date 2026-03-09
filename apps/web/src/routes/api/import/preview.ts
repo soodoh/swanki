@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { eq } from "drizzle-orm";
 import { requireSession } from "../../../lib/auth-middleware";
-import { detectFormat } from "../../../lib/services/import-service";
+import {
+  detectFormat,
+  rewriteMediaUrls,
+} from "../../../lib/services/import-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
 import { db } from "../../../db";
-import { notes } from "../../../db/schema";
+import { notes, media } from "../../../db/schema";
 
 export type ApkgPreviewData = {
   decks: Array<{ name: string }>;
@@ -117,6 +120,31 @@ export const Route = createFileRoute("/api/import/preview")({
 
           let mergeStats: ApkgPreviewData["mergeStats"];
           if (mergeMode === "merge") {
+            // Build media mapping by hashing APKG media and looking up existing records
+            const mediaMapping = new Map<string, string>();
+            for (const entry of apkgData.media) {
+              if (entry.data.length === 0) continue;
+              const hashBuffer = await crypto.subtle.digest(
+                "SHA-256",
+                entry.data,
+              );
+              const hashArray = [...new Uint8Array(hashBuffer)];
+              const hash = hashArray
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("");
+              const existing = db
+                .select()
+                .from(media)
+                .where(eq(media.hash, hash))
+                .get();
+              if (existing) {
+                mediaMapping.set(
+                  entry.filename,
+                  `/api/media/${existing.filename}`,
+                );
+              }
+            }
+
             const existingNotes = db
               .select({
                 ankiGuid: notes.ankiGuid,
@@ -133,7 +161,6 @@ export const Route = createFileRoute("/api/import/preview")({
               }
             }
 
-            // Build a lookup for note types by id
             const noteTypeById = new Map(
               apkgData.noteTypes.map((nt) => [nt.id, nt]),
             );
@@ -145,9 +172,6 @@ export const Route = createFileRoute("/api/import/preview")({
               if (!ankiNote.guid || !existingMap.has(ankiNote.guid)) {
                 newNotes += 1;
               } else {
-                // Build incoming field dict (without media rewriting — preview
-                // doesn't have the mapping, so notes with media may show as
-                // "updated" even if unchanged)
                 const nt = noteTypeById.get(ankiNote.modelId);
                 const incomingFields: Record<string, string> = {};
                 if (nt) {
@@ -156,16 +180,22 @@ export const Route = createFileRoute("/api/import/preview")({
                       ankiNote.fields[field.ordinal] ?? "";
                   }
                 }
+                for (const key of Object.keys(incomingFields)) {
+                  incomingFields[key] = rewriteMediaUrls(
+                    incomingFields[key],
+                    mediaMapping,
+                  );
+                }
 
                 const storedFields = existingMap.get(ankiNote.guid)!;
-                const keysMatch =
+                const fieldsMatch =
                   Object.keys(storedFields).length ===
                     Object.keys(incomingFields).length &&
                   Object.keys(storedFields).every(
                     (k) => storedFields[k] === incomingFields[k],
                   );
 
-                if (keysMatch) {
+                if (fieldsMatch) {
                   unchangedNotes += 1;
                 } else {
                   updatedNotes += 1;
