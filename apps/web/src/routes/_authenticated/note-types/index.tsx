@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus, Layers, FileText, Trash2 } from "lucide-react";
 
@@ -27,6 +27,7 @@ import {
   useCreateNoteType,
   useDeleteNoteType,
 } from "@/lib/hooks/use-note-types";
+import { NoteTypeEditorDialog } from "@/components/note-type-editor-dialog";
 
 export const Route = createFileRoute("/_authenticated/note-types/")({
   component: NoteTypesPage,
@@ -40,6 +41,9 @@ function NoteTypesPage(): React.ReactElement {
   const createNoteType = useCreateNoteType();
   const deleteNoteType = useDeleteNoteType();
   const [deleteId, setDeleteId] = useState<string | undefined>(undefined);
+  const [selectedNoteTypeId, setSelectedNoteTypeId] = useState<
+    string | undefined
+  >(undefined);
 
   async function handleCreate(): Promise<void> {
     if (!newName.trim()) {
@@ -167,10 +171,11 @@ function NoteTypesPage(): React.ReactElement {
           <div className="grid gap-4 sm:grid-cols-2">
             {noteTypes.map(({ noteType, templates }) => (
               <Card key={noteType.id} className="group relative">
-                <Link
-                  to="/note-types/$noteTypeId"
-                  params={{ noteTypeId: noteType.id }}
-                  className="absolute inset-0 z-10"
+                <button
+                  type="button"
+                  className="absolute inset-0 z-10 cursor-pointer"
+                  aria-label={`Edit ${noteType.name}`}
+                  onClick={() => setSelectedNoteTypeId(noteType.id)}
                 />
                 <CardHeader>
                   <CardTitle>{noteType.name}</CardTitle>
@@ -242,6 +247,17 @@ function NoteTypesPage(): React.ReactElement {
               </Card>
             ))}
           </div>
+        )}
+        {selectedNoteTypeId && (
+          <NoteTypeEditorDialog
+            noteTypeId={selectedNoteTypeId}
+            open
+            onOpenChange={(open) => {
+              if (!open) {
+                setSelectedNoteTypeId(undefined);
+              }
+            }}
+          />
         )}
       </main>
     </div>
