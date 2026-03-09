@@ -211,7 +211,7 @@ function NoteTypesPage(): React.ReactElement {
                           </Button>
                         }
                       />
-                      <DialogContent className="relative z-30">
+                      <DialogContent>
                         <DialogHeader>
                           <DialogTitle>Delete Note Type</DialogTitle>
                           <DialogDescription>
