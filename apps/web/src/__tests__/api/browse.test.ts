@@ -4,7 +4,7 @@ import { BrowseService } from "../../lib/services/browse-service";
 import { NoteService } from "../../lib/services/note-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { generateId } from "../../lib/id";
-import { noteTypes, cardTemplates, cards, reviewLogs } from "../../db/schema";
+import { noteTypes, cardTemplates, cards } from "../../db/schema";
 import { eq } from "drizzle-orm";
 
 type TestDb = ReturnType<typeof createTestDb>;
@@ -344,8 +344,8 @@ describe("BrowseService", () => {
     });
   });
 
-  describe("getCardDetail", () => {
-    it("returns full card info with note, note type, templates, and recent reviews", async () => {
+  describe("getNoteDetail", () => {
+    it("returns note with note type, templates, and deck", () => {
       const note = noteService.create(userId, {
         noteTypeId,
         deckId,
@@ -353,35 +353,9 @@ describe("BrowseService", () => {
         tags: "greeting",
       });
 
-      const allCards = db
-        .select()
-        .from(cards)
-        .where(eq(cards.noteId, note.id))
-        .all();
-      const cardId = allCards[0].id;
-
-      // Add a review log
-      const reviewId = generateId();
-      const now = new Date();
-      await db.insert(reviewLogs).values({
-        id: reviewId,
-        cardId,
-        rating: 3,
-        state: 0,
-        due: now,
-        stability: 1,
-        difficulty: 5,
-        elapsedDays: 0,
-        lastElapsedDays: 0,
-        scheduledDays: 1,
-        reviewedAt: now,
-        timeTakenMs: 5000,
-      });
-
-      const detail = browseService.getCardDetail(userId, cardId);
+      const detail = browseService.getNoteDetail(userId, note.id);
 
       expect(detail).toBeDefined();
-      expect(detail!.card.id).toBe(cardId);
       expect(detail!.note.id).toBe(note.id);
       expect(detail!.note.fields).toStrictEqual({
         Front: "Hello",
@@ -390,10 +364,8 @@ describe("BrowseService", () => {
       expect(detail!.noteType.id).toBe(noteTypeId);
       expect(detail!.noteType.name).toBe("Basic");
       expect(detail!.templates).toHaveLength(1);
-      expect(detail!.templates[0].id).toBe(templateId);
-      expect(detail!.recentReviews).toHaveLength(1);
-      expect(detail!.recentReviews[0].rating).toBe(3);
       expect(detail!.deckName).toBe("Japanese");
+      expect(detail!.deckId).toBe(deckId);
     });
 
     it("returns undefined for wrong user", () => {
@@ -403,21 +375,12 @@ describe("BrowseService", () => {
         fields: { Front: "Hello", Back: "World" },
       });
 
-      const allCards = db
-        .select()
-        .from(cards)
-        .where(eq(cards.noteId, note.id))
-        .all();
-      const cardId = allCards[0].id;
-
-      const detail = browseService.getCardDetail("wrong-user", cardId);
-
+      const detail = browseService.getNoteDetail("wrong-user", note.id);
       expect(detail).toBeUndefined();
     });
 
-    it("returns undefined for non-existent card", () => {
-      const detail = browseService.getCardDetail(userId, "no-such-card");
-
+    it("returns undefined for non-existent note", () => {
+      const detail = browseService.getNoteDetail(userId, "no-such-note");
       expect(detail).toBeUndefined();
     });
   });
