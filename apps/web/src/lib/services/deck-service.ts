@@ -6,6 +6,8 @@ import {
   decks,
   cards,
   notes,
+  noteTypes,
+  cardTemplates,
   reviewLogs,
   noteMedia,
   media,
@@ -146,8 +148,37 @@ export class DeckService {
           .where(inArray(noteMedia.noteId, orphanedNoteIds))
           .run();
 
+        // Collect note type IDs from orphaned notes before deleting them
+        const orphanedNoteTypeIds = [
+          ...new Set(
+            this.db
+              .select({ noteTypeId: notes.noteTypeId })
+              .from(notes)
+              .where(inArray(notes.id, orphanedNoteIds))
+              .all()
+              .map((n) => n.noteTypeId),
+          ),
+        ];
+
         // Delete orphaned notes
         this.db.delete(notes).where(inArray(notes.id, orphanedNoteIds)).run();
+
+        // Clean up note types that no longer have any notes
+        for (const noteTypeId of orphanedNoteTypeIds) {
+          const stillUsed = this.db
+            .select({ id: notes.id })
+            .from(notes)
+            .where(eq(notes.noteTypeId, noteTypeId))
+            .get();
+
+          if (!stillUsed) {
+            this.db
+              .delete(cardTemplates)
+              .where(eq(cardTemplates.noteTypeId, noteTypeId))
+              .run();
+            this.db.delete(noteTypes).where(eq(noteTypes.id, noteTypeId)).run();
+          }
+        }
 
         // Clean up media that are now unreferenced
         for (const mediaId of mediaIds) {
