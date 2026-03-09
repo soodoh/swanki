@@ -57,11 +57,24 @@ function collapseWhitespace(str: string): string {
   return str.split(/\s+/).filter(Boolean).join(" ").trim();
 }
 
+function escapeRegExp(str: string): string {
+  // oxlint-disable-next-line typescript/no-unsafe-return, typescript/no-unsafe-call -- replaceAll with regex is correctly typed
+  return str.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+/** Match a filter token with word boundaries (not as a substring of a longer token). */
+function filterRegex(filterStr: string): RegExp {
+  return new RegExp(`(?:^|\\s)${escapeRegExp(filterStr)}(?=\\s|$)`, "g");
+}
+
 function hasFilter(query: string, prefix: string, value: string): boolean {
-  return (
-    query.includes(`${prefix}:${value}`) ||
-    query.includes(`${prefix}:"${value}"`)
-  );
+  const unquoted = `${prefix}:${value}`;
+  const quoted = `${prefix}:"${value}"`;
+  return filterRegex(unquoted).test(query) || filterRegex(quoted).test(query);
+}
+
+function removeFilter(query: string, filterStr: string): string {
+  return collapseWhitespace(query.replace(filterRegex(filterStr), " "));
 }
 
 function toggleFilter(query: string, prefix: string, value: string): string {
@@ -69,8 +82,7 @@ function toggleFilter(query: string, prefix: string, value: string): string {
   const filterStr = needsQuotes ? `${prefix}:"${value}"` : `${prefix}:${value}`;
 
   if (hasFilter(query, prefix, value)) {
-    const removed = query.replace(filterStr, "");
-    return collapseWhitespace(removed);
+    return removeFilter(query, filterStr);
   }
 
   return query ? `${query} ${filterStr}` : filterStr;
@@ -104,9 +116,8 @@ export function BrowseFilters({
         const filterStr = needsQuotes
           ? `deck:"${deck.name}"`
           : `deck:${deck.name}`;
-        cleaned = cleaned.replace(filterStr, "");
+        cleaned = removeFilter(cleaned, filterStr);
       }
-      cleaned = collapseWhitespace(cleaned);
 
       if (deckName === "__all__") {
         onSearchChange(cleaned);
@@ -144,10 +155,9 @@ export function BrowseFilters({
           const filterStr = needsQuotes
             ? `notetype:"${name}"`
             : `notetype:${name}`;
-          cleaned = cleaned.replace(filterStr, "");
+          cleaned = removeFilter(cleaned, filterStr);
         }
       }
-      cleaned = collapseWhitespace(cleaned);
 
       if (noteTypeName === "__all__") {
         onSearchChange(cleaned);
