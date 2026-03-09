@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "../../lib/auth-middleware";
 import { BrowseService } from "../../lib/services/browse-service";
+import { NoteService } from "../../lib/services/note-service";
+import { CardService } from "../../lib/services/card-service";
+import { MediaService } from "../../lib/services/media-service";
+import { extractMediaFilenames } from "../../lib/services/import-service";
 import { db } from "../../db";
 import type { SearchOptions } from "../../lib/services/browse-service";
 
 const browseService = new BrowseService(db);
+const noteService = new NoteService(db);
+const cardService = new CardService(db);
 
 export const Route = createFileRoute("/api/browse")({
   server: {
@@ -55,6 +61,43 @@ export const Route = createFileRoute("/api/browse")({
         });
 
         return Response.json(result);
+      },
+      PATCH: async ({ request }) => {
+        const session = await requireSession(request);
+        const body = (await request.json()) as {
+          cardId: string;
+          fields?: Record<string, string>;
+          deckId?: string;
+        };
+
+        const { cardId, fields, deckId } = body;
+        if (!cardId) {
+          return Response.json(
+            { error: "cardId is required" },
+            { status: 400 },
+          );
+        }
+
+        // Get the card detail to find the noteId
+        const detail = browseService.getCardDetail(session.user.id, cardId);
+        if (!detail) {
+          return Response.json({ error: "Card not found" }, { status: 404 });
+        }
+
+        // Update note fields
+        if (fields) {
+          noteService.update(detail.note.id, session.user.id, { fields });
+          const mediaService = new MediaService(db);
+          const filenames = extractMediaFilenames(fields);
+          mediaService.reconcileNoteReferences(detail.note.id, filenames);
+        }
+
+        // Move card to different deck
+        if (deckId && deckId !== detail.card.deckId) {
+          cardService.moveToDeck([cardId], deckId, session.user.id);
+        }
+
+        return Response.json({ success: true });
       },
     },
   },
