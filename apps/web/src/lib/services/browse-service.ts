@@ -77,6 +77,9 @@ function nodeToCondition(node: SearchNode): SQL | undefined {
         like(notes.tags, `% ${node.value} %`),
       );
 
+    case "notetype":
+      return eq(noteTypes.name, node.value);
+
     case "state":
       return stateToCondition(node.value);
 
@@ -171,6 +174,7 @@ export class BrowseService {
       .from(notes)
       .innerJoin(cards, eq(cards.noteId, notes.id))
       .innerJoin(decks, eq(cards.deckId, decks.id))
+      .innerJoin(noteTypes, eq(notes.noteTypeId, noteTypes.id))
       .where(conditions)
       .get();
 
@@ -181,6 +185,7 @@ export class BrowseService {
       .from(notes)
       .innerJoin(cards, eq(cards.noteId, notes.id))
       .innerJoin(decks, eq(cards.deckId, decks.id))
+      .innerJoin(noteTypes, eq(notes.noteTypeId, noteTypes.id))
       .where(conditions)
       .limit(limit)
       .offset(offset)

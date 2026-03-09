@@ -1,5 +1,6 @@
 export type DeckNode = { type: "deck"; value: string };
 export type TagNode = { type: "tag"; value: string };
+export type NoteTypeNode = { type: "notetype"; value: string };
 export type StateNode = { type: "state"; value: "due" | "new" | "review" };
 export type TextNode = { type: "text"; value: string };
 export type NegateNode = { type: "negate"; child: SearchNode };
@@ -9,6 +10,7 @@ export type OrNode = { type: "or"; children: SearchNode[] };
 export type SearchNode =
   | DeckNode
   | TagNode
+  | NoteTypeNode
   | StateNode
   | TextNode
   | NegateNode
@@ -151,12 +153,14 @@ function tokenize(query: string): Token[] {
 function filterToNode(
   prefix: string,
   value: string,
-): DeckNode | TagNode | StateNode | TextNode {
+): DeckNode | TagNode | NoteTypeNode | StateNode | TextNode {
   switch (prefix) {
     case "deck":
       return { type: "deck", value };
     case "tag":
       return { type: "tag", value };
+    case "notetype":
+      return { type: "notetype", value };
     case "is":
       return { type: "state", value: value as "due" | "new" | "review" };
     default:
