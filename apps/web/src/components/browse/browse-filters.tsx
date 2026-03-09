@@ -7,7 +7,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { useDecks } from "@/lib/hooks/use-decks";
 import { useNoteTypes } from "@/lib/hooks/use-note-types";
@@ -179,12 +178,16 @@ export function BrowseFilters({
     [searchQuery, onSearchChange],
   );
 
+  const deckLabel = currentDeck === "__all__" ? "All Decks" : currentDeck;
+  const noteTypeLabel =
+    currentNoteType === "__all__" ? "All Types" : currentNoteType;
+
   return (
     <div className="flex flex-wrap items-center gap-2 pt-3">
       {/* Deck select */}
       <Select value={currentDeck} onValueChange={handleDeckChange}>
-        <SelectTrigger className="h-8 w-[160px] text-xs">
-          <SelectValue placeholder="All Decks" />
+        <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
+          <span className="truncate">{deckLabel}</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">All Decks</SelectItem>
@@ -198,8 +201,8 @@ export function BrowseFilters({
 
       {/* Note Type select */}
       <Select value={currentNoteType} onValueChange={handleNoteTypeChange}>
-        <SelectTrigger className="h-8 w-[160px] text-xs">
-          <SelectValue placeholder="All Types" />
+        <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
+          <span className="truncate">{noteTypeLabel}</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">All Types</SelectItem>
@@ -211,13 +214,18 @@ export function BrowseFilters({
         </SelectContent>
       </Select>
 
+      {/* Separator */}
+      {(flatDecks.length > 0 || noteTypesData) && (
+        <div className="mx-0.5 h-5 w-px bg-border" />
+      )}
+
       {/* State toggle buttons */}
       {["new", "review", "due"].map((state) => (
         <Button
           key={state}
           variant={hasFilter(searchQuery, "is", state) ? "default" : "outline"}
           size="sm"
-          className="h-8 text-xs capitalize"
+          className="h-7 px-2.5 text-xs capitalize"
           onClick={() => handleStateToggle(state)}
         >
           {state}
@@ -225,6 +233,7 @@ export function BrowseFilters({
       ))}
 
       {/* Tag badges */}
+      {tags.length > 0 && <div className="mx-0.5 h-5 w-px bg-border" />}
       {tags.map((tag) => (
         <Badge
           key={tag}
