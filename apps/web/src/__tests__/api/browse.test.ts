@@ -296,6 +296,48 @@ describe("BrowseService", () => {
       expect(note.updatedAt).toBeDefined();
     });
 
+    it("filters by note type name", () => {
+      // Create a second note type
+      const noteType2Id = generateId();
+      db.insert(noteTypes)
+        .values({
+          id: noteType2Id,
+          userId,
+          name: "Cloze",
+          fields: [{ name: "Text", ordinal: 0 }],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+      const template2Id = generateId();
+      db.insert(cardTemplates)
+        .values({
+          id: template2Id,
+          noteTypeId: noteType2Id,
+          name: "Cloze Card",
+          ordinal: 0,
+          questionTemplate: "{{cloze:Text}}",
+          answerTemplate: "{{cloze:Text}}",
+        })
+        .run();
+
+      noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Basic note", Back: "Answer" },
+      });
+      noteService.create(userId, {
+        noteTypeId: noteType2Id,
+        deckId,
+        fields: { Text: "Cloze note" },
+      });
+
+      const result = browseService.search(userId, "notetype:Basic");
+
+      expect(result.notes).toHaveLength(1);
+      expect(result.notes[0].noteTypeName).toBe("Basic");
+    });
+
     it("aggregates multiple cards per note (multi-template note type)", async () => {
       // Create a note type with 2 templates
       const multiNoteTypeId = generateId();
