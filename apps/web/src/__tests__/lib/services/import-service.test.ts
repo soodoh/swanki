@@ -3,9 +3,9 @@ import { createTestDb } from "../../test-utils";
 import {
   rewriteMediaUrls,
   extractMediaFilenames,
-  computeFieldsHash,
   ImportService,
 } from "@/lib/services/import-service";
+import { NoteService } from "@/lib/services/note-service";
 import { noteMedia, notes, media, decks, noteTypes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -277,26 +277,6 @@ describe("importFromApkg merge mode", () => {
   });
 });
 
-describe("computeFieldsHash", () => {
-  it("should produce consistent hashes for the same fields", () => {
-    const hash1 = computeFieldsHash(["Front", "Back"]);
-    const hash2 = computeFieldsHash(["Front", "Back"]);
-    expect(hash1).toBe(hash2);
-  });
-
-  it("should produce different hashes for different fields", () => {
-    const hash1 = computeFieldsHash(["Front", "Back"]);
-    const hash2 = computeFieldsHash(["Front", "Back Updated"]);
-    expect(hash1).not.toBe(hash2);
-  });
-
-  it("should distinguish field order", () => {
-    const hash1 = computeFieldsHash(["A", "B"]);
-    const hash2 = computeFieldsHash(["B", "A"]);
-    expect(hash1).not.toBe(hash2);
-  });
-});
-
 describe("importFromApkg merge update-on-change", () => {
   it("should update notes when fields have changed", () => {
     const db = createTestDb();
@@ -401,31 +381,55 @@ describe("importFromApkg merge update-on-change", () => {
     });
   });
 
-  it("should treat pre-migration notes (null hash) as changed on first re-import", () => {
+  it("should overwrite locally-edited notes on re-import", () => {
     const db = createTestDb();
-    const service = new ImportService(db);
+    const importService = new ImportService(db);
+    const noteService = new NoteService(db);
 
-    // Simulate a pre-migration note (no ankiFieldsHash)
-    const data1 = makeApkgData({
+    // Step 1: Import an APKG with merge mode
+    const data = makeApkgData({
       noteGuids: ["guid-1"],
-      noteFields: [["Front 1", "Back 1"]],
+      noteFields: [["Original Front", "Original Back"]],
     });
-    service.importFromApkg("user-1", data1, undefined, true);
+    importService.importFromApkg("user-1", data, undefined, true);
 
-    // Manually null out the hash to simulate pre-migration state
-    db.update(notes).set({ ankiFieldsHash: null }).run();
+    // Step 2: Edit the note locally via NoteService
+    const allNotes = db.select().from(notes).all();
+    expect(allNotes).toHaveLength(1);
+    noteService.update(allNotes[0].id, "user-1", {
+      fields: { Front: "Locally Edited Front", Back: "Locally Edited Back" },
+    });
 
-    // Re-import with same fields — should still update (hash mismatch with null)
-    const result = service.importFromApkg("user-1", data1, undefined, true);
+    const editedNote = db.select().from(notes).all()[0];
+    expect(editedNote.fields).toStrictEqual({
+      Front: "Locally Edited Front",
+      Back: "Locally Edited Back",
+    });
+
+    // Step 3: Re-import the same APKG — should detect field divergence and update
+    const result = importService.importFromApkg(
+      "user-1",
+      data,
+      undefined,
+      true,
+    );
     expect(result.notesUpdated).toBe(1);
     expect(result.duplicatesSkipped).toBe(0);
 
-    // After update, hash should be populated
-    const allNotes = db.select().from(notes).all();
-    expect(allNotes[0].ankiFieldsHash).toBeTruthy();
+    // Step 4: Verify fields are restored to APKG values
+    const restoredNote = db.select().from(notes).all()[0];
+    expect(restoredNote.fields).toStrictEqual({
+      Front: "Original Front",
+      Back: "Original Back",
+    });
 
-    // Third import should now skip (hashes match)
-    const result2 = service.importFromApkg("user-1", data1, undefined, true);
+    // Step 5: Re-importing again should now skip (fields match)
+    const result2 = importService.importFromApkg(
+      "user-1",
+      data,
+      undefined,
+      true,
+    );
     expect(result2.notesUpdated).toBe(0);
     expect(result2.duplicatesSkipped).toBe(1);
   });

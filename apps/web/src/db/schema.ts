@@ -80,7 +80,6 @@ export const notes = sqliteTable(
       .notNull(),
     tags: text("tags").default(""),
     ankiGuid: text("anki_guid"),
-    ankiFieldsHash: text("anki_fields_hash"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

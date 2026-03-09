@@ -36,6 +36,13 @@
       "when": 1773016796119,
       "tag": "0004_groovy_spyke",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1773018824422,
+      "tag": "0005_open_leper_queen",
+      "breakpoints": true
     }
   ]
 }
