@@ -54,7 +54,7 @@ export function SearchBar({
           value={localValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder="Search cards... (e.g., deck:Japanese tag:verb is:new)"
+          placeholder="Search notes... (e.g., deck:Japanese tag:verb is:new)"
           className="pl-9"
         />
       </div>
