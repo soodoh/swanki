@@ -1,54 +1,29 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 
-export type BrowseCard = {
-  id: string;
+export type BrowseNote = {
   noteId: string;
+  noteTypeId: string;
+  noteTypeName: string;
+  fields: Record<string, string>;
+  tags: string;
+  deckName: string;
   deckId: string;
-  templateId: string;
-  ordinal: number;
-  due: string;
-  stability: number | undefined;
-  difficulty: number | undefined;
-  elapsedDays: number | undefined;
-  scheduledDays: number | undefined;
-  reps: number | undefined;
-  lapses: number | undefined;
-  state: number | undefined;
-  lastReview: string | undefined;
+  cardCount: number;
+  earliestDue: string | undefined;
+  states: number[];
   createdAt: string;
   updatedAt: string;
-  noteFields: Record<string, string>;
-  noteTags: string;
-  deckName: string;
 };
 
 export type BrowseSearchResult = {
-  cards: BrowseCard[];
+  notes: BrowseNote[];
   total: number;
   page: number;
   limit: number;
 };
 
-export type CardDetail = {
-  card: {
-    id: string;
-    noteId: string;
-    deckId: string;
-    templateId: string;
-    ordinal: number;
-    due: string;
-    stability: number | undefined;
-    difficulty: number | undefined;
-    elapsedDays: number | undefined;
-    scheduledDays: number | undefined;
-    reps: number | undefined;
-    lapses: number | undefined;
-    state: number | undefined;
-    lastReview: string | undefined;
-    createdAt: string;
-    updatedAt: string;
-  };
+export type NoteDetail = {
   note: {
     id: string;
     userId: string;
@@ -62,6 +37,7 @@ export type CardDetail = {
     id: string;
     name: string;
     fields: string;
+    css: string;
   };
   templates: Array<{
     id: string;
@@ -69,17 +45,8 @@ export type CardDetail = {
     questionTemplate: string;
     answerTemplate: string;
   }>;
-  recentReviews: Array<{
-    id: string;
-    cardId: string;
-    rating: number;
-    state: number;
-    reviewedAt: string;
-    elapsedDays: number | undefined;
-    scheduledDays: number | undefined;
-    timeTakenMs: number | undefined;
-  }>;
   deckName: string;
+  deckId: string;
 };
 
 export type BrowseOptions = {
@@ -121,32 +88,32 @@ export function useBrowse(
   });
 }
 
-export function useCardDetail(
-  cardId: string | undefined,
-): UseQueryResult<CardDetail> {
-  return useQuery<CardDetail>({
-    queryKey: ["card-detail", cardId],
+export function useNoteDetail(
+  noteId: string | undefined,
+): UseQueryResult<NoteDetail> {
+  return useQuery<NoteDetail>({
+    queryKey: ["note-detail", noteId],
     queryFn: async () => {
-      const res = await fetch(`/api/browse?cardId=${cardId}`);
+      const res = await fetch(`/api/browse?noteId=${noteId}`);
       if (!res.ok) {
-        throw new Error("Failed to fetch card detail");
+        throw new Error("Failed to fetch note detail");
       }
-      return res.json() as Promise<CardDetail>;
+      return res.json() as Promise<NoteDetail>;
     },
-    enabled: Boolean(cardId),
+    enabled: Boolean(noteId),
   });
 }
 
-export function useUpdateCard(): UseMutationResult<
+export function useUpdateNote(): UseMutationResult<
   unknown,
   Error,
-  { cardId: string; fields?: Record<string, string>; deckId?: string }
+  { noteId: string; fields?: Record<string, string>; deckId?: string }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: {
-      cardId: string;
+      noteId: string;
       fields?: Record<string, string>;
       deckId?: string;
     }) => {
@@ -156,15 +123,36 @@ export function useUpdateCard(): UseMutationResult<
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        throw new Error("Failed to update card");
+        throw new Error("Failed to update note");
       }
       return res.json() as Promise<unknown>;
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["browse"] });
       void queryClient.invalidateQueries({
-        queryKey: ["card-detail", variables.cardId],
+        queryKey: ["note-detail", variables.noteId],
       });
+    },
+  });
+}
+
+export function useDeleteNote(): UseMutationResult<unknown, Error, string> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (noteId: string) => {
+      const res = await fetch("/api/browse", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteId }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete note");
+      }
+      return res.json() as Promise<unknown>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["browse"] });
     },
   });
 }

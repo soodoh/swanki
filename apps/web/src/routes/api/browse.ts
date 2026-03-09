@@ -43,16 +43,6 @@ export const Route = createFileRoute("/api/browse")({
           );
         }
 
-        // Check for card detail request
-        const cardId = url.searchParams.get("cardId");
-        if (cardId) {
-          const detail = browseService.getCardDetail(session.user.id, cardId);
-          if (!detail) {
-            return Response.json({ error: "Card not found" }, { status: 404 });
-          }
-          return Response.json(detail);
-        }
-
         const result = browseService.search(session.user.id, q, {
           page,
           limit,
@@ -65,38 +55,50 @@ export const Route = createFileRoute("/api/browse")({
       PATCH: async ({ request }) => {
         const session = await requireSession(request);
         const body = (await request.json()) as {
-          cardId: string;
+          noteId: string;
           fields?: Record<string, string>;
           deckId?: string;
         };
 
-        const { cardId, fields, deckId } = body;
-        if (!cardId) {
+        const { noteId, fields, deckId } = body;
+        if (!noteId) {
           return Response.json(
-            { error: "cardId is required" },
+            { error: "noteId is required" },
             { status: 400 },
           );
         }
 
-        // Get the card detail to find the noteId
-        const detail = browseService.getCardDetail(session.user.id, cardId);
-        if (!detail) {
-          return Response.json({ error: "Card not found" }, { status: 404 });
+        // Verify ownership using NoteService.getById
+        const noteData = noteService.getById(noteId, session.user.id);
+        if (!noteData) {
+          return Response.json({ error: "Note not found" }, { status: 404 });
         }
 
-        // Update note fields
         if (fields) {
-          noteService.update(detail.note.id, session.user.id, { fields });
+          noteService.update(noteId, session.user.id, { fields });
           const mediaService = new MediaService(db);
           const filenames = extractMediaFilenames(fields);
-          mediaService.reconcileNoteReferences(detail.note.id, filenames);
+          mediaService.reconcileNoteReferences(noteId, filenames);
         }
 
-        // Move card to different deck
-        if (deckId && deckId !== detail.card.deckId) {
-          cardService.moveToDeck([cardId], deckId, session.user.id);
+        if (deckId) {
+          // Move ALL cards of this note to the new deck
+          const cardIds = noteData.cards.map((c) => c.id);
+          cardService.moveToDeck(cardIds, deckId, session.user.id);
         }
 
+        return Response.json({ success: true });
+      },
+      DELETE: async ({ request }) => {
+        const session = await requireSession(request);
+        const body = (await request.json()) as { noteId: string };
+        if (!body.noteId) {
+          return Response.json(
+            { error: "noteId is required" },
+            { status: 400 },
+          );
+        }
+        noteService.delete(body.noteId, session.user.id);
         return Response.json({ success: true });
       },
     },
