@@ -45,7 +45,7 @@ export function NoteTypeEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="flex h-[85vh] flex-col overflow-hidden sm:max-w-4xl">
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <p className="text-sm text-muted-foreground">
@@ -101,7 +101,7 @@ function NoteTypeEditorContent({
         />
       </div>
 
-      <Tabs defaultValue="fields">
+      <Tabs defaultValue="fields" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
           <TabsTrigger value="fields">Fields</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
@@ -109,7 +109,7 @@ function NoteTypeEditorContent({
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="fields" className="mt-4">
+        <TabsContent value="fields" className="mt-4 overflow-y-auto">
           <FieldsTab
             fields={noteType.fields}
             noteTypeId={noteType.id}
@@ -117,11 +117,11 @@ function NoteTypeEditorContent({
           />
         </TabsContent>
 
-        <TabsContent value="templates" className="mt-4">
+        <TabsContent value="templates" className="mt-4 overflow-y-auto">
           <TemplatesTab templates={templates} noteTypeId={noteType.id} />
         </TabsContent>
 
-        <TabsContent value="css" className="mt-4">
+        <TabsContent value="css" className="mt-4 overflow-y-auto">
           <CssTab
             css={noteType.css ?? ""}
             noteTypeId={noteType.id}
@@ -129,7 +129,7 @@ function NoteTypeEditorContent({
           />
         </TabsContent>
 
-        <TabsContent value="preview" className="mt-4">
+        <TabsContent value="preview" className="mt-4 overflow-y-auto">
           <PreviewTab
             fields={noteType.fields}
             templates={templates}
