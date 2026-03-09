@@ -520,25 +520,7 @@ export class ImportService {
 
       // Track media references
       if (mediaMapping) {
-        const mediaFilenames = extractMediaFilenames(noteFields);
-        for (const filename of mediaFilenames) {
-          const mediaRecord = this.db
-            .select()
-            .from(media)
-            .where(eq(media.filename, filename))
-            .get();
-          if (mediaRecord) {
-            this.db
-              .insert(noteMedia)
-              .values({
-                id: generateId(),
-                noteId,
-                mediaId: mediaRecord.id,
-              })
-              .onConflictDoNothing()
-              .run();
-          }
-        }
+        this.linkNoteMedia(noteId, noteFields);
       }
 
       noteCount += 1;
@@ -593,5 +575,30 @@ export class ImportService {
       noteCount,
       cardCount,
     };
+  }
+
+  private linkNoteMedia(
+    noteId: string,
+    noteFields: Record<string, string>,
+  ): void {
+    const mediaFilenames = extractMediaFilenames(noteFields);
+    for (const filename of mediaFilenames) {
+      const mediaRecord = this.db
+        .select()
+        .from(media)
+        .where(eq(media.filename, filename))
+        .get();
+      if (mediaRecord) {
+        this.db
+          .insert(noteMedia)
+          .values({
+            id: generateId(),
+            noteId,
+            mediaId: mediaRecord.id,
+          })
+          .onConflictDoNothing()
+          .run();
+      }
+    }
   }
 }

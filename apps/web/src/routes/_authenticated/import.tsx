@@ -9,6 +9,7 @@ import type { ImportConfig } from "@/components/import/configure-step";
 import { PreviewStep } from "@/components/import/preview-step";
 import { ProgressStep } from "@/components/import/progress-step";
 import type { ImportProgress } from "@/components/import/progress-step";
+import type { ApkgPreviewData } from "@/routes/api/import/preview";
 
 export const Route = createFileRoute("/_authenticated/import")({
   component: ImportPage,
@@ -42,10 +43,81 @@ type WizardState = {
   config: ImportConfig;
   csvData: { headers: string[]; rows: string[][] } | undefined;
   importProgress: ImportProgress;
+  apkgPreview: ApkgPreviewData | undefined;
+  previewLoading: boolean;
+  previewError: string | undefined;
 };
+
+function stepperClass(index: number, currentStep: number): string {
+  if (index < currentStep) {
+    return "border-primary bg-primary text-primary-foreground";
+  }
+  if (index === currentStep) {
+    return "border-primary bg-background text-primary";
+  }
+  return "border-muted text-muted-foreground";
+}
+
+function Stepper({ currentStep }: { currentStep: number }): React.ReactElement {
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between">
+        {STEPS.map((step, index) => (
+          <div key={step.label} className="flex items-center">
+            <div className="flex flex-col items-center">
+              <div
+                className={`flex size-8 items-center justify-center rounded-full border-2 text-xs font-medium transition-colors ${stepperClass(index, currentStep)}`}
+              >
+                {index < currentStep ? (
+                  <svg
+                    className="size-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                ) : (
+                  index + 1
+                )}
+              </div>
+              <div className="mt-1.5 text-center">
+                <p
+                  className={`text-xs font-medium ${
+                    index <= currentStep
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {step.label}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            </div>
+            {index < STEPS.length - 1 && (
+              <div
+                className={`mx-2 mt-[-1.5rem] h-0.5 w-16 sm:w-24 ${
+                  index < currentStep ? "bg-primary" : "bg-muted"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 let cachedState: WizardState | undefined;
 
+// oxlint-disable-next-line eslint(complexity) -- wizard component with multiple steps inherently has high branching
 function ImportPage(): React.ReactElement {
   const [currentStep, setCurrentStep] = useState(cachedState?.currentStep ?? 0);
   const [file, setFile] = useState<File | undefined>(cachedState?.file);
@@ -60,6 +132,15 @@ function ImportPage(): React.ReactElement {
       }
     | undefined
   >(cachedState?.csvData);
+  const [apkgPreview, setApkgPreview] = useState<ApkgPreviewData | undefined>(
+    cachedState?.apkgPreview,
+  );
+  const [previewLoading, setPreviewLoading] = useState(
+    cachedState?.previewLoading ?? false,
+  );
+  const [previewError, setPreviewError] = useState<string | undefined>(
+    cachedState?.previewError,
+  );
   const [importProgress, setImportProgress] = useState<ImportProgress>(() => {
     if (!cachedState) {
       return { status: "idle", progress: 0 };
@@ -84,8 +165,21 @@ function ImportPage(): React.ReactElement {
       config,
       csvData,
       importProgress,
+      apkgPreview,
+      previewLoading,
+      previewError,
     };
-  }, [currentStep, file, detectedFormat, config, csvData, importProgress]);
+  }, [
+    currentStep,
+    file,
+    detectedFormat,
+    config,
+    csvData,
+    importProgress,
+    apkgPreview,
+    previewLoading,
+    previewError,
+  ]);
 
   // Parse CSV when file is selected and format is csv/txt
   useEffect(() => {
@@ -143,31 +237,31 @@ function ImportPage(): React.ReactElement {
   const totalCards = csvData?.rows.length ?? 0;
 
   const canProceed = useMemo(() => {
-    switch (currentStep) {
-      case 0:
-        return Boolean(file && detectedFormat);
-      case 1:
-        return true;
-      case 2:
-        return true;
-      case 3:
-        return importProgress.status === "complete";
-      default:
-        return false;
+    if (currentStep === 0) {
+      return Boolean(file && detectedFormat);
     }
+    if (currentStep === 3) {
+      return importProgress.status === "complete";
+    }
+    return true;
   }, [currentStep, file, detectedFormat, importProgress.status]);
 
+  const isApkgFormat = detectedFormat === "apkg" || detectedFormat === "colpkg";
+
   const handleNext = useCallback(() => {
-    if (currentStep < STEPS.length - 1) {
-      if (currentStep === 2) {
-        // Start import
-        void runImport();
-      } else {
-        setCurrentStep((prev) => prev + 1);
-      }
+    if (currentStep >= STEPS.length - 1) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runImport is a stable function using file state
-  }, [currentStep, file]);
+    if (currentStep === 2) {
+      void runImport();
+    } else if (currentStep === 1 && file && isApkgFormat) {
+      setCurrentStep(2);
+      void fetchApkgPreview(file);
+    } else {
+      setCurrentStep((prev) => prev + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runImport/fetchApkgPreview are stable functions using file state
+  }, [currentStep, file, isApkgFormat]);
 
   const handleBack = useCallback(() => {
     if (currentStep > 0) {
@@ -183,7 +277,39 @@ function ImportPage(): React.ReactElement {
     setDetectedFormat(undefined);
     setConfig({});
     setCsvData(undefined);
+    setApkgPreview(undefined);
+    setPreviewLoading(false);
+    setPreviewError(undefined);
   }, []);
+
+  async function fetchApkgPreview(previewFile: File): Promise<void> {
+    setPreviewLoading(true);
+    setPreviewError(undefined);
+    setApkgPreview(undefined);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", previewFile);
+
+      const res = await fetch("/api/import/preview", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = (await res.json()) as { error?: string };
+        throw new Error(errData.error ?? "Preview failed");
+      }
+
+      const data = (await res.json()) as ApkgPreviewData;
+      setApkgPreview(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Preview failed";
+      setPreviewError(message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   async function runImport(): Promise<void> {
     if (!file) {
@@ -199,7 +325,7 @@ function ImportPage(): React.ReactElement {
 
       setImportProgress({ status: "processing", progress: 50 });
 
-      const res = await fetch("/api/import", {
+      const res = await fetch("/api/import/", {
         method: "POST",
         body: formData,
       });
@@ -215,6 +341,7 @@ function ImportPage(): React.ReactElement {
         deckCount?: number;
         deckId?: string;
         mediaWarnings?: string[];
+        mediaCount?: number;
       };
 
       setImportProgress({
@@ -226,6 +353,7 @@ function ImportPage(): React.ReactElement {
           deckCount: result.deckCount,
           duplicatesSkipped: 0,
           errors: result.mediaWarnings ?? [],
+          mediaCount: result.mediaCount,
         },
       });
     } catch (error) {
@@ -240,67 +368,7 @@ function ImportPage(): React.ReactElement {
 
   return (
     <div className="mx-auto max-w-2xl py-6">
-      {/* Stepper */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          {STEPS.map((step, index) => (
-            <div key={step.label} className="flex items-center">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`flex size-8 items-center justify-center rounded-full border-2 text-xs font-medium transition-colors ${(() => {
-                    if (index < currentStep) {
-                      return "border-primary bg-primary text-primary-foreground";
-                    }
-                    if (index === currentStep) {
-                      return "border-primary bg-background text-primary";
-                    }
-                    return "border-muted text-muted-foreground";
-                  })()}`}
-                >
-                  {index < currentStep ? (
-                    <svg
-                      className="size-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  ) : (
-                    index + 1
-                  )}
-                </div>
-                <div className="mt-1.5 text-center">
-                  <p
-                    className={`text-xs font-medium ${
-                      index <= currentStep
-                        ? "text-foreground"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {step.label}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {step.description}
-                  </p>
-                </div>
-              </div>
-              {index < STEPS.length - 1 && (
-                <div
-                  className={`mx-2 mt-[-1.5rem] h-0.5 w-16 sm:w-24 ${
-                    index < currentStep ? "bg-primary" : "bg-muted"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <Stepper currentStep={currentStep} />
 
       {/* Step content */}
       <div className="min-h-[300px]">
@@ -331,6 +399,9 @@ function ImportPage(): React.ReactElement {
             sampleCards={sampleCards}
             totalCards={totalCards}
             duplicateCount={0}
+            apkgPreview={apkgPreview}
+            previewLoading={previewLoading}
+            previewError={previewError}
           />
         )}
 

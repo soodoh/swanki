@@ -194,7 +194,7 @@ export class MediaService {
       mapping.set(entry.filename, `/api/media/${filename}`);
     }
 
-    return { mapping, warnings };
+    return { mapping, warnings, mediaCount: mapping.size };
   }
 
   getByFilename(
