@@ -1,10 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { eq } from "drizzle-orm";
 import { requireSession } from "../../../lib/auth-middleware";
-import {
-  detectFormat,
-  computeFieldsHash,
-} from "../../../lib/services/import-service";
+import { detectFormat } from "../../../lib/services/import-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
 import { db } from "../../../db";
@@ -123,18 +120,23 @@ export const Route = createFileRoute("/api/import/preview")({
             const existingNotes = db
               .select({
                 ankiGuid: notes.ankiGuid,
-                ankiFieldsHash: notes.ankiFieldsHash,
+                fields: notes.fields,
               })
               .from(notes)
               .where(eq(notes.userId, userId))
               .all();
 
-            const existingMap = new Map<string, string | undefined>();
+            const existingMap = new Map<string, Record<string, string>>();
             for (const n of existingNotes) {
               if (n.ankiGuid) {
-                existingMap.set(n.ankiGuid, n.ankiFieldsHash ?? undefined);
+                existingMap.set(n.ankiGuid, n.fields);
               }
             }
+
+            // Build a lookup for note types by id
+            const noteTypeById = new Map(
+              apkgData.noteTypes.map((nt) => [nt.id, nt]),
+            );
 
             let newNotes = 0;
             let updatedNotes = 0;
@@ -143,9 +145,27 @@ export const Route = createFileRoute("/api/import/preview")({
               if (!ankiNote.guid || !existingMap.has(ankiNote.guid)) {
                 newNotes += 1;
               } else {
-                const existingHash = existingMap.get(ankiNote.guid);
-                const incomingHash = computeFieldsHash(ankiNote.fields);
-                if (existingHash === incomingHash) {
+                // Build incoming field dict (without media rewriting — preview
+                // doesn't have the mapping, so notes with media may show as
+                // "updated" even if unchanged)
+                const nt = noteTypeById.get(ankiNote.modelId);
+                const incomingFields: Record<string, string> = {};
+                if (nt) {
+                  for (const field of nt.fields) {
+                    incomingFields[field.name] =
+                      ankiNote.fields[field.ordinal] ?? "";
+                  }
+                }
+
+                const storedFields = existingMap.get(ankiNote.guid)!;
+                const keysMatch =
+                  Object.keys(storedFields).length ===
+                    Object.keys(incomingFields).length &&
+                  Object.keys(storedFields).every(
+                    (k) => storedFields[k] === incomingFields[k],
+                  );
+
+                if (keysMatch) {
                   unchangedNotes += 1;
                 } else {
                   updatedNotes += 1;

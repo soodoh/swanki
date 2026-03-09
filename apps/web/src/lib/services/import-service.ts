@@ -34,13 +34,14 @@ export type ImportResult = {
   notesUpdated?: number;
 };
 
-export function computeFieldsHash(fields: string[]): string {
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment),typescript-eslint(no-unsafe-call),typescript-eslint(no-unsafe-member-access) -- Bun.CryptoHasher types not recognized by oxlint
-  const hasher = new Bun.CryptoHasher("sha256");
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-call),typescript-eslint(no-unsafe-member-access) -- Bun runtime API
-  hasher.update(fields.join("\u001F"));
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-call),typescript-eslint(no-unsafe-member-access) -- Bun runtime API
-  return hasher.digest("hex") as string;
+function fieldsEqual(
+  a: Record<string, string>,
+  b: Record<string, string>,
+): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((key) => a[key] === b[key]);
 }
 
 const FORMAT_MAP: Record<string, ImportFormat> = {
@@ -545,8 +546,27 @@ export class ImportService {
           )
           .get();
         if (existing) {
-          const incomingHash = computeFieldsHash(ankiNote.fields);
-          if (existing.ankiFieldsHash === incomingHash) {
+          // Build the incoming field dict with media URLs rewritten
+          const ankiNoteType = data.noteTypes.find(
+            (nt) => nt.id === ankiNote.modelId,
+          );
+          const incomingFields: Record<string, string> = {};
+          if (ankiNoteType) {
+            for (const field of ankiNoteType.fields) {
+              incomingFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
+            }
+          }
+          if (mediaMapping) {
+            for (const fieldName of Object.keys(incomingFields)) {
+              incomingFields[fieldName] = rewriteMediaUrls(
+                incomingFields[fieldName],
+                mediaMapping,
+              );
+            }
+          }
+
+          // Compare rewritten fields directly against stored fields
+          if (fieldsEqual(existing.fields, incomingFields)) {
             // Unchanged — skip
             skippedNoteIds.add(ankiNote.id);
             duplicatesSkipped += 1;
@@ -554,30 +574,11 @@ export class ImportService {
           }
 
           // Changed — update existing note
-          const ankiNoteType = data.noteTypes.find(
-            (nt) => nt.id === ankiNote.modelId,
-          );
-          const updatedFields: Record<string, string> = {};
-          if (ankiNoteType) {
-            for (const field of ankiNoteType.fields) {
-              updatedFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
-            }
-          }
-          if (mediaMapping) {
-            for (const fieldName of Object.keys(updatedFields)) {
-              updatedFields[fieldName] = rewriteMediaUrls(
-                updatedFields[fieldName],
-                mediaMapping,
-              );
-            }
-          }
-
           this.db
             .update(notes)
             .set({
-              fields: updatedFields,
+              fields: incomingFields,
               tags: ankiNote.tags.trim(),
-              ankiFieldsHash: incomingHash,
               updatedAt: now,
             })
             .where(eq(notes.id, existing.id))
@@ -589,7 +590,7 @@ export class ImportService {
               .delete(noteMedia)
               .where(eq(noteMedia.noteId, existing.id))
               .run();
-            this.linkNoteMedia(existing.id, updatedFields);
+            this.linkNoteMedia(existing.id, incomingFields);
           }
 
           // Map anki note ID to existing DB note ID (cards already exist)
@@ -633,7 +634,6 @@ export class ImportService {
           fields: noteFields,
           tags: ankiNote.tags.trim(),
           ankiGuid: ankiNote.guid || undefined,
-          ankiFieldsHash: computeFieldsHash(ankiNote.fields),
           createdAt: now,
           updatedAt: now,
         })
