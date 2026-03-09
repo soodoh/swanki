@@ -209,7 +209,7 @@ export function NoteEditorDialog({
                   <Button
                     size="sm"
                     className="w-full"
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                     disabled={updateNote.isPending}
                   >
                     <Save className="size-3.5" data-icon="inline-start" />
@@ -218,43 +218,60 @@ export function NoteEditorDialog({
                 </div>
               </TabsContent>
 
-              {noteTypeData && (
-                <>
-                  <TabsContent value="fields" className="mt-4 overflow-y-auto">
-                    <FieldsTab
-                      fields={noteTypeData.noteType.fields}
-                      noteTypeId={noteTypeData.noteType.id}
-                      onSave={updateNoteType}
-                    />
-                  </TabsContent>
+              <TabsContent value="fields" className="mt-4 overflow-y-auto">
+                {noteTypeData ? (
+                  <FieldsTab
+                    fields={noteTypeData.noteType.fields}
+                    noteTypeId={noteTypeData.noteType.id}
+                    onSave={updateNoteType}
+                  />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Loading...
+                  </p>
+                )}
+              </TabsContent>
 
-                  <TabsContent
-                    value="templates"
-                    className="mt-4 overflow-y-auto"
-                  >
-                    <TemplatesTab
-                      templates={noteTypeData.templates}
-                      noteTypeId={noteTypeData.noteType.id}
-                    />
-                  </TabsContent>
+              <TabsContent value="templates" className="mt-4 overflow-y-auto">
+                {noteTypeData ? (
+                  <TemplatesTab
+                    templates={noteTypeData.templates}
+                    noteTypeId={noteTypeData.noteType.id}
+                  />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Loading...
+                  </p>
+                )}
+              </TabsContent>
 
-                  <TabsContent value="css" className="mt-4 overflow-y-auto">
-                    <CssTab
-                      css={noteTypeData.noteType.css ?? ""}
-                      noteTypeId={noteTypeData.noteType.id}
-                      onSave={updateNoteType}
-                    />
-                  </TabsContent>
+              <TabsContent value="css" className="mt-4 overflow-y-auto">
+                {noteTypeData ? (
+                  <CssTab
+                    css={noteTypeData.noteType.css ?? ""}
+                    noteTypeId={noteTypeData.noteType.id}
+                    onSave={updateNoteType}
+                  />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Loading...
+                  </p>
+                )}
+              </TabsContent>
 
-                  <TabsContent value="preview" className="mt-4 overflow-y-auto">
-                    <PreviewTab
-                      fields={noteTypeData.noteType.fields}
-                      templates={noteTypeData.templates}
-                      css={noteTypeData.noteType.css ?? ""}
-                    />
-                  </TabsContent>
-                </>
-              )}
+              <TabsContent value="preview" className="mt-4 overflow-y-auto">
+                {noteTypeData ? (
+                  <PreviewTab
+                    fields={noteTypeData.noteType.fields}
+                    templates={noteTypeData.templates}
+                    css={noteTypeData.noteType.css ?? ""}
+                  />
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Loading...
+                  </p>
+                )}
+              </TabsContent>
             </Tabs>
 
             {/* Footer with delete button */}
