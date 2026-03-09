@@ -176,16 +176,16 @@ export class BrowseService {
     const ast = parseSearchQuery(query);
     const conditions = buildWhereClause(ast, userId);
 
-    // Query 1: Get distinct note IDs matching all conditions, with pagination
+    // Query 1: Count distinct notes matching all conditions
     const countResult = this.db
-      .selectDistinct({ noteId: notes.id })
+      .select({ count: sql<number>`count(distinct ${notes.id})` })
       .from(notes)
       .innerJoin(cards, eq(cards.noteId, notes.id))
       .innerJoin(decks, eq(cards.deckId, decks.id))
       .where(conditions)
-      .all();
+      .get();
 
-    const total = countResult.length;
+    const total = countResult ? Number(countResult.count) : 0;
 
     const noteIdRows = this.db
       .selectDistinct({ noteId: notes.id })
@@ -211,8 +211,8 @@ export class BrowseService {
         noteTypeName: noteTypes.name,
         fields: notes.fields,
         tags: notes.tags,
-        deckName: decks.name,
-        deckId: decks.id,
+        deckName: sql<string>`min(${decks.name})`,
+        deckId: sql<string>`min(${decks.id})`,
         cardCount: sql<number>`count(${cards.id})`,
         earliestDue: sql<string>`min(${cards.due})`,
         states: sql<string>`group_concat(distinct ${cards.state})`,
