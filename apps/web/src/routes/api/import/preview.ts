@@ -80,6 +80,87 @@ function buildSampleNotes(
   return samples;
 }
 
+async function buildMediaMapping(
+  mediaEntries: Array<{ filename: string; data: Uint8Array }>,
+): Promise<Map<string, string>> {
+  const mapping = new Map<string, string>();
+  for (const entry of mediaEntries) {
+    if (entry.data.length === 0) {
+      continue;
+    }
+    const hashBuffer = await crypto.subtle.digest("SHA-256", entry.data);
+    const hashArray = [...new Uint8Array(hashBuffer)];
+    const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    const existing = db.select().from(media).where(eq(media.hash, hash)).get();
+    if (existing) {
+      mapping.set(entry.filename, `/api/media/${existing.filename}`);
+    }
+  }
+  return mapping;
+}
+
+function computeMergeStats(
+  apkgData: ReturnType<typeof parseApkg>,
+  userId: string,
+  mediaMapping: Map<string, string>,
+): NonNullable<ApkgPreviewData["mergeStats"]> {
+  const existingNotes = db
+    .select({
+      ankiGuid: notes.ankiGuid,
+      fields: notes.fields,
+    })
+    .from(notes)
+    .where(eq(notes.userId, userId))
+    .all();
+
+  const existingMap = new Map<string, Record<string, string>>();
+  for (const n of existingNotes) {
+    if (n.ankiGuid) {
+      existingMap.set(n.ankiGuid, n.fields);
+    }
+  }
+
+  const noteTypeById = new Map(apkgData.noteTypes.map((nt) => [nt.id, nt]));
+
+  let newNotes = 0;
+  let updatedNotes = 0;
+  let unchangedNotes = 0;
+  for (const ankiNote of apkgData.notes) {
+    if (!ankiNote.guid || !existingMap.has(ankiNote.guid)) {
+      newNotes += 1;
+    } else {
+      const nt = noteTypeById.get(ankiNote.modelId);
+      const incomingFields: Record<string, string> = {};
+      if (nt) {
+        for (const field of nt.fields) {
+          incomingFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
+        }
+      }
+      for (const key of Object.keys(incomingFields)) {
+        incomingFields[key] = rewriteMediaUrls(
+          incomingFields[key],
+          mediaMapping,
+        );
+      }
+
+      const storedFields = existingMap.get(ankiNote.guid)!;
+      const fieldsMatch =
+        Object.keys(storedFields).length ===
+          Object.keys(incomingFields).length &&
+        Object.keys(storedFields).every(
+          (k) => storedFields[k] === incomingFields[k],
+        );
+
+      if (fieldsMatch) {
+        unchangedNotes += 1;
+      } else {
+        updatedNotes += 1;
+      }
+    }
+  }
+  return { newNotes, updatedNotes, unchangedNotes };
+}
+
 export const Route = createFileRoute("/api/import/preview")({
   server: {
     handlers: {
@@ -120,89 +201,8 @@ export const Route = createFileRoute("/api/import/preview")({
 
           let mergeStats: ApkgPreviewData["mergeStats"];
           if (mergeMode === "merge") {
-            // Build media mapping by hashing APKG media and looking up existing records
-            const mediaMapping = new Map<string, string>();
-            for (const entry of apkgData.media) {
-              if (entry.data.length === 0) continue;
-              const hashBuffer = await crypto.subtle.digest(
-                "SHA-256",
-                entry.data,
-              );
-              const hashArray = [...new Uint8Array(hashBuffer)];
-              const hash = hashArray
-                .map((b) => b.toString(16).padStart(2, "0"))
-                .join("");
-              const existing = db
-                .select()
-                .from(media)
-                .where(eq(media.hash, hash))
-                .get();
-              if (existing) {
-                mediaMapping.set(
-                  entry.filename,
-                  `/api/media/${existing.filename}`,
-                );
-              }
-            }
-
-            const existingNotes = db
-              .select({
-                ankiGuid: notes.ankiGuid,
-                fields: notes.fields,
-              })
-              .from(notes)
-              .where(eq(notes.userId, userId))
-              .all();
-
-            const existingMap = new Map<string, Record<string, string>>();
-            for (const n of existingNotes) {
-              if (n.ankiGuid) {
-                existingMap.set(n.ankiGuid, n.fields);
-              }
-            }
-
-            const noteTypeById = new Map(
-              apkgData.noteTypes.map((nt) => [nt.id, nt]),
-            );
-
-            let newNotes = 0;
-            let updatedNotes = 0;
-            let unchangedNotes = 0;
-            for (const ankiNote of apkgData.notes) {
-              if (!ankiNote.guid || !existingMap.has(ankiNote.guid)) {
-                newNotes += 1;
-              } else {
-                const nt = noteTypeById.get(ankiNote.modelId);
-                const incomingFields: Record<string, string> = {};
-                if (nt) {
-                  for (const field of nt.fields) {
-                    incomingFields[field.name] =
-                      ankiNote.fields[field.ordinal] ?? "";
-                  }
-                }
-                for (const key of Object.keys(incomingFields)) {
-                  incomingFields[key] = rewriteMediaUrls(
-                    incomingFields[key],
-                    mediaMapping,
-                  );
-                }
-
-                const storedFields = existingMap.get(ankiNote.guid)!;
-                const fieldsMatch =
-                  Object.keys(storedFields).length ===
-                    Object.keys(incomingFields).length &&
-                  Object.keys(storedFields).every(
-                    (k) => storedFields[k] === incomingFields[k],
-                  );
-
-                if (fieldsMatch) {
-                  unchangedNotes += 1;
-                } else {
-                  updatedNotes += 1;
-                }
-              }
-            }
-            mergeStats = { newNotes, updatedNotes, unchangedNotes };
+            const mediaMapping = await buildMediaMapping(apkgData.media);
+            mergeStats = computeMergeStats(apkgData, userId, mediaMapping);
           }
 
           const preview: ApkgPreviewData = {
