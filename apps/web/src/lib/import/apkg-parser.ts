@@ -38,6 +38,7 @@ export type ApkgDeck = {
 
 export type ApkgNote = {
   id: number;
+  guid: string;
   modelId: number;
   fields: string[];
   tags: string;
@@ -72,7 +73,13 @@ export type ApkgData = {
 };
 
 type ColRow = { decks: string; models: string };
-type NoteRow = { id: number; mid: number; flds: string; tags: string };
+type NoteRow = {
+  id: number;
+  guid: string;
+  mid: number;
+  flds: string;
+  tags: string;
+};
 type CardRow = {
   id: number;
   nid: number;
@@ -542,10 +549,13 @@ function parseNoteTypeConfig(config: Uint8Array | undefined): { css: string } {
 }
 
 function readNotes(db: TypedDatabase): ApkgNote[] {
-  const rows = db.query<NoteRow>("SELECT id, mid, flds, tags FROM notes").all();
+  const rows = db
+    .query<NoteRow>("SELECT id, guid, mid, flds, tags FROM notes")
+    .all();
 
   return rows.map((row) => ({
     id: row.id,
+    guid: row.guid,
     modelId: row.mid,
     fields: row.flds.split("\u001F"),
     tags: row.tags,

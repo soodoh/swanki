@@ -79,6 +79,8 @@ export const notes = sqliteTable(
       .$type<Record<string, string>>()
       .notNull(),
     tags: text("tags").default(""),
+    ankiGuid: text("anki_guid"),
+    ankiFieldsHash: text("anki_fields_hash"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -89,6 +91,7 @@ export const notes = sqliteTable(
   (table) => [
     index("notes_user_id_idx").on(table.userId),
     index("notes_note_type_id_idx").on(table.noteTypeId),
+    index("notes_anki_guid_idx").on(table.userId, table.ankiGuid),
   ],
 );
 

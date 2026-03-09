@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
 import type * as schema from "../../db/schema";
@@ -30,7 +30,18 @@ export type ImportResult = {
   deckCount?: number;
   noteCount: number;
   cardCount: number;
+  duplicatesSkipped?: number;
+  notesUpdated?: number;
 };
+
+export function computeFieldsHash(fields: string[]): string {
+  // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment),typescript-eslint(no-unsafe-call),typescript-eslint(no-unsafe-member-access) -- Bun.CryptoHasher types not recognized by oxlint
+  const hasher = new Bun.CryptoHasher("sha256");
+  // oxlint-disable-next-line typescript-eslint(no-unsafe-call),typescript-eslint(no-unsafe-member-access) -- Bun runtime API
+  hasher.update(fields.join("\u001F"));
+  // oxlint-disable-next-line typescript-eslint(no-unsafe-call),typescript-eslint(no-unsafe-member-access) -- Bun runtime API
+  return hasher.digest("hex") as string;
+}
 
 const FORMAT_MAP: Record<string, ImportFormat> = {
   ".apkg": "apkg",
@@ -396,23 +407,39 @@ export class ImportService {
     return { deckCount, noteCount, cardCount };
   }
 
+  // oxlint-disable-next-line eslint(complexity) -- merge logic adds necessary branching
   importFromApkg(
     userId: string,
     data: ApkgData,
     mediaMapping?: Map<string, string>,
+    merge?: boolean,
   ): ImportResult {
     const now = new Date();
     let noteCount = 0;
     let cardCount = 0;
+    let duplicatesSkipped = 0;
+    let notesUpdated = 0;
 
     // Collect which Anki deck IDs are actually referenced by cards
     const usedDeckIds = new Set(data.cards.map((c) => c.deckId));
 
-    // Create only decks that have cards, mapping anki deck id -> our deck id
+    // Create or reuse decks, mapping anki deck id -> our deck id
     const deckMap = new Map<number, string>();
     for (const ankiDeck of data.decks) {
       if (!usedDeckIds.has(ankiDeck.id)) {
         continue;
+      }
+
+      if (merge) {
+        const existing = this.db
+          .select()
+          .from(decks)
+          .where(and(eq(decks.userId, userId), eq(decks.name, ankiDeck.name)))
+          .get();
+        if (existing) {
+          deckMap.set(ankiDeck.id, existing.id);
+          continue;
+        }
       }
 
       const deckId = generateId();
@@ -430,10 +457,36 @@ export class ImportService {
         .run();
     }
 
-    // Create note types, mapping anki model id -> our note type id
+    // Create or reuse note types, mapping anki model id -> our note type id
     const noteTypeMap = new Map<number, string>();
     const templateMap = new Map<string, string>();
     for (const ankiNoteType of data.noteTypes) {
+      if (merge) {
+        const existing = this.db
+          .select()
+          .from(noteTypes)
+          .where(
+            and(
+              eq(noteTypes.userId, userId),
+              eq(noteTypes.name, ankiNoteType.name),
+            ),
+          )
+          .get();
+        if (existing) {
+          noteTypeMap.set(ankiNoteType.id, existing.id);
+          // Load existing templates for this note type
+          const existingTemplates = this.db
+            .select()
+            .from(cardTemplates)
+            .where(eq(cardTemplates.noteTypeId, existing.id))
+            .all();
+          for (const tmpl of existingTemplates) {
+            templateMap.set(`${existing.id}:${tmpl.ordinal}`, tmpl.id);
+          }
+          continue;
+        }
+      }
+
       const noteTypeId = generateId();
       noteTypeMap.set(ankiNoteType.id, noteTypeId);
 
@@ -475,14 +528,80 @@ export class ImportService {
 
     // Create notes, mapping anki note id -> our note id
     const noteMap = new Map<number, string>();
+    const skippedNoteIds = new Set<number>();
     for (const ankiNote of data.notes) {
-      const noteId = generateId();
-      noteMap.set(ankiNote.id, noteId);
-
       const noteTypeId = noteTypeMap.get(ankiNote.modelId);
       if (!noteTypeId) {
         continue;
       }
+
+      // Check for existing note by ankiGuid when merging
+      if (merge && ankiNote.guid) {
+        const existing = this.db
+          .select()
+          .from(notes)
+          .where(
+            and(eq(notes.userId, userId), eq(notes.ankiGuid, ankiNote.guid)),
+          )
+          .get();
+        if (existing) {
+          const incomingHash = computeFieldsHash(ankiNote.fields);
+          if (existing.ankiFieldsHash === incomingHash) {
+            // Unchanged — skip
+            skippedNoteIds.add(ankiNote.id);
+            duplicatesSkipped += 1;
+            continue;
+          }
+
+          // Changed — update existing note
+          const ankiNoteType = data.noteTypes.find(
+            (nt) => nt.id === ankiNote.modelId,
+          );
+          const updatedFields: Record<string, string> = {};
+          if (ankiNoteType) {
+            for (const field of ankiNoteType.fields) {
+              updatedFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
+            }
+          }
+          if (mediaMapping) {
+            for (const fieldName of Object.keys(updatedFields)) {
+              updatedFields[fieldName] = rewriteMediaUrls(
+                updatedFields[fieldName],
+                mediaMapping,
+              );
+            }
+          }
+
+          this.db
+            .update(notes)
+            .set({
+              fields: updatedFields,
+              tags: ankiNote.tags.trim(),
+              ankiFieldsHash: incomingHash,
+              updatedAt: now,
+            })
+            .where(eq(notes.id, existing.id))
+            .run();
+
+          // Re-link media
+          if (mediaMapping) {
+            this.db
+              .delete(noteMedia)
+              .where(eq(noteMedia.noteId, existing.id))
+              .run();
+            this.linkNoteMedia(existing.id, updatedFields);
+          }
+
+          // Map anki note ID to existing DB note ID (cards already exist)
+          noteMap.set(ankiNote.id, existing.id);
+          skippedNoteIds.add(ankiNote.id);
+          notesUpdated += 1;
+          continue;
+        }
+      }
+
+      const noteId = generateId();
+      noteMap.set(ankiNote.id, noteId);
 
       // Get the note type fields to map indices to names
       const ankiNoteType = data.noteTypes.find(
@@ -513,6 +632,8 @@ export class ImportService {
           noteTypeId,
           fields: noteFields,
           tags: ankiNote.tags.trim(),
+          ankiGuid: ankiNote.guid || undefined,
+          ankiFieldsHash: computeFieldsHash(ankiNote.fields),
           createdAt: now,
           updatedAt: now,
         })
@@ -526,8 +647,12 @@ export class ImportService {
       noteCount += 1;
     }
 
-    // Create cards
+    // Create cards (skip cards for duplicate notes)
     for (const ankiCard of data.cards) {
+      if (skippedNoteIds.has(ankiCard.noteId)) {
+        continue;
+      }
+
       const noteId = noteMap.get(ankiCard.noteId);
       const deckId = deckMap.get(ankiCard.deckId);
       if (!noteId || !deckId) {
@@ -574,6 +699,8 @@ export class ImportService {
       deckCount: deckMap.size,
       noteCount,
       cardCount,
+      duplicatesSkipped,
+      notesUpdated,
     };
   }
 

@@ -1,4 +1,13 @@
-import { AlertTriangle, FileText, Image, Layers, Info } from "lucide-react";
+import {
+  AlertTriangle,
+  FileText,
+  Image,
+  Layers,
+  Info,
+  Plus,
+  RefreshCw,
+  Minus,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -188,6 +197,49 @@ function PreviewSkeleton(): React.ReactElement {
   );
 }
 
+function MergeStatsBadges({
+  mergeStats,
+}: {
+  mergeStats: NonNullable<ApkgPreviewData["mergeStats"]>;
+}): React.ReactElement {
+  return (
+    <>
+      <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3">
+        <Plus className="size-4 text-green-600 dark:text-green-400" />
+        <div>
+          <p className="text-sm font-medium text-green-600 dark:text-green-400">
+            {mergeStats.newNotes}
+          </p>
+          <p className="text-xs text-muted-foreground">New</p>
+        </div>
+      </div>
+      {mergeStats.updatedNotes > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3">
+          <RefreshCw className="size-4 text-blue-600 dark:text-blue-400" />
+          <div>
+            <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              {mergeStats.updatedNotes}
+            </p>
+            <p className="text-xs text-muted-foreground">Updated</p>
+          </div>
+        </div>
+      )}
+      {mergeStats.unchangedNotes > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
+          <Minus className="size-4 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {mergeStats.unchangedNotes}
+            </p>
+            <p className="text-xs text-muted-foreground">Unchanged</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// oxlint-disable-next-line eslint(complexity) -- preview component with multiple format-specific branches
 export function PreviewStep({
   file,
   format,
@@ -247,6 +299,10 @@ export function PreviewStep({
           </>
         )}
 
+        {isApkg && apkgPreview?.mergeStats && (
+          <MergeStatsBadges mergeStats={apkgPreview.mergeStats} />
+        )}
+
         {!isApkg && duplicateCount > 0 && (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
             <AlertTriangle className="size-4 text-amber-500" />
@@ -295,6 +351,17 @@ export function PreviewStep({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {apkgPreview?.mergeStats && apkgPreview.mergeStats.updatedNotes > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
+          <Info className="mt-0.5 size-4 text-blue-500" />
+          <p className="text-sm text-blue-600 dark:text-blue-400">
+            {apkgPreview.mergeStats.updatedNotes} note
+            {apkgPreview.mergeStats.updatedNotes === 1 ? " has" : "s have"}{" "}
+            changed and will be updated.
+          </p>
         </div>
       )}
     </div>

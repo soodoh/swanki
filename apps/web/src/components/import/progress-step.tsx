@@ -32,6 +32,7 @@ export type ImportProgress = {
     noteCount: number;
     deckCount?: number;
     duplicatesSkipped: number;
+    notesUpdated?: number;
     errors: string[];
     mediaCount?: number;
   };
@@ -92,12 +93,18 @@ export function ProgressStep({
               <p className="text-lg font-semibold">{result.noteCount}</p>
               <p className="text-xs text-muted-foreground">Notes created</p>
             </div>
+            {result.notesUpdated !== undefined && result.notesUpdated > 0 && (
+              <div className="min-w-[100px] flex-1 rounded-lg border bg-muted/30 p-3 text-center">
+                <p className="text-lg font-semibold">{result.notesUpdated}</p>
+                <p className="text-xs text-muted-foreground">Notes updated</p>
+              </div>
+            )}
             <div className="min-w-[100px] flex-1 rounded-lg border bg-muted/30 p-3 text-center">
               <p className="text-lg font-semibold">
                 {result.duplicatesSkipped}
               </p>
               <p className="text-xs text-muted-foreground">
-                Duplicates skipped
+                {result.notesUpdated ? "Unchanged" : "Duplicates skipped"}
               </p>
             </div>
             {result.mediaCount !== undefined && result.mediaCount > 0 && (
