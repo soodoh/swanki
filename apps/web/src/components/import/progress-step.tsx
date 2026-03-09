@@ -33,6 +33,7 @@ export type ImportProgress = {
     deckCount?: number;
     duplicatesSkipped: number;
     errors: string[];
+    mediaCount?: number;
   };
   errorMessage?: string;
 };
@@ -82,16 +83,16 @@ export function ProgressStep({
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border bg-muted/30 p-3 text-center">
+          <div className="flex flex-wrap gap-3">
+            <div className="min-w-[100px] flex-1 rounded-lg border bg-muted/30 p-3 text-center">
               <p className="text-lg font-semibold">{result.cardCount}</p>
               <p className="text-xs text-muted-foreground">Cards imported</p>
             </div>
-            <div className="rounded-lg border bg-muted/30 p-3 text-center">
+            <div className="min-w-[100px] flex-1 rounded-lg border bg-muted/30 p-3 text-center">
               <p className="text-lg font-semibold">{result.noteCount}</p>
               <p className="text-xs text-muted-foreground">Notes created</p>
             </div>
-            <div className="rounded-lg border bg-muted/30 p-3 text-center">
+            <div className="min-w-[100px] flex-1 rounded-lg border bg-muted/30 p-3 text-center">
               <p className="text-lg font-semibold">
                 {result.duplicatesSkipped}
               </p>
@@ -99,6 +100,12 @@ export function ProgressStep({
                 Duplicates skipped
               </p>
             </div>
+            {result.mediaCount !== undefined && result.mediaCount > 0 && (
+              <div className="min-w-[100px] flex-1 rounded-lg border bg-muted/30 p-3 text-center">
+                <p className="text-lg font-semibold">{result.mediaCount}</p>
+                <p className="text-xs text-muted-foreground">Media files</p>
+              </div>
+            )}
           </div>
 
           {/* Errors list */}

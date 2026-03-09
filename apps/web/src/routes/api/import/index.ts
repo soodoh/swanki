@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSession } from "../../lib/auth-middleware";
-import { ImportService, detectFormat } from "../../lib/services/import-service";
-import { MediaService } from "../../lib/services/media-service";
-import { parseApkg } from "../../lib/import/apkg-parser";
-import { parseCsv } from "../../lib/import/csv-parser";
-import { db } from "../../db";
+import { requireSession } from "../../../lib/auth-middleware";
+import {
+  ImportService,
+  detectFormat,
+} from "../../../lib/services/import-service";
+import { MediaService } from "../../../lib/services/media-service";
+import { parseApkg } from "../../../lib/import/apkg-parser";
+import { parseCsv } from "../../../lib/import/csv-parser";
+import { db } from "../../../db";
 
 const importService = new ImportService(db);
 
-export const Route = createFileRoute("/api/import")({
+export const Route = createFileRoute("/api/import/")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -46,14 +49,21 @@ export const Route = createFileRoute("/api/import")({
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
             const mediaService = new MediaService(db);
-            const { mapping: mediaMapping, warnings: mediaWarnings } =
-              await mediaService.importBatch(userId, apkgData.media);
+            const {
+              mapping: mediaMapping,
+              warnings: mediaWarnings,
+              mediaCount,
+            } = await mediaService.importBatch(userId, apkgData.media);
             const result = importService.importFromApkg(
               userId,
               apkgData,
               mediaMapping,
             );
-            return Response.json({ ...result, mediaWarnings }, { status: 201 });
+            return Response.json(
+              // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- mediaCount is number from importBatch
+              { ...result, mediaWarnings, mediaCount },
+              { status: 201 },
+            );
           }
 
           if (format === "csv" || format === "txt") {
