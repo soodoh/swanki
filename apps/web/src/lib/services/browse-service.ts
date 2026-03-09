@@ -2,25 +2,15 @@ import { eq, and, lte, like, sql, or, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import type * as schema from "../../db/schema";
-import {
-  cards,
-  notes,
-  decks,
-  noteTypes,
-  cardTemplates,
-  reviewLogs,
-} from "../../db/schema";
+import { cards, notes, decks, noteTypes, cardTemplates } from "../../db/schema";
 import { parseSearchQuery } from "../search-parser";
 import type { SearchNode } from "../search-parser";
 
 type Db = BunSQLiteDatabase<typeof schema>;
 
-type Card = typeof cards.$inferSelect;
 type Note = typeof notes.$inferSelect;
 type NoteType = typeof noteTypes.$inferSelect;
 type CardTemplate = typeof cardTemplates.$inferSelect;
-type ReviewLog = typeof reviewLogs.$inferSelect;
-
 export type BrowseNote = {
   noteId: string;
   noteTypeId: string;
@@ -43,13 +33,12 @@ export type BrowseSearchResult = {
   limit: number;
 };
 
-export type CardDetail = {
-  card: Card;
+export type NoteDetail = {
   note: Note;
   noteType: NoteType;
   templates: CardTemplate[];
-  recentReviews: ReviewLog[];
   deckName: string;
+  deckId: string;
 };
 
 export type SearchOptions = {
@@ -256,58 +245,55 @@ export class BrowseService {
     };
   }
 
-  getCardDetail(userId: string, cardId: string): CardDetail | undefined {
-    // Get card with note and deck
-    const row = this.db
-      .select({
-        card: cards,
-        note: notes,
-        deckName: decks.name,
-      })
-      .from(cards)
-      .innerJoin(notes, eq(cards.noteId, notes.id))
-      .innerJoin(decks, eq(cards.deckId, decks.id))
-      .where(and(eq(cards.id, cardId), eq(notes.userId, userId)))
+  getNoteDetail(userId: string, noteId: string): NoteDetail | undefined {
+    const note = this.db
+      .select()
+      .from(notes)
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
       .get();
 
-    if (!row) {
+    if (!note) {
       return undefined;
     }
 
-    // Get note type
     const noteType = this.db
       .select()
       .from(noteTypes)
-      .where(eq(noteTypes.id, row.note.noteTypeId))
+      .where(eq(noteTypes.id, note.noteTypeId))
       .get();
 
     if (!noteType) {
       return undefined;
     }
 
-    // Get templates for this note type
     const templates = this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, noteType.id))
       .all();
 
-    // Get recent review logs (last 10)
-    const recentReviews = this.db
-      .select()
-      .from(reviewLogs)
-      .where(eq(reviewLogs.cardId, cardId))
-      .orderBy(sql`${reviewLogs.reviewedAt} desc`)
-      .limit(10)
-      .all();
+    // Get deck from first card
+    const firstCard = this.db
+      .select({ deckId: cards.deckId })
+      .from(cards)
+      .where(eq(cards.noteId, noteId))
+      .limit(1)
+      .get();
 
-    return {
-      card: row.card,
-      note: row.note,
-      noteType,
-      templates,
-      recentReviews,
-      deckName: row.deckName,
-    };
+    let deckName = "";
+    let deckId = "";
+    if (firstCard) {
+      const deck = this.db
+        .select()
+        .from(decks)
+        .where(eq(decks.id, firstCard.deckId))
+        .get();
+      if (deck) {
+        deckName = deck.name;
+        deckId = deck.id;
+      }
+    }
+
+    return { note, noteType, templates, deckName, deckId };
   }
 }

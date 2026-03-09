@@ -19,6 +19,16 @@ export const Route = createFileRoute("/api/browse")({
         const session = await requireSession(request);
         const url = new URL(request.url);
 
+        // Check for note detail request
+        const noteId = url.searchParams.get("noteId");
+        if (noteId) {
+          const detail = browseService.getNoteDetail(session.user.id, noteId);
+          if (!detail) {
+            return Response.json({ error: "Note not found" }, { status: 404 });
+          }
+          return Response.json(detail);
+        }
+
         const q = url.searchParams.get("q") ?? "";
         const page = Number(url.searchParams.get("page") ?? "1");
         const limit = Number(url.searchParams.get("limit") ?? "50");
