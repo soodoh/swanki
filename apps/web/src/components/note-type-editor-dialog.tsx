@@ -1,5 +1,22 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -189,6 +206,58 @@ function NameEditor({
   );
 }
 
+/* ---------- Sortable Field Item ---------- */
+
+function SortableFieldItem({
+  field,
+  onRemove,
+  disableRemove,
+}: {
+  field: NoteTypeField;
+  onRemove: () => void;
+  disableRemove: boolean;
+}): React.ReactElement {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.name });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded-lg border bg-background px-3 py-2 ${isDragging ? "z-50 shadow-lg" : ""}`}
+    >
+      <button
+        type="button"
+        className="cursor-grab touch-none active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="size-4 text-muted-foreground" />
+      </button>
+      <span className="flex-1 text-sm">{field.name}</span>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        onClick={onRemove}
+        disabled={disableRemove}
+      >
+        <Trash2 className="size-3 text-destructive" />
+      </Button>
+    </div>
+  );
+}
+
 /* ---------- Fields Tab ---------- */
 
 function FieldsTab({
@@ -227,22 +296,27 @@ function FieldsTab({
     setLocalFields(updated);
   }
 
-  function moveField(index: number, direction: -1 | 1): void {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= localFields.length) {
-      return;
+  function handleDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = localFields.findIndex((f) => f.name === active.id);
+      const newIndex = localFields.findIndex((f) => f.name === over.id);
+      const moved = arrayMove(localFields, oldIndex, newIndex);
+      setLocalFields(moved.map((f, i) => ({ name: f.name, ordinal: i })));
     }
-    const updated = [...localFields];
-    const temp = updated[index];
-    updated[index] = updated[newIndex];
-    updated[newIndex] = temp;
-    setLocalFields(
-      updated.map((f, i) => {
-        const copy: NoteTypeField = { name: f.name, ordinal: i };
-        return copy;
-      }),
-    );
   }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const sortableIds = useMemo(
+    () => localFields.map((f) => f.name),
+    [localFields],
+  );
 
   function handleSave(): void {
     void onSave.mutateAsync({ id: noteTypeId, fields: localFields });
@@ -261,39 +335,25 @@ function FieldsTab({
       </CardHeader>
       <CardContent>
         <div className="grid gap-3">
-          {localFields.map((field, index) => (
-            <div
-              key={field.ordinal}
-              className="flex items-center gap-2 rounded-lg border px-3 py-2"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={sortableIds}
+              strategy={verticalListSortingStrategy}
             >
-              <GripVertical className="size-4 text-muted-foreground" />
-              <span className="flex-1 text-sm">{field.name}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => moveField(index, -1)}
-                disabled={index === 0}
-              >
-                <ArrowUp className="size-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => moveField(index, 1)}
-                disabled={index === localFields.length - 1}
-              >
-                <ArrowDown className="size-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => removeField(field.ordinal)}
-                disabled={localFields.length <= 1}
-              >
-                <Trash2 className="size-3 text-destructive" />
-              </Button>
-            </div>
-          ))}
+              {localFields.map((field) => (
+                <SortableFieldItem
+                  key={field.name}
+                  field={field}
+                  onRemove={() => removeField(field.ordinal)}
+                  disableRemove={localFields.length <= 1}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
 
           <div className="flex items-center gap-2">
             <Input
