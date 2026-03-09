@@ -1,4 +1,4 @@
-import { eq, and, lte, like, sql, or } from "drizzle-orm";
+import { eq, and, lte, like, sql, or, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import type * as schema from "../../db/schema";
@@ -21,14 +21,23 @@ type NoteType = typeof noteTypes.$inferSelect;
 type CardTemplate = typeof cardTemplates.$inferSelect;
 type ReviewLog = typeof reviewLogs.$inferSelect;
 
-export type BrowseCard = Card & {
-  noteFields: Record<string, string>;
-  noteTags: string;
+export type BrowseNote = {
+  noteId: string;
+  noteTypeId: string;
+  noteTypeName: string;
+  fields: Record<string, string>;
+  tags: string;
   deckName: string;
+  deckId: string;
+  cardCount: number;
+  earliestDue: string | undefined;
+  states: number[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type BrowseSearchResult = {
-  cards: BrowseCard[];
+  notes: BrowseNote[];
   total: number;
   page: number;
   limit: number;
@@ -125,6 +134,15 @@ function nodeToCondition(node: SearchNode): SQL | undefined {
   }
 }
 
+function parseStates(statesStr: string): number[] {
+  if (!statesStr) {
+    return [];
+  }
+  const parsed = statesStr.split(",").map(Number);
+  // oxlint-disable-next-line typescript-eslint(no-unsafe-return),typescript-eslint(no-unsafe-call),eslint-plugin-unicorn(no-array-sort) -- toSorted triggers false positive; sort on spread copy is safe
+  return [...parsed].sort((a, b) => a - b);
+}
+
 function buildWhereClause(node: SearchNode, userId: string): SQL {
   const userCondition = eq(notes.userId, userId);
 
@@ -138,20 +156,6 @@ function buildWhereClause(node: SearchNode, userId: string): SQL {
   }
 
   return and(userCondition, filterCondition)!;
-}
-
-function toBrowseCard(row: {
-  card: Card;
-  noteFields: Record<string, string>;
-  noteTags: string | undefined;
-  deckName: string;
-}): BrowseCard {
-  return {
-    ...row.card,
-    noteFields: row.noteFields,
-    noteTags: row.noteTags ?? "",
-    deckName: row.deckName,
-  };
 }
 
 export class BrowseService {
@@ -172,37 +176,80 @@ export class BrowseService {
     const ast = parseSearchQuery(query);
     const conditions = buildWhereClause(ast, userId);
 
-    // Count total matching cards
+    // Query 1: Get distinct note IDs matching all conditions, with pagination
     const countResult = this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(cards)
-      .innerJoin(notes, eq(cards.noteId, notes.id))
+      .selectDistinct({ noteId: notes.id })
+      .from(notes)
+      .innerJoin(cards, eq(cards.noteId, notes.id))
       .innerJoin(decks, eq(cards.deckId, decks.id))
       .where(conditions)
-      .get();
+      .all();
 
-    const total = countResult ? Number(countResult.count) : 0;
+    const total = countResult.length;
 
-    // Fetch paginated results
-    const rows = this.db
-      .select({
-        card: cards,
-        noteFields: notes.fields,
-        noteTags: notes.tags,
-        deckName: decks.name,
-      })
-      .from(cards)
-      .innerJoin(notes, eq(cards.noteId, notes.id))
+    const noteIdRows = this.db
+      .selectDistinct({ noteId: notes.id })
+      .from(notes)
+      .innerJoin(cards, eq(cards.noteId, notes.id))
       .innerJoin(decks, eq(cards.deckId, decks.id))
       .where(conditions)
       .limit(limit)
       .offset(offset)
       .all();
 
-    const browseCards: BrowseCard[] = rows.map((row) => toBrowseCard(row));
+    const noteIds = noteIdRows.map((r) => r.noteId);
+
+    if (noteIds.length === 0) {
+      return { notes: [], total, page, limit };
+    }
+
+    // Query 2: For the returned note IDs, fetch note data with card aggregation
+    const noteRows = this.db
+      .select({
+        noteId: notes.id,
+        noteTypeId: notes.noteTypeId,
+        noteTypeName: noteTypes.name,
+        fields: notes.fields,
+        tags: notes.tags,
+        deckName: decks.name,
+        deckId: decks.id,
+        cardCount: sql<number>`count(${cards.id})`,
+        earliestDue: sql<string>`min(${cards.due})`,
+        states: sql<string>`group_concat(distinct ${cards.state})`,
+        createdAt: notes.createdAt,
+        updatedAt: notes.updatedAt,
+      })
+      .from(notes)
+      .innerJoin(cards, eq(cards.noteId, notes.id))
+      .innerJoin(decks, eq(cards.deckId, decks.id))
+      .innerJoin(noteTypes, eq(noteTypes.id, notes.noteTypeId))
+      .where(inArray(notes.id, noteIds))
+      .groupBy(notes.id)
+      .all();
+
+    const browseNotes: BrowseNote[] = noteRows.map((row) => ({
+      noteId: row.noteId,
+      noteTypeId: row.noteTypeId,
+      noteTypeName: row.noteTypeName,
+      fields: row.fields,
+      tags: row.tags ?? "",
+      deckName: row.deckName,
+      deckId: row.deckId,
+      cardCount: Number(row.cardCount),
+      earliestDue: row.earliestDue || undefined,
+      states: parseStates(row.states),
+      createdAt:
+        row.createdAt instanceof Date
+          ? row.createdAt.toISOString()
+          : String(row.createdAt),
+      updatedAt:
+        row.updatedAt instanceof Date
+          ? row.updatedAt.toISOString()
+          : String(row.updatedAt),
+    }));
 
     return {
-      cards: browseCards,
+      notes: browseNotes,
       total,
       page,
       limit,
