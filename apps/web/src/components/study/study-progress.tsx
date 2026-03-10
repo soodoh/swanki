@@ -2,18 +2,17 @@ import type { CardCounts } from "@/lib/hooks/use-study";
 
 type StudyProgressProps = {
   counts: CardCounts;
-  totalCards: number;
-  reviewedCount: number;
+  initialTotal: number;
 };
 
 export function StudyProgress({
   counts,
-  totalCards,
-  reviewedCount,
+  initialTotal,
 }: StudyProgressProps): React.ReactElement {
   const remaining = counts.new + counts.learning + counts.review;
-  const total = totalCards > 0 ? totalCards : remaining + reviewedCount;
-  const progress = total > 0 ? Math.round((reviewedCount / total) * 100) : 0;
+  const total = initialTotal > 0 ? initialTotal : remaining;
+  const progress =
+    total > 0 ? Math.round(((total - remaining) / total) * 100) : 0;
 
   return (
     <div className="flex flex-col gap-2 w-full max-w-2xl">
@@ -38,9 +37,6 @@ export function StudyProgress({
             </span>
           </span>
         </div>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {reviewedCount} / {total}
-        </span>
       </div>
 
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

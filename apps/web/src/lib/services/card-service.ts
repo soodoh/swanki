@@ -1,7 +1,7 @@
-import { eq, and, lte, inArray, sql } from "drizzle-orm";
+import { eq, and, lte, inArray, sql, gte } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import type * as schema from "../../db/schema";
-import { cards, notes, decks } from "../../db/schema";
+import { cards, notes, decks, reviewLogs } from "../../db/schema";
 
 type Db = BunSQLiteDatabase<typeof schema>;
 
@@ -17,10 +17,64 @@ export type CardCounts = {
   review: number;
 };
 
+export type TodayReviewData = {
+  newStudied: number;
+  reviewStudied: number;
+  reviewedNoteIds: Set<string>;
+  reviewedCardIds: Set<string>;
+};
+
 export class CardService {
   private db: Db;
   constructor(db: Db) {
     this.db = db;
+  }
+
+  getTodayReviewData(userId: string, deckIds: string[]): TodayReviewData {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const rows = this.db
+      .select({
+        cardId: reviewLogs.cardId,
+        preReviewState: reviewLogs.state,
+        noteId: cards.noteId,
+      })
+      .from(reviewLogs)
+      .innerJoin(cards, eq(reviewLogs.cardId, cards.id))
+      .innerJoin(notes, eq(cards.noteId, notes.id))
+      .where(
+        and(
+          eq(notes.userId, userId),
+          inArray(cards.deckId, deckIds),
+          gte(reviewLogs.reviewedAt, todayStart),
+        ),
+      )
+      .all();
+
+    const newCardIds = new Set<string>();
+    const reviewCardIds = new Set<string>();
+    const reviewedNoteIds = new Set<string>();
+    const reviewedCardIds = new Set<string>();
+
+    for (const row of rows) {
+      reviewedCardIds.add(row.cardId);
+      reviewedNoteIds.add(row.noteId);
+
+      // Count distinct cards by their pre-review state
+      if (row.preReviewState === 0) {
+        newCardIds.add(row.cardId);
+      } else if (row.preReviewState === 2) {
+        reviewCardIds.add(row.cardId);
+      }
+    }
+
+    return {
+      newStudied: newCardIds.size,
+      reviewStudied: reviewCardIds.size,
+      reviewedNoteIds,
+      reviewedCardIds,
+    };
   }
 
   getDueCards(
@@ -53,7 +107,19 @@ export class CardService {
       maxReviewsPerDay: 200,
     };
 
-    // Query all due cards: due <= now OR state in (learning=1, relearning=3)
+    // Get today's review data for daily limits and sibling burying
+    const todayData = this.getTodayReviewData(userId, deckIds);
+
+    const remainingNewLimit = Math.max(
+      0,
+      settings.newCardsPerDay - todayData.newStudied,
+    );
+    const remainingReviewLimit = Math.max(
+      0,
+      settings.maxReviewsPerDay - todayData.reviewStudied,
+    );
+
+    // Query all due cards: due <= now
     // Join with notes to get note data and filter by userId
     const dueRows = this.db
       .select({
@@ -71,23 +137,33 @@ export class CardService {
       )
       .all();
 
+    // Sibling burying: filter out cards whose note was already reviewed today,
+    // unless the card itself was reviewed (e.g. learning card coming back)
+    const filteredRows = dueRows.filter((row) => {
+      if (todayData.reviewedNoteIds.has(row.card.noteId)) {
+        // Keep the card if it was itself reviewed today (learning steps)
+        return todayData.reviewedCardIds.has(row.card.id);
+      }
+      return true;
+    });
+
     // Separate by category for ordering and limits
     const reviewCards: CardWithNote[] = [];
     const learningCards: CardWithNote[] = [];
     const newCards: CardWithNote[] = [];
 
-    for (const row of dueRows) {
+    for (const row of filteredRows) {
       const cardWithNote: CardWithNote = {
         ...row.card,
         noteFields: row.noteFields,
       };
 
       const state = row.card.state ?? 0;
-      if (state === 2 || state === 3) {
-        // review or relearning
+      if (state === 2) {
+        // review
         reviewCards.push(cardWithNote);
-      } else if (state === 1) {
-        // learning
+      } else if (state === 1 || state === 3) {
+        // learning or relearning
         learningCards.push(cardWithNote);
       } else {
         // new (state === 0)
@@ -95,12 +171,26 @@ export class CardService {
       }
     }
 
-    // Apply limits
-    const limitedReviews = reviewCards.slice(0, settings.maxReviewsPerDay);
-    const limitedNew = newCards.slice(0, settings.newCardsPerDay);
+    // Sort learning by due ascending (most overdue first)
+    learningCards.sort(
+      (a, b) => new Date(a.due).getTime() - new Date(b.due).getTime(),
+    );
 
-    // Order: overdue reviews first, then learning, then new
-    return [...limitedReviews, ...learningCards, ...limitedNew];
+    // Shuffle review cards (Fisher-Yates)
+    for (let i = reviewCards.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [reviewCards[i], reviewCards[j]] = [reviewCards[j], reviewCards[i]];
+    }
+
+    // Sort new cards by ordinal ascending
+    newCards.sort((a, b) => a.ordinal - b.ordinal);
+
+    // Apply daily limits (learning cards bypass limits)
+    const limitedReviews = reviewCards.slice(0, remainingReviewLimit);
+    const limitedNew = newCards.slice(0, remainingNewLimit);
+
+    // Order: learning first, then reviews (shuffled), then new
+    return [...learningCards, ...limitedReviews, ...limitedNew];
   }
 
   getById(id: string, userId: string): CardWithNote | undefined {

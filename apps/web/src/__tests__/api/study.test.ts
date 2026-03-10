@@ -127,8 +127,8 @@ describe("StudyService", () => {
       const session = await studyService.getStudySession(userId, deckId);
 
       expect(session.cards).toHaveLength(0);
-      // Counts reflect total cards in deck regardless of due
-      expect(session.counts.new).toBe(1);
+      // Counts now reflect only due cards
+      expect(session.counts.new).toBe(0);
     });
   });
 
@@ -303,6 +303,225 @@ describe("StudyService", () => {
 
       const result = await studyService.undoLastReview(userId, cardId);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe("sibling burying", () => {
+    it("excludes sibling cards from same note after reviewing one", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+
+      // Create a second template for the note type (multi-card note)
+      const template2Id = generateId();
+      await db.insert(cardTemplates).values({
+        id: template2Id,
+        noteTypeId,
+        name: "Card 2",
+        ordinal: 1,
+        questionTemplate: "{{Back}}",
+        answerTemplate: "{{Front}}",
+      });
+
+      // Create a note (produces 2 cards)
+      const note = await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+
+      // Set both cards to due
+      const noteCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.noteId, note.id))
+        .all();
+      expect(noteCards).toHaveLength(2);
+
+      for (const c of noteCards) {
+        await db
+          .update(cards)
+          .set({ due: pastDate, state: 0 })
+          .where(eq(cards.id, c.id));
+      }
+
+      // Before review: both cards should appear
+      const session1 = studyService.getStudySession(userId, deckId);
+      expect(session1.cards).toHaveLength(2);
+
+      // Review the first card
+      studyService.submitReview(userId, noteCards[0].id, Rating.Good, 3000);
+
+      // After review: sibling should be buried
+      const session2 = studyService.getStudySession(userId, deckId);
+      // The reviewed card may come back (learning) but the sibling should not
+      const siblingInSession = session2.cards.find(
+        (c) => c.id === noteCards[1].id,
+      );
+      expect(siblingInSession).toBeUndefined();
+    });
+  });
+
+  describe("daily limits", () => {
+    it("respects daily new card limit across refetches", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+
+      // Create a deck with a low new card limit
+      const limitedDeck = await deckService.create(userId, {
+        name: "Limited Deck",
+      });
+      // Update deck settings directly
+      const { decks: decksTable } = await import("../../db/schema");
+      db.update(decksTable)
+        .set({
+          settings: { newCardsPerDay: 2, maxReviewsPerDay: 200 },
+        })
+        .where(eq(decksTable.id, limitedDeck.id))
+        .run();
+
+      // Create 5 new cards
+      for (let i = 0; i < 5; i += 1) {
+        await noteService.create(userId, {
+          noteTypeId,
+          deckId: limitedDeck.id,
+          fields: { Front: `Q${i}`, Back: `A${i}` },
+        });
+      }
+
+      // Set all cards as due
+      db.update(cards)
+        .set({ due: pastDate, state: 0 })
+        .where(eq(cards.deckId, limitedDeck.id))
+        .run();
+
+      // First fetch: should get 2 new cards (limit)
+      const session1 = studyService.getStudySession(userId, limitedDeck.id);
+      expect(session1.cards).toHaveLength(2);
+      expect(session1.counts.new).toBe(2);
+
+      // Review both cards
+      for (const card of session1.cards) {
+        studyService.submitReview(userId, card.id, Rating.Good, 3000);
+      }
+
+      // Second fetch: should get 0 new cards (daily limit exhausted)
+      const session2 = studyService.getStudySession(userId, limitedDeck.id);
+      // May have learning cards from reviewed cards, but no more new ones
+      expect(session2.counts.new).toBe(0);
+    });
+  });
+
+  describe("card ordering", () => {
+    it("returns learning before reviews before new", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+
+      // Create 3 notes
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "New", Back: "A" },
+      });
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Learning", Back: "B" },
+      });
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Review", Back: "C" },
+      });
+
+      const allCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.deckId, deckId))
+        .all();
+
+      // Set states
+      await db
+        .update(cards)
+        .set({ state: 0, due: pastDate })
+        .where(eq(cards.id, allCards[0].id));
+      await db
+        .update(cards)
+        .set({ state: 1, due: pastDate })
+        .where(eq(cards.id, allCards[1].id));
+      await db
+        .update(cards)
+        .set({ state: 2, due: pastDate })
+        .where(eq(cards.id, allCards[2].id));
+
+      const session = studyService.getStudySession(userId, deckId);
+
+      expect(session.cards).toHaveLength(3);
+      // Learning first, then review, then new
+      expect(session.cards[0].state).toBe(1); // learning
+      expect(session.cards[1].state).toBe(2); // review
+      expect(session.cards[2].state).toBe(0); // new
+    });
+  });
+
+  describe("learning cards bypass limits", () => {
+    it("includes learning cards even when review limit is exhausted", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+
+      // Create a deck with review limit of 1
+      const limitedDeck = await deckService.create(userId, {
+        name: "Tiny Limit",
+      });
+      const { decks: decksTable } = await import("../../db/schema");
+      db.update(decksTable)
+        .set({
+          settings: { newCardsPerDay: 20, maxReviewsPerDay: 1 },
+        })
+        .where(eq(decksTable.id, limitedDeck.id))
+        .run();
+
+      // Create notes
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId: limitedDeck.id,
+        fields: { Front: "Learning", Back: "A" },
+      });
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId: limitedDeck.id,
+        fields: { Front: "Review1", Back: "B" },
+      });
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId: limitedDeck.id,
+        fields: { Front: "Review2", Back: "C" },
+      });
+
+      const allCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.deckId, limitedDeck.id))
+        .all();
+
+      // Set states: 1 learning + 2 review
+      await db
+        .update(cards)
+        .set({ state: 1, due: pastDate })
+        .where(eq(cards.id, allCards[0].id));
+      await db
+        .update(cards)
+        .set({ state: 2, due: pastDate })
+        .where(eq(cards.id, allCards[1].id));
+      await db
+        .update(cards)
+        .set({ state: 2, due: pastDate })
+        .where(eq(cards.id, allCards[2].id));
+
+      const session = studyService.getStudySession(userId, limitedDeck.id);
+
+      // Should have learning card + 1 review (limit) = 2 cards
+      // Learning card bypasses limits
+      const learningCards = session.cards.filter((c) => c.state === 1);
+      const reviewCards = session.cards.filter((c) => c.state === 2);
+
+      expect(learningCards).toHaveLength(1);
+      expect(reviewCards).toHaveLength(1); // limited to 1
     });
   });
 
