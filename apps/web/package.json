@@ -10,7 +10,9 @@
     "lint": "bun x oxlint -c oxlint.config.mjs . && prettier --check .",
     "lint:fix": "bun x oxlint -c oxlint.config.mjs --fix . && prettier --write .",
     "test": "bun --bun vitest",
-    "test:run": "bun --bun vitest run"
+    "test:run": "bun --bun vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -43,6 +45,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@standard-config/oxlint": "^1.4.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
