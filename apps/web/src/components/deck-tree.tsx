@@ -105,7 +105,7 @@ function DeckOptionsDialog({
       deckId: deck.id,
       name: name.trim(),
       description: description.trim(),
-      parentId: parentId || undefined,
+      parentId: parentId || null,
       settings: {
         newCardsPerDay: Number(newCardsPerDay) || 20,
         maxReviewsPerDay: Number(maxReviewsPerDay) || 200,

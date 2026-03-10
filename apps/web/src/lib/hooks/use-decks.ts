@@ -77,7 +77,7 @@ export type DeckUpdatePayload = {
   deckId: string;
   name?: string;
   description?: string;
-  parentId?: string;
+  parentId?: string | null;
   settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
 };
 
