@@ -28,6 +28,8 @@ out/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 
 # User data (media uploads)
 apps/web/data/
@@ -46,7 +48,7 @@ coverage/
 
 # Playwright
 apps/web/e2e/.auth/
-apps/web/e2e/test-results/
+apps/web/test-results/
 apps/web/playwright-report/
 
 # Worktrees
