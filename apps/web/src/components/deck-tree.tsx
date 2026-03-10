@@ -10,6 +10,16 @@ import {
   Settings,
   Trash2,
 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+} from "@dnd-kit/core";
+import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -280,24 +290,58 @@ function DeckTreeItem({
   node,
   allDecks,
   depth = 0,
+  invalidDropIds,
 }: {
   node: DeckTreeNode;
   allDecks: DeckTreeNode[];
   depth?: number;
+  invalidDropIds: Set<string>;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children.length > 0;
 
+  const isInvalid = invalidDropIds.has(node.id);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({ id: node.id });
+
+  const { isOver, setNodeRef: setDropRef } = useDroppable({
+    id: node.id,
+    disabled: isInvalid,
+  });
+
+  // Merge drag and drop refs onto the same element
+  // oxlint-disable-next-line typescript-eslint(no-restricted-types) -- React ref callback requires null
+  const setNodeRef = (el: HTMLElement | null) => {
+    setDragRef(el);
+    setDropRef(el);
+  };
+
+  let dragDropClass = "hover:bg-muted/50";
+  if (isDragging) {
+    dragDropClass = "opacity-50";
+  } else if (isOver && !isInvalid) {
+    dragDropClass = "bg-primary/10 ring-2 ring-primary/50";
+  }
+
   return (
     <div>
       <div
-        className="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors"
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${dragDropClass}`}
         style={{ paddingLeft: `${String(depth * 20 + 8)}px` }}
       >
         {hasChildren ? (
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
+            onPointerDown={(e) => e.stopPropagation()}
             className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
           >
             {expanded ? (
@@ -320,6 +364,7 @@ function DeckTreeItem({
           to="/study/$deckId"
           params={{ deckId: node.id }}
           className="opacity-0 group-hover:opacity-100 transition-opacity"
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <Button variant="ghost" size="xs">
             <BookOpen className="size-3.5" />
@@ -327,7 +372,9 @@ function DeckTreeItem({
           </Button>
         </Link>
 
-        <DeckActionMenu node={node} allDecks={allDecks} />
+        <div onPointerDown={(e) => e.stopPropagation()}>
+          <DeckActionMenu node={node} allDecks={allDecks} />
+        </div>
       </div>
 
       {hasChildren && expanded && (
@@ -338,6 +385,7 @@ function DeckTreeItem({
               node={child}
               allDecks={allDecks}
               depth={depth + 1}
+              invalidDropIds={invalidDropIds}
             />
           ))}
         </div>
@@ -420,12 +468,119 @@ function flattenDecks(nodes: DeckTreeNode[]): DeckTreeNode[] {
   return result;
 }
 
+function getDescendantIds(
+  nodes: DeckTreeNode[],
+  targetId: string,
+): Set<string> {
+  const ids = new Set<string>();
+
+  function collect(children: DeckTreeNode[]): void {
+    for (const child of children) {
+      ids.add(child.id);
+      collect(child.children);
+    }
+  }
+
+  function find(nodes: DeckTreeNode[]): void {
+    for (const node of nodes) {
+      if (node.id === targetId) {
+        collect(node.children);
+        return;
+      }
+      find(node.children);
+    }
+  }
+
+  find(nodes);
+  return ids;
+}
+
+function RootDropZone({
+  active,
+}: {
+  active: boolean;
+}): React.ReactElement | undefined {
+  const { isOver, setNodeRef } = useDroppable({ id: "__root__" });
+
+  if (!active) {
+    return undefined;
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`mt-2 flex items-center justify-center rounded-lg border-2 border-dashed px-4 py-3 text-sm transition-colors ${
+        isOver
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-muted-foreground/30 text-muted-foreground"
+      }`}
+    >
+      Drop here to move to top level
+    </div>
+  );
+}
+
 export function DeckTree({
   decks,
 }: {
   decks: DeckTreeNode[];
 }): React.ReactElement {
   const allDecks = useMemo(() => flattenDecks(decks), [decks]);
+  const updateDeck = useUpdateDeck();
+
+  const [activeDeckId, setActiveDeckId] = useState<string | undefined>(
+    undefined,
+  );
+  const [invalidDropIds, setInvalidDropIds] = useState<Set<string>>(new Set());
+
+  const activeDeck = activeDeckId
+    ? allDecks.find((d) => d.id === activeDeckId)
+    : undefined;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  function handleDragStart(event: DragStartEvent): void {
+    const id = String(event.active.id);
+    setActiveDeckId(id);
+    const descendants = getDescendantIds(decks, id);
+    descendants.add(id);
+    setInvalidDropIds(descendants);
+  }
+
+  function handleDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    setActiveDeckId(undefined);
+    setInvalidDropIds(new Set());
+
+    if (!over) {
+      return;
+    }
+
+    const deckId = String(active.id);
+    const overId = String(over.id);
+
+    // Find the dragged deck to check current parent
+    const draggedDeck = allDecks.find((d) => d.id === deckId);
+    if (!draggedDeck) {
+      return;
+    }
+
+    const newParentId = overId === "__root__" ? undefined : overId;
+
+    // Skip if parent didn't change
+    const currentParent = draggedDeck.parentId ?? undefined;
+    if (currentParent === newParentId) {
+      return;
+    }
+
+    void updateDeck.mutateAsync({
+      deckId,
+      // oxlint-disable-next-line eslint-plugin-unicorn(no-null) -- API requires null for root-level reparenting
+      parentId: newParentId ?? null,
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -437,26 +592,50 @@ export function DeckTree({
       {decks.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="rounded-lg border bg-card">
-          <div className="px-3 py-2 border-b">
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex-1">Name</span>
-              <div className="flex items-center gap-3">
-                <span className="text-blue-600 dark:text-blue-400">New</span>
-                <span className="text-orange-600 dark:text-orange-400">
-                  Learn
-                </span>
-                <span className="text-green-600 dark:text-green-400">Due</span>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="rounded-lg border bg-card">
+            <div className="px-3 py-2 border-b">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex-1">Name</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-blue-600 dark:text-blue-400">New</span>
+                  <span className="text-orange-600 dark:text-orange-400">
+                    Learn
+                  </span>
+                  <span className="text-green-600 dark:text-green-400">
+                    Due
+                  </span>
+                </div>
+                <span className="w-16" />
               </div>
-              <span className="w-16" />
+            </div>
+            <div className="py-1">
+              {decks.map((deck) => (
+                <DeckTreeItem
+                  key={deck.id}
+                  node={deck}
+                  allDecks={allDecks}
+                  invalidDropIds={invalidDropIds}
+                />
+              ))}
             </div>
           </div>
-          <div className="py-1">
-            {decks.map((deck) => (
-              <DeckTreeItem key={deck.id} node={deck} allDecks={allDecks} />
-            ))}
-          </div>
-        </div>
+
+          <RootDropZone active={activeDeckId !== null} />
+
+          <DragOverlay>
+            {activeDeck ? (
+              <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 shadow-lg">
+                <Layers className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{activeDeck.name}</span>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   );
