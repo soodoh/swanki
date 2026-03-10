@@ -49,6 +49,7 @@ import type {
 } from "@/lib/hooks/use-note-types";
 import { renderTemplate } from "@/lib/template-renderer";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
+import { replaceSoundTags } from "@/lib/sound";
 
 /* ---------- Name Editor ---------- */
 
@@ -636,7 +637,9 @@ export function PreviewTab({
               {/* oxlint-disable react/no-danger -- sanitized HTML */}
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(questionHtml) }}
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(replaceSoundTags(questionHtml)),
+                }}
               />
               {/* oxlint-enable react/no-danger */}
             </CardContent>
@@ -651,7 +654,9 @@ export function PreviewTab({
               {/* oxlint-disable react/no-danger -- sanitized HTML */}
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(answerHtml) }}
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeHtml(replaceSoundTags(answerHtml)),
+                }}
               />
               {/* oxlint-enable react/no-danger */}
             </CardContent>
