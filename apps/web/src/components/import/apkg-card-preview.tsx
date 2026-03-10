@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { renderTemplate } from "@/lib/template-renderer";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
+import { replaceSoundTags } from "@/lib/sound";
 
 type NoteTypeInfo = {
   name: string;
@@ -47,13 +48,15 @@ export function ApkgCardPreview({
   // All HTML is sanitized via DOMPurify (sanitizeHtml) and CSS via sanitizeCss
   // to prevent XSS from imported card content
   const frontHtml = sanitizeHtml(
-    renderTemplate(template.questionFormat, fields),
+    replaceSoundTags(renderTemplate(template.questionFormat, fields)),
   );
   const backHtml = sanitizeHtml(
-    renderTemplate(template.answerFormat, fields, {
-      frontSide: frontHtml,
-      showAnswer: true,
-    }),
+    replaceSoundTags(
+      renderTemplate(template.answerFormat, fields, {
+        frontSide: frontHtml,
+        showAnswer: true,
+      }),
+    ),
   );
   const scopedCss = sanitizeCss(noteType.css);
   const scopeId = `apkg-preview-${index}`;

@@ -34,6 +34,7 @@ function StudyPage(): React.ReactElement {
     string | undefined
   >(undefined);
   const cardStartTime = useRef<number>(Date.now());
+  const replayRef = useRef<(() => void) | undefined>(undefined);
 
   const currentCard: CardWithNote | undefined = session?.cards[currentIndex];
 
@@ -119,6 +120,11 @@ function StudyPage(): React.ReactElement {
       } else if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         handleShowAnswer();
+      }
+
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        replayRef.current?.();
       }
 
       if (
@@ -263,6 +269,7 @@ function StudyPage(): React.ReactElement {
                   html={renderCardContent()}
                   showAnswer={showAnswer}
                   onShowAnswer={handleShowAnswer}
+                  replayRef={replayRef}
                 />
               </div>
 

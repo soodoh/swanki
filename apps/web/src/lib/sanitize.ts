@@ -8,7 +8,7 @@ import { sanitize } from "isomorphic-dompurify";
 export function sanitizeHtml(html: string): string {
   return sanitize(html, {
     ADD_TAGS: ["audio", "source"],
-    ADD_ATTR: ["controls"],
+    ADD_ATTR: ["preload"],
   });
 }
 
