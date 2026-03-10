@@ -122,6 +122,24 @@ describe("DeckService", () => {
       const names = tree.map((d) => d.name).toSorted();
       expect(names).toStrictEqual(["Root A", "Root B"]);
     });
+
+    it("sorts siblings alphabetically by name", async () => {
+      const parent = await deckService.create(userId, { name: "Parent" });
+      await deckService.create(userId, { name: "Zebra", parentId: parent.id });
+      await deckService.create(userId, { name: "Apple", parentId: parent.id });
+      await deckService.create(userId, { name: "Mango", parentId: parent.id });
+      // Root-level decks too
+      await deckService.create(userId, { name: "Zoo" });
+      await deckService.create(userId, { name: "Alpha" });
+
+      const tree = await deckService.getTree(userId);
+      const rootNames = tree.map((d) => d.name);
+      expect(rootNames).toStrictEqual(["Alpha", "Parent", "Zoo"]);
+
+      const parentNode = tree.find((d) => d.name === "Parent")!;
+      const childNames = parentNode.children.map((c) => c.name);
+      expect(childNames).toStrictEqual(["Apple", "Mango", "Zebra"]);
+    });
   });
 
   describe("getById", () => {
@@ -169,6 +187,29 @@ describe("DeckService", () => {
       });
 
       expect(updated).toBeUndefined();
+    });
+
+    it("sets parentId to null to make deck root-level", async () => {
+      const parent = await deckService.create(userId, { name: "Parent" });
+      const child = await deckService.create(userId, {
+        name: "Child",
+        parentId: parent.id,
+      });
+
+      expect(child.parentId).toBe(parent.id);
+
+      const updated = await deckService.update(child.id, userId, {
+        parentId: null,
+      });
+      expect(updated).toBeDefined();
+      expect(updated!.parentId).toBeNull();
+
+      // Verify tree structure
+      const tree = await deckService.getTree(userId);
+      expect(tree).toHaveLength(2);
+      const names = tree.map((d) => d.name);
+      expect(names).toContain("Child");
+      expect(names).toContain("Parent");
     });
   });
 
