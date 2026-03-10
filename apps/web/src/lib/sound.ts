@@ -32,7 +32,10 @@ export function wireSoundButtons(container: HTMLElement): () => void {
 
     const handleClick = (): void => {
       if (audioEl.paused) {
-        void audioEl.play();
+        // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then) -- fire-and-forget play with error recovery
+        audioEl.play().catch(() => {
+          btn.textContent = "\u25B6";
+        });
         btn.textContent = "\u23F8";
       } else {
         audioEl.pause();

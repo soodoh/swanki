@@ -42,7 +42,16 @@ export function useCardAudio(
         btn.textContent = "\u23F8";
       }
 
-      void audio.play();
+      // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then) -- fire-and-forget play with error recovery
+      audio.play().catch(() => {
+        // Play failed (e.g. interrupted by card transition) — reset button and skip ahead
+        if (btn?.classList.contains("sound-btn")) {
+          btn.textContent = "\u25B6";
+        }
+        if (i < audios.length) {
+          playNext();
+        }
+      });
       i += 1;
 
       function onEnded(): void {
@@ -64,6 +73,11 @@ export function useCardAudio(
   useEffect(() => {
     const container = containerRef.current;
 
+    // Capture current audio elements so cleanup targets the right (old) elements
+    const currentAudios: HTMLAudioElement[] = container
+      ? [...container.querySelectorAll("audio")]
+      : [];
+
     // Wire up play/pause buttons
     let cleanupButtons: (() => void) | undefined;
     if (container) {
@@ -77,11 +91,10 @@ export function useCardAudio(
       clearTimeout(timer);
       abortRef.current = true;
       cleanupButtons?.();
-      // Pause all audio on cleanup
-      if (container) {
-        for (const audio of container.querySelectorAll("audio")) {
-          audio.pause();
-        }
+      // Pause captured audio elements (not the new card's elements)
+      for (const audio of currentAudios) {
+        audio.pause();
+        audio.currentTime = 0;
       }
     };
   }, [audioKey, playAll, containerRef]);
