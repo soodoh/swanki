@@ -44,6 +44,11 @@ yarn-error.log*
 # Testing
 coverage/
 
+# Playwright
+apps/web/e2e/.auth/
+apps/web/e2e/test-results/
+apps/web/playwright-report/
+
 # Worktrees
 .worktrees/
 
