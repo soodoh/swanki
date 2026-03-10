@@ -158,10 +158,15 @@ function makeApkgData(overrides?: {
   noteFields?: string[][];
   deckName?: string;
   noteTypeName?: string;
+  decks?: Array<{ id: number; name: string }>;
+  cardDeckIds?: number[];
 }) {
   const noteGuids = overrides?.noteGuids ?? ["guid-1", "guid-2"];
+  const deckList = overrides?.decks ?? [
+    { id: 1, name: overrides?.deckName ?? "Test Deck" },
+  ];
   return {
-    decks: [{ id: 1, name: overrides?.deckName ?? "Test Deck" }],
+    decks: deckList,
     noteTypes: [
       {
         id: 1,
@@ -191,7 +196,7 @@ function makeApkgData(overrides?: {
     cards: noteGuids.map((_, i) => ({
       id: i + 1,
       noteId: i + 1,
-      deckId: 1,
+      deckId: overrides?.cardDeckIds?.[i] ?? 1,
       ordinal: 0,
       type: 0,
       queue: 0,
@@ -432,5 +437,116 @@ describe("importFromApkg merge update-on-change", () => {
     );
     expect(result2.notesUpdated).toBe(0);
     expect(result2.duplicatesSkipped).toBe(1);
+  });
+});
+
+describe("importFromApkg nested deck hierarchy", () => {
+  it("should create nested decks from :: separated names", () => {
+    const db = createTestDb();
+    const service = new ImportService(db);
+    const data = makeApkgData({
+      noteGuids: ["guid-1"],
+      decks: [{ id: 1, name: "A::B::C" }],
+    });
+
+    service.importFromApkg("user-1", data);
+
+    const allDecks = db.select().from(decks).all();
+    expect(allDecks).toHaveLength(3);
+
+    const deckA = allDecks.find((d) => d.name === "A");
+    const deckB = allDecks.find((d) => d.name === "B");
+    const deckC = allDecks.find((d) => d.name === "C");
+
+    expect(deckA).toBeDefined();
+    expect(deckB).toBeDefined();
+    expect(deckC).toBeDefined();
+
+    expect(deckA!.parentId).toBeNull();
+    expect(deckB!.parentId).toBe(deckA!.id);
+    expect(deckC!.parentId).toBe(deckB!.id);
+  });
+
+  it("should deduplicate shared prefixes across decks", () => {
+    const db = createTestDb();
+    const service = new ImportService(db);
+    const data = makeApkgData({
+      noteGuids: ["guid-1", "guid-2"],
+      decks: [
+        { id: 1, name: "A::B::C" },
+        { id: 2, name: "A::B::D" },
+      ],
+      cardDeckIds: [1, 2],
+    });
+
+    service.importFromApkg("user-1", data);
+
+    const allDecks = db.select().from(decks).all();
+    // A, B, C, D — shared prefix A::B is not duplicated
+    expect(allDecks).toHaveLength(4);
+
+    const deckA = allDecks.filter((d) => d.name === "A");
+    const deckB = allDecks.filter((d) => d.name === "B");
+    expect(deckA).toHaveLength(1);
+    expect(deckB).toHaveLength(1);
+
+    const deckC = allDecks.find((d) => d.name === "C");
+    const deckD = allDecks.find((d) => d.name === "D");
+    expect(deckC!.parentId).toBe(deckB[0].id);
+    expect(deckD!.parentId).toBe(deckB[0].id);
+  });
+
+  it("should create flat deck with no parentId for simple names", () => {
+    const db = createTestDb();
+    const service = new ImportService(db);
+    const data = makeApkgData({
+      noteGuids: ["guid-1"],
+      decks: [{ id: 1, name: "Simple Deck" }],
+    });
+
+    service.importFromApkg("user-1", data);
+
+    const allDecks = db.select().from(decks).all();
+    expect(allDecks).toHaveLength(1);
+    expect(allDecks[0].name).toBe("Simple Deck");
+    expect(allDecks[0].parentId).toBeNull();
+  });
+
+  it("should handle Anki unit separator U+001F in deck names", () => {
+    const db = createTestDb();
+    const service = new ImportService(db);
+    const data = makeApkgData({
+      noteGuids: ["guid-1"],
+      decks: [{ id: 1, name: "Music\u001FTheory\u001FChords" }],
+    });
+
+    service.importFromApkg("user-1", data);
+
+    const allDecks = db.select().from(decks).all();
+    expect(allDecks).toHaveLength(3);
+
+    const music = allDecks.find((d) => d.name === "Music");
+    const theory = allDecks.find((d) => d.name === "Theory");
+    const chords = allDecks.find((d) => d.name === "Chords");
+
+    expect(music!.parentId).toBeNull();
+    expect(theory!.parentId).toBe(music!.id);
+    expect(chords!.parentId).toBe(theory!.id);
+  });
+
+  it("should not duplicate decks on merge re-import with hierarchy", () => {
+    const db = createTestDb();
+    const service = new ImportService(db);
+    const data = makeApkgData({
+      noteGuids: ["guid-1"],
+      decks: [{ id: 1, name: "A::B::C" }],
+    });
+
+    service.importFromApkg("user-1", data, undefined, true);
+    service.importFromApkg("user-1", data, undefined, true);
+
+    const allDecks = db.select().from(decks).all();
+    // Should still be 3, not 6
+    expect(allDecks).toHaveLength(3);
   });
 });

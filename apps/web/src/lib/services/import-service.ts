@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
 import type * as schema from "../../db/schema";
@@ -427,37 +427,21 @@ export class ImportService {
     const usedDeckIds = new Set(data.cards.map((c) => c.deckId));
 
     // Create or reuse decks, mapping anki deck id -> our deck id
+    // Anki uses "::" as separator for nested decks (e.g. "Music::Theory::Chords")
+    const hierarchyCache = new Map<string, string>();
     const deckMap = new Map<number, string>();
     for (const ankiDeck of data.decks) {
       if (!usedDeckIds.has(ankiDeck.id)) {
         continue;
       }
-
-      if (merge) {
-        const existing = this.db
-          .select()
-          .from(decks)
-          .where(and(eq(decks.userId, userId), eq(decks.name, ankiDeck.name)))
-          .get();
-        if (existing) {
-          deckMap.set(ankiDeck.id, existing.id);
-          continue;
-        }
-      }
-
-      const deckId = generateId();
-      deckMap.set(ankiDeck.id, deckId);
-
-      this.db
-        .insert(decks)
-        .values({
-          id: deckId,
-          userId,
-          name: ankiDeck.name,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
+      const leafDeckId = this.resolveOrCreateDeckHierarchy(
+        userId,
+        ankiDeck.name,
+        merge ?? false,
+        now,
+        hierarchyCache,
+      );
+      deckMap.set(ankiDeck.id, leafDeckId);
     }
 
     // Create or reuse note types, mapping anki model id -> our note type id
@@ -704,6 +688,77 @@ export class ImportService {
       duplicatesSkipped,
       notesUpdated,
     };
+  }
+
+  private resolveOrCreateDeckHierarchy(
+    userId: string,
+    fullName: string,
+    merge: boolean,
+    now: Date,
+    hierarchyCache: Map<string, string>,
+  ): string {
+    // Anki uses "::" in older format and U+001F (unit separator) in newer format
+    // oxlint-disable-next-line eslint(no-control-regex), unicorn(prefer-string-replace-all) -- intentionally matching Anki's U+001F separator
+    const normalized = fullName.replace(/\u001F/g, "::");
+    const segments = normalized
+      .split("::")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (segments.length === 0) {
+      segments.push(fullName);
+    }
+
+    let currentParentId: string | undefined;
+    let pathKey = "";
+
+    for (const segment of segments) {
+      pathKey = pathKey ? `${pathKey}::${segment}` : segment;
+
+      const cachedId = hierarchyCache.get(pathKey);
+      if (cachedId) {
+        currentParentId = cachedId;
+        continue;
+      }
+
+      if (merge) {
+        const existing = this.db
+          .select()
+          .from(decks)
+          .where(
+            and(
+              eq(decks.userId, userId),
+              eq(decks.name, segment),
+              currentParentId
+                ? eq(decks.parentId, currentParentId)
+                : isNull(decks.parentId),
+            ),
+          )
+          .get();
+        if (existing) {
+          hierarchyCache.set(pathKey, existing.id);
+          currentParentId = existing.id;
+          continue;
+        }
+      }
+
+      const deckId = generateId();
+      this.db
+        .insert(decks)
+        .values({
+          id: deckId,
+          userId,
+          name: segment,
+          parentId: currentParentId ?? null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      hierarchyCache.set(pathKey, deckId);
+      currentParentId = deckId;
+    }
+
+    return currentParentId!;
   }
 
   private linkNoteMedia(
