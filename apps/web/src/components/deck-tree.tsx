@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ChevronRight,
@@ -315,11 +315,15 @@ function DeckTreeItem({
   });
 
   // Merge drag and drop refs onto the same element
-  // oxlint-disable-next-line typescript-eslint(no-restricted-types) -- React ref callback requires null
-  const setNodeRef = (el: HTMLElement | null) => {
-    setDragRef(el);
-    setDropRef(el);
-  };
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- refs are stable from dnd-kit hooks
+  const setNodeRef = useCallback(
+    // oxlint-disable-next-line typescript-eslint(no-restricted-types) -- React ref callback requires null
+    (el: HTMLElement | null) => {
+      setDragRef(el);
+      setDropRef(el);
+    },
+    [setDragRef, setDropRef],
+  );
 
   let dragDropClass = "hover:bg-muted/50";
   if (isDragging) {
@@ -495,16 +499,8 @@ function getDescendantIds(
   return ids;
 }
 
-function RootDropZone({
-  active,
-}: {
-  active: boolean;
-}): React.ReactElement | undefined {
+function RootDropZone(): React.ReactElement {
   const { isOver, setNodeRef } = useDroppable({ id: "__root__" });
-
-  if (!active) {
-    return undefined;
-  }
 
   return (
     <div
@@ -623,7 +619,7 @@ export function DeckTree({
             </div>
           </div>
 
-          <RootDropZone active={activeDeckId !== null} />
+          {activeDeckId !== null && <RootDropZone />}
 
           <DragOverlay>
             {activeDeck ? (
