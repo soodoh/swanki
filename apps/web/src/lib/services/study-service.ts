@@ -17,6 +17,21 @@ import type { Grade, FsrsResult, IntervalPreview } from "../fsrs";
 
 type Db = BunSQLiteDatabase<typeof schema>;
 
+function deriveCounts(dueCards: CardWithNote[]): CardCounts {
+  const counts: CardCounts = { new: 0, learning: 0, review: 0 };
+  for (const card of dueCards) {
+    const state = card.state ?? 0;
+    if (state === 0) {
+      counts.new += 1;
+    } else if (state === 1 || state === 3) {
+      counts.learning += 1;
+    } else if (state === 2) {
+      counts.review += 1;
+    }
+  }
+  return counts;
+}
+
 export type StudyCardTemplate = {
   id: string;
   questionTemplate: string;
@@ -53,7 +68,9 @@ export class StudyService {
 
   getStudySession(userId: string, deckId: string): StudySession {
     const dueCards = this.cardService.getDueCards(userId, deckId);
-    const counts = this.cardService.getCounts(userId, deckId);
+
+    // Derive counts from the due cards list (not getCounts which counts ALL cards)
+    const counts = deriveCounts(dueCards);
 
     // Collect unique template IDs from the due cards
     const templateIds = [...new Set(dueCards.map((c) => c.templateId))];
@@ -245,7 +262,8 @@ export class StudyService {
       }
     }
 
-    const counts = this.cardService.getCounts(userId, deckId);
+    // Derive counts from the filtered cards list
+    const counts = deriveCounts(allCards);
 
     return {
       cards: allCards,

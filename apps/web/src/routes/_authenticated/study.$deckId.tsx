@@ -35,12 +35,21 @@ function StudyPage(): React.ReactElement {
   >(undefined);
   const cardStartTime = useRef<number>(Date.now());
   const replayRef = useRef<(() => void) | undefined>(undefined);
+  const initialTotalRef = useRef<number>(0);
 
   const currentCard: CardWithNote | undefined = session?.cards[currentIndex];
 
   const { data: previews } = useIntervalPreviews(
     showAnswer ? currentCard?.id : undefined,
   );
+
+  // Capture initial total on first session load
+  useEffect(() => {
+    if (session && initialTotalRef.current === 0) {
+      initialTotalRef.current =
+        session.counts.new + session.counts.learning + session.counts.review;
+    }
+  }, [session]);
 
   // Reset card timer when card changes
   useEffect(() => {
@@ -215,11 +224,6 @@ function StudyPage(): React.ReactElement {
   }
 
   const isComplete = session && session.cards.length === 0;
-  const totalCards =
-    (session?.counts.new ?? 0) +
-    (session?.counts.learning ?? 0) +
-    (session?.counts.review ?? 0) +
-    reviewedCount;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -259,8 +263,7 @@ function StudyPage(): React.ReactElement {
               {/* Progress */}
               <StudyProgress
                 counts={session.counts}
-                totalCards={totalCards}
-                reviewedCount={reviewedCount}
+                initialTotal={initialTotalRef.current}
               />
 
               {/* Card */}
