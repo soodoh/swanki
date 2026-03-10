@@ -67,7 +67,9 @@ export class StudyService {
   }
 
   getStudySession(userId: string, deckId: string): StudySession {
-    const dueCards = this.cardService.getDueCards(userId, deckId);
+    const dueCards = this.cardService.getDueCards(userId, deckId, {
+      includeChildren: true,
+    });
 
     // Derive counts from the due cards list (not getCounts which counts ALL cards)
     const counts = deriveCounts(dueCards);

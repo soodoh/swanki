@@ -238,6 +238,26 @@ export class CardService {
     }
   }
 
+  getDueCounts(
+    userId: string,
+    deckId: string,
+    options?: { includeChildren?: boolean },
+  ): CardCounts {
+    const dueCards = this.getDueCards(userId, deckId, options);
+    const counts: CardCounts = { new: 0, learning: 0, review: 0 };
+    for (const card of dueCards) {
+      const state = card.state ?? 0;
+      if (state === 0) {
+        counts.new += 1;
+      } else if (state === 1 || state === 3) {
+        counts.learning += 1;
+      } else if (state === 2) {
+        counts.review += 1;
+      }
+    }
+    return counts;
+  }
+
   getCounts(userId: string, deckId: string): CardCounts {
     const rows = this.db
       .select({

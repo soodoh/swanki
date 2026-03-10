@@ -22,7 +22,9 @@ export const Route = createFileRoute("/api/cards/")({
 
         const counts = url.searchParams.get("counts");
         if (counts === "true") {
-          const result = cardService.getCounts(session.user.id, deckId);
+          const result = cardService.getDueCounts(session.user.id, deckId, {
+            includeChildren: true,
+          });
           return Response.json(result);
         }
 

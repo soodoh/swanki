@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -39,39 +38,36 @@ import {
 } from "@/lib/hooks/use-decks";
 import type { DeckTreeNode } from "@/lib/hooks/use-decks";
 
-function DeckCountBadges({
-  deckId,
+function CountCell({
+  value,
+  color,
 }: {
-  deckId: string;
-}): React.ReactElement | undefined {
+  value: number;
+  color: string;
+}): React.ReactElement {
+  return (
+    <span
+      className={`w-8 text-right tabular-nums text-xs font-medium ${
+        value > 0 ? color : "text-muted-foreground/40"
+      }`}
+    >
+      {value}
+    </span>
+  );
+}
+
+function DeckCountBadges({ deckId }: { deckId: string }): React.ReactElement {
   const { data: counts } = useDeckCounts(deckId);
 
-  if (!counts) {
-    return undefined;
-  }
-
-  const hasCards = counts.new > 0 || counts.learning > 0 || counts.review > 0;
-  if (!hasCards) {
-    return undefined;
-  }
+  const n = counts?.new ?? 0;
+  const l = counts?.learning ?? 0;
+  const r = counts?.review ?? 0;
 
   return (
     <div className="flex items-center gap-1">
-      {counts.new > 0 && (
-        <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 tabular-nums">
-          {counts.new}
-        </Badge>
-      )}
-      {counts.learning > 0 && (
-        <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-400 border-0 tabular-nums">
-          {counts.learning}
-        </Badge>
-      )}
-      {counts.review > 0 && (
-        <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 tabular-nums">
-          {counts.review}
-        </Badge>
-      )}
+      <CountCell value={n} color="text-blue-700 dark:text-blue-400" />
+      <CountCell value={l} color="text-orange-700 dark:text-orange-400" />
+      <CountCell value={r} color="text-green-700 dark:text-green-400" />
     </div>
   );
 }
@@ -439,14 +435,20 @@ export function DeckTree({
       ) : (
         <div className="rounded-lg border bg-card">
           <div className="px-3 py-2 border-b">
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="size-5 shrink-0" />
+              <span className="size-4 shrink-0" />
               <span className="flex-1">Name</span>
-              <div className="flex items-center gap-3">
-                <span className="text-blue-600 dark:text-blue-400">New</span>
-                <span className="text-orange-600 dark:text-orange-400">
+              <div className="flex items-center gap-1">
+                <span className="w-8 text-right text-blue-600 dark:text-blue-400">
+                  New
+                </span>
+                <span className="w-8 text-right text-orange-600 dark:text-orange-400">
                   Learn
                 </span>
-                <span className="text-green-600 dark:text-green-400">Due</span>
+                <span className="w-8 text-right text-green-600 dark:text-green-400">
+                  Due
+                </span>
               </div>
               <span className="w-16" />
             </div>
