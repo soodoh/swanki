@@ -76,11 +76,10 @@ function StudyPage(): React.ReactElement {
         timeTakenMs,
       });
 
+      // Refetch FIRST, then batch state updates to avoid intermediate render
+      await refetch();
       setReviewedCount((prev) => prev + 1);
       setShowAnswer(false);
-
-      // Refetch to get updated session
-      await refetch();
       setCurrentIndex(0);
     },
     [currentCard, submitReview, refetch],
@@ -93,11 +92,11 @@ function StudyPage(): React.ReactElement {
 
     await undoReview.mutateAsync({ cardId: lastReviewedCardId });
 
+    // Refetch FIRST, then batch state updates to avoid intermediate render
+    await refetch();
     setReviewedCount((prev) => Math.max(0, prev - 1));
     setShowAnswer(false);
     setLastReviewedCardId(undefined);
-
-    await refetch();
     setCurrentIndex(0);
   }, [lastReviewedCardId, undoReview, refetch]);
 
