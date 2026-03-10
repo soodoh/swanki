@@ -28,6 +28,8 @@ out/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 
 # User data (media uploads)
 apps/web/data/
@@ -43,6 +45,11 @@ yarn-error.log*
 
 # Testing
 coverage/
+
+# Playwright
+apps/web/e2e/.auth/
+apps/web/test-results/
+apps/web/playwright-report/
 
 # Worktrees
 .worktrees/
