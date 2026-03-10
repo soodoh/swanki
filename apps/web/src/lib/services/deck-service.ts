@@ -249,5 +249,13 @@ function buildTree(flatDecks: Deck[]): DeckTreeNode[] {
     }
   }
 
-  return roots;
+  return sortTree(roots);
+}
+
+function sortTree(nodes: DeckTreeNode[]): DeckTreeNode[] {
+  nodes.sort((a, b) => a.name.localeCompare(b.name));
+  for (const node of nodes) {
+    sortTree(node.children);
+  }
+  return nodes;
 }
