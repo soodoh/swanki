@@ -97,7 +97,7 @@ describe("CardService", () => {
       expect(dueCards[0].id).toBe(card1.id);
     });
 
-    it("orders: overdue reviews first, then learning, then new cards", async () => {
+    it("orders: learning first, then overdue reviews, then new cards", async () => {
       const now = new Date();
       const pastDate = new Date(now.getTime() - 86_400_000); // 1 day ago
 
@@ -142,9 +142,9 @@ describe("CardService", () => {
       const dueCards = await cardService.getDueCards(userId, deckId);
 
       expect(dueCards).toHaveLength(3);
-      // Order: overdue reviews (state=2) first, then learning (state=1), then new (state=0)
-      expect(dueCards[0].id).toBe(cardReview.id);
-      expect(dueCards[1].id).toBe(cardLearning.id);
+      // Order: learning (state=1) first, then reviews (state=2, shuffled), then new (state=0)
+      expect(dueCards[0].id).toBe(cardLearning.id);
+      expect(dueCards[1].id).toBe(cardReview.id);
       expect(dueCards[2].id).toBe(cardNew.id);
     });
 
