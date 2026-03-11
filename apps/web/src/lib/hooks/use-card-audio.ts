@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from "react";
-import { wireSoundButtons } from "@/lib/sound";
+import { wireSoundButtons } from "@/lib/media-tags";
 
 /**
  * Auto-plays all <audio> elements inside a container sequentially when audioKey changes.

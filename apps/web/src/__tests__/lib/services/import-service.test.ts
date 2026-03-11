@@ -11,28 +11,23 @@ import { eq } from "drizzle-orm";
 
 describe("rewriteMediaUrls", () => {
   const mapping = new Map<string, string>([
-    ["image.jpg", "/api/media/abc123.jpg"],
-    ["sound.mp3", "/api/media/def456.mp3"],
+    ["image.jpg", "abc123.jpg"],
+    ["sound.mp3", "def456.mp3"],
   ]);
 
-  it("should rewrite img src attributes", () => {
+  it("should rewrite img tags to [image:] bracket tags", () => {
     const input = '<img src="image.jpg">';
-    expect(rewriteMediaUrls(input, mapping)).toBe(
-      '<img src="/api/media/abc123.jpg">',
-    );
+    expect(rewriteMediaUrls(input, mapping)).toBe("[image:abc123.jpg]");
   });
 
-  it("should rewrite Anki sound syntax", () => {
+  it("should rewrite Anki [sound:] to [audio:] bracket tags", () => {
     const input = "[sound:sound.mp3]";
-    expect(rewriteMediaUrls(input, mapping)).toBe(
-      "[sound:/api/media/def456.mp3]",
-    );
+    expect(rewriteMediaUrls(input, mapping)).toBe("[audio:def456.mp3]");
   });
 
   it("should handle multiple media references in one field", () => {
     const input = '<img src="image.jpg"> and [sound:sound.mp3]';
-    const expected =
-      '<img src="/api/media/abc123.jpg"> and [sound:/api/media/def456.mp3]';
+    const expected = "[image:abc123.jpg] and [audio:def456.mp3]";
     expect(rewriteMediaUrls(input, mapping)).toBe(expected);
   });
 
@@ -45,13 +40,23 @@ describe("rewriteMediaUrls", () => {
     const input = '<img src="unknown.jpg">';
     expect(rewriteMediaUrls(input, mapping)).toBe(input);
   });
+
+  it("should rewrite single-quoted img src attributes", () => {
+    const input = "<img src='image.jpg'>";
+    expect(rewriteMediaUrls(input, mapping)).toBe("[image:abc123.jpg]");
+  });
+
+  it("should rewrite unquoted img src attributes", () => {
+    const input = "<img src=image.jpg>";
+    expect(rewriteMediaUrls(input, mapping)).toBe("[image:abc123.jpg]");
+  });
 });
 
 describe("extractMediaFilenames", () => {
-  it("should extract filenames from /api/media/ URLs in fields", () => {
+  it("should extract filenames from bracket media tags in fields", () => {
     const fields = {
-      Front: '<img src="/api/media/abc123.jpg">',
-      Back: "Text and [sound:/api/media/def456.mp3]",
+      Front: "[image:abc123.jpg]",
+      Back: "Text and [audio:def456.mp3]",
     };
     const filenames = extractMediaFilenames(fields);
     expect(filenames).toContain("abc123.jpg");
@@ -61,8 +66,8 @@ describe("extractMediaFilenames", () => {
 
   it("should deduplicate filenames", () => {
     const fields = {
-      Front: '<img src="/api/media/abc123.jpg">',
-      Back: '<img src="/api/media/abc123.jpg">',
+      Front: "[image:abc123.jpg]",
+      Back: "[image:abc123.jpg]",
     };
     expect(extractMediaFilenames(fields)).toHaveLength(1);
   });
@@ -137,7 +142,7 @@ describe("importFromApkg noteMedia population", () => {
       media: [],
     };
 
-    const mediaMapping = new Map([["image.jpg", "/api/media/abc123.jpg"]]);
+    const mediaMapping = new Map([["image.jpg", "abc123.jpg"]]);
     service.importFromApkg("user-1", apkgData, mediaMapping);
 
     const allNotes = db.select().from(notes).all();
@@ -367,21 +372,21 @@ describe("importFromApkg merge update-on-change", () => {
       noteGuids: ["guid-1"],
       noteFields: [['<img src="old.jpg">', "Back"]],
     });
-    const mapping1 = new Map([["old.jpg", "/api/media/old-hash.jpg"]]);
+    const mapping1 = new Map([["old.jpg", "old-hash.jpg"]]);
     service.importFromApkg("user-1", data1, mapping1, true);
 
     const data2 = makeApkgData({
       noteGuids: ["guid-1"],
       noteFields: [['<img src="new.jpg">', "Back Updated"]],
     });
-    const mapping2 = new Map([["new.jpg", "/api/media/new-hash.jpg"]]);
+    const mapping2 = new Map([["new.jpg", "new-hash.jpg"]]);
     const result = service.importFromApkg("user-1", data2, mapping2, true);
 
     expect(result.notesUpdated).toBe(1);
 
     const allNotes = db.select().from(notes).all();
     expect(allNotes[0].fields).toStrictEqual({
-      Front: '<img src="/api/media/new-hash.jpg">',
+      Front: "[image:new-hash.jpg]",
       Back: "Back Updated",
     });
   });

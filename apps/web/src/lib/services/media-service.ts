@@ -133,17 +133,44 @@ export class MediaService {
     const mapping = new Map<string, string>();
     const warnings: string[] = [];
 
-    for (const entry of entries) {
-      if (entry.data.length === 0) {
-        warnings.push(`Skipped empty file: ${entry.filename}`);
+    // Phase 1: Hash all files in parallel
+    const nonEmpty = entries.filter((e) => {
+      if (e.data.length === 0) {
+        warnings.push(`Skipped empty file: ${e.filename}`);
+        return false;
+      }
+      return true;
+    });
+
+    const hashes = await Promise.all(
+      nonEmpty.map(async (entry) => {
+        const buf = await crypto.subtle.digest("SHA-256", entry.data);
+        return [...new Uint8Array(buf)]
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }),
+    );
+
+    // Phase 2: Deduplicate + check DB for existing (synchronous)
+    type PendingWrite = {
+      entry: (typeof nonEmpty)[number];
+      hash: string;
+      filename: string;
+      mimeType: string;
+    };
+    const pendingWrites: PendingWrite[] = [];
+    const seenHashes = new Map<string, string>(); // hash → filename (in-batch dedup)
+
+    for (let i = 0; i < nonEmpty.length; i += 1) {
+      const entry = nonEmpty[i];
+      const hash = hashes[i];
+
+      // In-batch dedup: if we've already seen this hash in the current batch
+      const inBatchFilename = seenHashes.get(hash);
+      if (inBatchFilename) {
+        mapping.set(entry.filename, inBatchFilename);
         continue;
       }
-
-      const hashBuffer = await crypto.subtle.digest("SHA-256", entry.data);
-      const hashArray = [...new Uint8Array(hashBuffer)];
-      const hash = hashArray
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
 
       const existing = this.db
         .select()
@@ -152,7 +179,8 @@ export class MediaService {
         .get();
 
       if (existing) {
-        mapping.set(entry.filename, `/api/media/${existing.filename}`);
+        mapping.set(entry.filename, existing.filename);
+        seenHashes.set(hash, existing.filename);
         continue;
       }
 
@@ -161,6 +189,7 @@ export class MediaService {
         : "";
       const filename = `${hash}${ext}`;
       const mimeType = guessMimeType(entry.filename);
+      seenHashes.set(hash, filename);
 
       // Skip files with unsupported MIME types (e.g. SVG can execute JS)
       const isAllowed = ALLOWED_MIME_PREFIXES.some((prefix) =>
@@ -173,25 +202,39 @@ export class MediaService {
         continue;
       }
 
-      // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-      const filePath: string = join(MEDIA_DIR, filename);
-      // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped in this project
-      await Bun.write(filePath, entry.data);
+      pendingWrites.push({ entry, hash, filename, mimeType });
+    }
 
-      this.db
-        .insert(media)
-        .values({
-          id: generateId(),
-          userId,
-          filename,
-          hash,
-          mimeType,
-          size: entry.data.length,
-          createdAt: new Date(),
-        })
-        .run();
+    // Phase 3: Write new files in parallel batches + insert DB records
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < pendingWrites.length; i += BATCH_SIZE) {
+      const batch = pendingWrites.slice(i, i + BATCH_SIZE);
 
-      mapping.set(entry.filename, `/api/media/${filename}`);
+      await Promise.all(
+        batch.map(async ({ entry, filename }) => {
+          // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
+          const filePath: string = join(MEDIA_DIR, filename);
+          // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped in this project
+          await Bun.write(filePath, entry.data);
+        }),
+      );
+
+      for (const { entry, hash, filename, mimeType } of batch) {
+        this.db
+          .insert(media)
+          .values({
+            id: generateId(),
+            userId,
+            filename,
+            hash,
+            mimeType,
+            size: entry.data.length,
+            createdAt: new Date(),
+          })
+          .run();
+
+        mapping.set(entry.filename, filename);
+      }
     }
 
     return { mapping, warnings, mediaCount: mapping.size };

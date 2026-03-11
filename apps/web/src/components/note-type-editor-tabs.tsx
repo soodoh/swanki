@@ -49,7 +49,7 @@ import type {
 } from "@/lib/hooks/use-note-types";
 import { renderCardTemplate, isWysiwygTemplate } from "@/lib/wysiwyg";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
-import { replaceSoundTags } from "@/lib/sound";
+import { expandMediaTags } from "@/lib/media-tags";
 import { TemplateEditor as WysiwygTemplateEditor } from "@/components/wysiwyg/template-editor";
 // oxlint-disable-next-line import(no-unassigned-import) -- CSS side-effect import
 import "@/components/wysiwyg/editor-styles.css";
@@ -665,7 +665,7 @@ export function PreviewTab({
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{
-                  __html: sanitizeHtml(replaceSoundTags(questionHtml)),
+                  __html: expandMediaTags(sanitizeHtml(questionHtml)),
                 }}
               />
               {/* oxlint-enable react/no-danger */}
@@ -682,7 +682,7 @@ export function PreviewTab({
               <div
                 className="card prose prose-sm dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{
-                  __html: sanitizeHtml(replaceSoundTags(answerHtml)),
+                  __html: expandMediaTags(sanitizeHtml(answerHtml)),
                 }}
               />
               {/* oxlint-enable react/no-danger */}

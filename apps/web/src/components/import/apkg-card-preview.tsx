@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { renderCardTemplate } from "@/lib/wysiwyg";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { replaceSoundTags } from "@/lib/sound";
+import { expandMediaTags } from "@/lib/media-tags";
 
 type NoteTypeInfo = {
   name: string;
@@ -47,11 +47,11 @@ export function ApkgCardPreview({
   }
 
   // Render using the unified renderer (handles both WYSIWYG JSON and legacy mustache)
-  const frontHtml = sanitizeHtml(
-    replaceSoundTags(renderCardTemplate(template.questionFormat, fields)),
+  const frontHtml = expandMediaTags(
+    sanitizeHtml(renderCardTemplate(template.questionFormat, fields)),
   );
-  const backHtml = sanitizeHtml(
-    replaceSoundTags(
+  const backHtml = expandMediaTags(
+    sanitizeHtml(
       renderCardTemplate(template.answerFormat, fields, {
         frontSide: frontHtml,
         showAnswer: true,
