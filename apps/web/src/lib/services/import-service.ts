@@ -67,28 +67,56 @@ export function detectFormat(filename: string): ImportFormat | undefined {
   return FORMAT_MAP[ext];
 }
 
+/* oxlint-disable unicorn(prefer-string-replace-all) -- replaceAll triggers no-unsafe-* lint errors */
 export function rewriteMediaUrls(
   text: string,
   mapping: Map<string, string>,
 ): string {
   let result = text;
 
-  // Rewrite src="filename" (handles img, audio, video source tags)
-  // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll triggers no-unsafe-* lint errors
-  result = result.replace(/src="([^"]+)"/g, (match, filename: string) => {
-    const newUrl = mapping.get(filename);
-    return newUrl ? `src="${newUrl}"` : match;
+  // Rewrite <img src="filename"> → [image:hash.ext]
+  // Supports double quotes, single quotes, and unquoted src values
+  result = result.replace(
+    /<img\s[^>]*src=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*\/?>/gi,
+    (
+      match,
+      dq: string | undefined,
+      sq: string | undefined,
+      uq: string | undefined,
+    ) => {
+      const filename = dq ?? sq ?? uq;
+      if (!filename) return match;
+      const newFilename = mapping.get(filename);
+      return newFilename ? `[image:${newFilename}]` : match;
+    },
+  );
+
+  // Rewrite [sound:filename] → [audio:hash.ext]
+  result = result.replace(/\[sound:([^\]]+)\]/g, (match, filename: string) => {
+    const newFilename = mapping.get(filename);
+    return newFilename ? `[audio:${newFilename}]` : match;
   });
 
-  // Rewrite [sound:filename] (Anki audio syntax)
-  // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll triggers no-unsafe-* lint errors
-  result = result.replace(/\[sound:([^\]]+)\]/g, (match, filename: string) => {
-    const newUrl = mapping.get(filename);
-    return newUrl ? `[sound:${newUrl}]` : match;
-  });
+  // Rewrite <video src="filename"...>...</video> → [video:hash.ext]
+  // Supports double quotes, single quotes, and unquoted src values
+  result = result.replace(
+    /<video\s[^>]*src=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>[\s\S]*?<\/video>/gi,
+    (
+      match,
+      dq: string | undefined,
+      sq: string | undefined,
+      uq: string | undefined,
+    ) => {
+      const filename = dq ?? sq ?? uq;
+      if (!filename) return match;
+      const newFilename = mapping.get(filename);
+      return newFilename ? `[video:${newFilename}]` : match;
+    },
+  );
 
   return result;
 }
+/* oxlint-enable unicorn(prefer-string-replace-all) */
 
 export function extractMediaFilenames(
   fields: Record<string, string>,
@@ -96,9 +124,10 @@ export function extractMediaFilenames(
   const filenames: string[] = [];
   const allText = Object.values(fields).join(" ");
 
-  const srcRegex = /\/api\/media\/([^\s"'<>\]]+)/g;
+  // Match [image:file], [audio:file], [video:file] bracket tags
+  const bracketRegex = /\[(?:image|audio|video):([^\]]+)\]/g;
   let match;
-  while ((match = srcRegex.exec(allText)) !== null) {
+  while ((match = bracketRegex.exec(allText)) !== null) {
     filenames.push(match[1]);
   }
 

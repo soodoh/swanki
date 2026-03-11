@@ -44,8 +44,8 @@ describe("MediaService.importBatch", () => {
     const { mapping, warnings } = await service.importBatch("user-1", entries);
 
     expect(mapping.size).toBe(2);
-    expect(mapping.get("image.jpg")).toMatch(/^\/api\/media\/[a-f0-9]+\.jpg$/);
-    expect(mapping.get("sound.mp3")).toMatch(/^\/api\/media\/[a-f0-9]+\.mp3$/);
+    expect(mapping.get("image.jpg")).toMatch(/^[a-f0-9]+\.jpg$/);
+    expect(mapping.get("sound.mp3")).toMatch(/^[a-f0-9]+\.mp3$/);
     expect(warnings).toHaveLength(0);
 
     const records = db.select().from(media).all();

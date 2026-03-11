@@ -3,17 +3,17 @@
  *
  * Fields in the new format store only:
  * - Plain escaped text
- * - Media references: <img src="...">, [sound:...], <video src="..." controls></video>
+ * - Media references: [image:file], [audio:file], [video:file]
  *
  * All other HTML formatting is stripped since styling is now handled
  * by the card template WYSIWYG editor.
  */
 
 /**
- * Strip HTML from field content, preserving media references and plain text.
+ * Strip HTML from field content, preserving media bracket tags and plain text.
  *
- * Media tags (<img>, <audio>, <video>, [sound:]) are preserved as-is.
- * All other HTML is stripped to plain text.
+ * Bracket media tags ([image:], [audio:], [video:]) are preserved as-is.
+ * All HTML (including <img>, <video>, <audio>) is stripped to plain text.
  */
 export function stripHtmlToPlainText(html: string): string {
   if (!html) {
@@ -24,26 +24,17 @@ export function stripHtmlToPlainText(html: string): string {
   let remaining = html;
 
   while (remaining.length > 0) {
-    // Check for img tags — preserve
-    const imgMatch = remaining.match(/^<img\s[^>]*src="[^"]*"[^>]*\/?>/i);
-    if (imgMatch) {
-      result += imgMatch[0];
-      remaining = remaining.slice(imgMatch[0].length);
+    // Check for bracket media tags — preserve [image:], [audio:], [video:]
+    const bracketMatch = remaining.match(/^\[(?:image|audio|video):[^\]]+\]/);
+    if (bracketMatch) {
+      result += bracketMatch[0];
+      remaining = remaining.slice(bracketMatch[0].length);
       continue;
     }
 
-    // Check for video tags — preserve
-    const videoMatch = remaining.match(
-      /^<video\s[^>]*src="[^"]*"[^>]*>[\s\S]*?<\/video>/i,
-    );
-    if (videoMatch) {
-      result += videoMatch[0];
-      remaining = remaining.slice(videoMatch[0].length);
-      continue;
-    }
-
-    // Check for [sound:] tags — preserve
-    const soundMatch = remaining.match(/^\[sound:[^\]]+\]/);
+    // Check for [sound:] tags (legacy Anki format) — preserve as [audio:]
+    // This handles raw Anki fields before rewriteMediaUrls has run
+    const soundMatch = remaining.match(/^\[sound:([^\]]+)\]/);
     if (soundMatch) {
       result += soundMatch[0];
       remaining = remaining.slice(soundMatch[0].length);
@@ -68,7 +59,7 @@ export function stripHtmlToPlainText(html: string): string {
       continue;
     }
 
-    // Skip other HTML tags
+    // Skip other HTML tags (including <img>, <video>, <audio>)
     const tagMatch = remaining.match(/^<[^>]+>/);
     if (tagMatch) {
       remaining = remaining.slice(tagMatch[0].length);
@@ -77,13 +68,13 @@ export function stripHtmlToPlainText(html: string): string {
 
     // Find the next tag boundary
     const nextTag = remaining.indexOf("<");
-    const nextSound = remaining.indexOf("[sound:");
+    const nextBracket = remaining.indexOf("[");
     let nextBoundary = remaining.length;
     if (nextTag !== -1) {
       nextBoundary = Math.min(nextBoundary, nextTag);
     }
-    if (nextSound !== -1) {
-      nextBoundary = Math.min(nextBoundary, nextSound);
+    if (nextBracket !== -1) {
+      nextBoundary = Math.min(nextBoundary, nextBracket);
     }
 
     const textChunk = remaining.slice(0, nextBoundary);

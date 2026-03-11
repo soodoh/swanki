@@ -37,23 +37,16 @@ function parseMediaRefs(text: string): MediaRef[] {
   const refs: MediaRef[] = [];
   const seen = new Set<string>();
 
-  const srcRegex = /\/api\/media\/([^\s"'<>\]]+)/g;
+  // Match [image:file], [audio:file], [video:file] bracket tags
+  const bracketRegex = /\[(image|audio|video):([^\]]+)\]/g;
   let match;
-  while ((match = srcRegex.exec(text)) !== null) {
-    const filename = match[1];
+  while ((match = bracketRegex.exec(text)) !== null) {
+    const type = match[1] as "image" | "audio" | "video";
+    const filename = match[2];
     if (seen.has(filename)) {
       continue;
     }
     seen.add(filename);
-
-    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
-    let type: "image" | "audio" | "video" = "image";
-    if (["mp3", "wav", "ogg", "m4a"].includes(ext)) {
-      type = "audio";
-    }
-    if (["mp4", "webm", "mov"].includes(ext)) {
-      type = "video";
-    }
 
     refs.push({ url: `/api/media/${filename}`, filename, type });
   }
@@ -95,13 +88,15 @@ export function FieldAttachments({
         mimeType: string;
       };
 
+      // Extract just the filename from the URL (e.g. "/api/media/hash.jpg" → "hash.jpg")
+      const filename = data.url.split("/").pop() ?? data.url;
       let tag: string;
       if (data.mimeType.startsWith("image/")) {
-        tag = `<img src="${data.url}">`;
+        tag = `[image:${filename}]`;
       } else if (data.mimeType.startsWith("audio/")) {
-        tag = `[sound:${data.url}]`;
+        tag = `[audio:${filename}]`;
       } else {
-        tag = `<video src="${data.url}" controls></video>`;
+        tag = `[video:${filename}]`;
       }
 
       onFieldChange(fieldValue ? `${fieldValue} ${tag}` : tag);
@@ -115,23 +110,11 @@ export function FieldAttachments({
 
   function handleDelete(ref: MediaRef): void {
     let newValue = fieldValue;
-    const escaped = escapeRegExp(ref.url);
-    // Remove <img> tags
+    const escaped = escapeRegExp(ref.filename);
+    // Remove bracket media tags: [image:file], [audio:file], [video:file]
     newValue = replaceAllMatches(
       newValue,
-      new RegExp(`<img[^>]*src="${escaped}"[^>]*>`),
-      "",
-    );
-    // Remove [sound:] tags
-    newValue = replaceAllMatches(
-      newValue,
-      new RegExp(`\\[sound:${escaped}\\]`),
-      "",
-    );
-    // Remove <video> tags
-    newValue = replaceAllMatches(
-      newValue,
-      new RegExp(`<video[^>]*src="${escaped}"[^>]*>[^<]*</video>`),
+      new RegExp(`\\[(?:image|audio|video):${escaped}\\]`),
       "",
     );
     // Clean up double spaces left by tag removal, but preserve intentional formatting

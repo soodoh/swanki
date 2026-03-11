@@ -3,7 +3,7 @@ import { useRef, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
-import { replaceSoundTags } from "@/lib/sound";
+import { expandMediaTags } from "@/lib/media-tags";
 import { useCardAudio } from "@/lib/hooks/use-card-audio";
 
 type CardDisplayProps = {
@@ -33,7 +33,7 @@ export function CardDisplay({
   hideButton,
 }: CardDisplayProps): React.ReactElement {
   const contentRef = useRef<HTMLDivElement>(null);
-  const processedHtml = sanitizeHtml(replaceSoundTags(html));
+  const processedHtml = expandMediaTags(sanitizeHtml(html));
   const audioKey = useMemo(
     () => `${String(showAnswer)}-${html}`,
     [showAnswer, html],

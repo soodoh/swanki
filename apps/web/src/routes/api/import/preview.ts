@@ -1,14 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { eq } from "drizzle-orm";
 import { requireSession } from "../../../lib/auth-middleware";
-import {
-  detectFormat,
-  rewriteMediaUrls,
-} from "../../../lib/services/import-service";
+import { detectFormat } from "../../../lib/services/import-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
+import { countMedia } from "../../../lib/import/apkg-parser-core";
 import { db } from "../../../db";
-import { notes, media } from "../../../db/schema";
+import { notes } from "../../../db/schema";
 import { convertAnkiTemplate } from "../../../lib/wysiwyg/html-to-wysiwyg";
 import { stripHtmlToPlainText } from "../../../lib/wysiwyg/field-converter";
 
@@ -89,29 +87,19 @@ function buildSampleNotes(
   return samples;
 }
 
-async function buildMediaMapping(
-  mediaEntries: Array<{ filename: string; data: Uint8Array }>,
-): Promise<Map<string, string>> {
-  const mapping = new Map<string, string>();
-  for (const entry of mediaEntries) {
-    if (entry.data.length === 0) {
-      continue;
-    }
-    const hashBuffer = await crypto.subtle.digest("SHA-256", entry.data);
-    const hashArray = [...new Uint8Array(hashBuffer)];
-    const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-    const existing = db.select().from(media).where(eq(media.hash, hash)).get();
-    if (existing) {
-      mapping.set(entry.filename, `/api/media/${existing.filename}`);
-    }
-  }
-  return mapping;
+/* oxlint-disable unicorn/prefer-string-replace-all -- replaceAll with regex isn't typed in this TS target */
+/** Remove media bracket tags so comparison focuses on text content only. */
+function stripMediaRefs(text: string): string {
+  return text
+    .replace(/\[(?:image|audio|video):[^\]]+\]/g, "")
+    .replace(/  +/g, " ")
+    .trim();
 }
+/* oxlint-enable unicorn/prefer-string-replace-all */
 
 function computeMergeStats(
   apkgData: ReturnType<typeof parseApkg>,
   userId: string,
-  mediaMapping: Map<string, string>,
 ): NonNullable<ApkgPreviewData["mergeStats"]> {
   const existingNotes = db
     .select({
@@ -145,12 +133,6 @@ function computeMergeStats(
           incomingFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
         }
       }
-      for (const key of Object.keys(incomingFields)) {
-        incomingFields[key] = rewriteMediaUrls(
-          incomingFields[key],
-          mediaMapping,
-        );
-      }
 
       // Strip HTML from incoming fields to match stored format
       const strippedFields: Record<string, string> = {};
@@ -163,7 +145,9 @@ function computeMergeStats(
         Object.keys(storedFields).length ===
           Object.keys(strippedFields).length &&
         Object.keys(storedFields).every(
-          (k) => storedFields[k] === strippedFields[k],
+          (k) =>
+            stripMediaRefs(storedFields[k] ?? "") ===
+            stripMediaRefs(strippedFields[k] ?? ""),
         );
 
       if (fieldsMatch) {
@@ -212,13 +196,18 @@ export const Route = createFileRoute("/api/import/preview")({
           }
 
           const buffer = await file.arrayBuffer();
-          const apkgData = parseApkg(buffer);
+          // Skip decompressing media binary data — only need DB + manifest
+          const apkgData = parseApkg(buffer, { skipMedia: true });
 
           let mergeStats: ApkgPreviewData["mergeStats"];
           if (mergeMode === "merge") {
-            const mediaMapping = await buildMediaMapping(apkgData.media);
-            mergeStats = computeMergeStats(apkgData, userId, mediaMapping);
+            mergeStats = computeMergeStats(apkgData, userId);
           }
+
+          // Count media from manifest without reading binary data
+          const totalMedia = apkgData._unzipped
+            ? countMedia(apkgData._unzipped)
+            : apkgData.media.length;
 
           const preview: ApkgPreviewData = {
             decks: apkgData.decks.map((d) => ({ name: d.name })),
@@ -245,7 +234,7 @@ export const Route = createFileRoute("/api/import/preview")({
             sampleNotes: buildSampleNotes(apkgData.noteTypes, apkgData.notes),
             totalCards: apkgData.cards.length,
             totalNotes: apkgData.notes.length,
-            totalMedia: apkgData.media.length,
+            totalMedia,
             mergeStats,
           };
 
