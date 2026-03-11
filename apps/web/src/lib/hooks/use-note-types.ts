@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
+import { useOffline } from "@/lib/offline/offline-provider";
+import { offlineQuery } from "@/lib/offline/offline-fetch";
+import * as localQueries from "@/lib/offline/local-queries";
 
 export type NoteTypeField = {
   name: string;
@@ -31,33 +34,56 @@ export type NoteTypeWithTemplates = {
 };
 
 export function useNoteTypes(): UseQueryResult<NoteTypeWithTemplates[]> {
+  const { db, isOnline, isLocalReady } = useOffline();
+
   return useQuery<NoteTypeWithTemplates[]>({
     queryKey: ["note-types"],
-    queryFn: async () => {
-      const res = await fetch("/api/note-types");
-      if (!res.ok) {
-        throw new Error("Failed to fetch note types");
-      }
-      return res.json() as Promise<NoteTypeWithTemplates[]>;
-    },
+    queryFn: async () =>
+      offlineQuery({
+        serverFetch: async () => {
+          const res = await fetch("/api/note-types");
+          if (!res.ok) {
+            throw new Error("Failed to fetch note types");
+          }
+          return res.json() as Promise<NoteTypeWithTemplates[]>;
+        },
+        localQuery: (localDb) => localQueries.getNoteTypes(localDb),
+        db,
+        isOnline,
+        isLocalReady,
+      }),
   });
 }
 
 export function useNoteType(
   id: number | undefined,
 ): UseQueryResult<NoteTypeWithTemplates> {
+  const { db, isOnline, isLocalReady } = useOffline();
+
   return useQuery<NoteTypeWithTemplates>({
     queryKey: ["note-types", id],
-    queryFn: async () => {
-      const res = await fetch(`/api/note-types/${id}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch note type");
-      }
-      return res.json() as Promise<NoteTypeWithTemplates>;
-    },
+    queryFn: async () =>
+      offlineQuery({
+        serverFetch: async () => {
+          const res = await fetch(`/api/note-types/${id}`);
+          if (!res.ok) {
+            throw new Error("Failed to fetch note type");
+          }
+          return res.json() as Promise<NoteTypeWithTemplates>;
+        },
+        localQuery: (localDb) =>
+          id ? localQueries.getNoteType(localDb, id) : undefined,
+        db,
+        isOnline,
+        isLocalReady,
+      }),
     enabled: id !== undefined,
   });
 }
+
+// Mutations remain server-only for now since note type CRUD is less
+// latency-sensitive and has complex side effects (card generation).
+// They still work online and fall back gracefully.
 
 export function useCreateNoteType(): UseMutationResult<
   NoteType,

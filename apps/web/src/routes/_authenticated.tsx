@@ -2,9 +2,11 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
 import { getSession } from "@/lib/auth-session";
+import { OfflineProvider } from "@/lib/offline/offline-provider";
 
 type SessionData = {
   user: {
+    id: string;
     name: string;
     email: string;
     image?: string | undefined;
@@ -23,6 +25,7 @@ export const Route = createFileRoute("/_authenticated")({
     return {
       session: {
         user: {
+          id: session.user.id,
           name: session.user.name,
           email: session.user.email,
           image: session.user.image ?? undefined,
@@ -40,8 +43,10 @@ function AuthenticatedLayout(): React.ReactElement {
   const user = (session as SessionData).user;
 
   return (
-    <AppShell user={user}>
-      <Outlet />
-    </AppShell>
+    <OfflineProvider userId={user.id}>
+      <AppShell user={user}>
+        <Outlet />
+      </AppShell>
+    </OfflineProvider>
   );
 }

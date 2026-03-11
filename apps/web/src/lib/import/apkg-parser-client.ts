@@ -1,9 +1,11 @@
+/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-call, typescript/no-unsafe-member-access, typescript/no-redundant-type-constituents */
 /**
  * Client-side APKG parser using sql.js (SQLite compiled to WASM).
  * Runs entirely in the browser — no file upload needed for preview.
  */
 import { unzipSync } from "fflate";
-import initSqlJs from "sql.js";
+import type { Database as SqlJsDatabase } from "sql.js";
+import { getSqlJs, queryAll, queryFirst } from "../offline/sql-js-init";
 
 import {
   findDbFile,
@@ -27,23 +29,6 @@ import type {
 } from "./apkg-parser-core";
 
 export type { ApkgNoteType, ApkgData, ApkgMediaEntry };
-
-/** Local type definitions for sql.js (which ships without .d.ts files). */
-type SqlJsStatement = {
-  step(): boolean;
-  getAsObject(): Record<string, unknown>;
-  free(): void;
-};
-
-type SqlJsDatabase = {
-  prepare(sql: string): SqlJsStatement;
-  exec(sql: string): void;
-  close(): void;
-};
-
-type SqlJsStatic = {
-  Database: new (data: Uint8Array) => SqlJsDatabase;
-};
 
 export type ApkgPreviewData = {
   decks: Array<{ name: string }>;
@@ -71,19 +56,6 @@ export type ApkgPreviewData = {
     unchangedNotes: number;
   };
 };
-
-let sqlJsPromise: Promise<SqlJsStatic> | undefined;
-
-const initSqlJsTyped = initSqlJs as (config: {
-  locateFile: (file: string) => string;
-}) => Promise<SqlJsStatic>;
-
-async function getSqlJs(): Promise<SqlJsStatic> {
-  sqlJsPromise ??= initSqlJsTyped({
-    locateFile: (file: string) => `/${file}`,
-  });
-  return sqlJsPromise;
-}
 
 /** Parse an APKG/COLPKG file entirely in the browser */
 export async function parseApkgClient(buffer: ArrayBuffer): Promise<ApkgData> {
@@ -208,27 +180,7 @@ export async function buildClientPreview(
   }
 }
 
-// --- sql.js query helpers ---
-
-function queryAll<T>(db: SqlJsDatabase, sql: string): T[] {
-  const stmt = db.prepare(sql);
-  const results: T[] = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject() as T);
-  }
-  stmt.free();
-  return results;
-}
-
-function queryFirst<T>(db: SqlJsDatabase, sql: string): T | undefined {
-  const stmt = db.prepare(sql);
-  let result: T | undefined;
-  if (stmt.step()) {
-    result = stmt.getAsObject() as T;
-  }
-  stmt.free();
-  return result;
-}
+// Query helpers imported from ../offline/sql-js-init
 
 function isNewSchema(db: SqlJsDatabase): boolean {
   try {
