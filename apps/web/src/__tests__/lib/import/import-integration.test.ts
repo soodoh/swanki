@@ -781,8 +781,11 @@ describe("Import Integration", () => {
 
       const allTemplates = db.select().from(cardTemplates).all();
       expect(allTemplates).toHaveLength(1);
-      expect(allTemplates[0].questionTemplate).toBe("{{Term}}");
-      expect(allTemplates[0].answerTemplate).toBe("{{Term}}");
+      // Templates are now stored as WYSIWYG JSON
+      expect(allTemplates[0].questionTemplate).toContain('"version":1');
+      expect(allTemplates[0].questionTemplate).toContain("Term");
+      expect(allTemplates[0].answerTemplate).toContain('"version":1');
+      expect(allTemplates[0].answerTemplate).toContain("Term");
     });
 
     it("preserves quoted fields with embedded commas and newlines", () => {
@@ -1217,14 +1220,16 @@ describe("Import Integration", () => {
         ".card { background: #eee; font-size: 18px; }",
       );
 
-      // Verify templates have correct qfmt/afmt from protobuf
+      // Verify templates have correct field references (now as WYSIWYG JSON)
       const allTemplates = db.select().from(cardTemplates).all();
       expect(allTemplates).toHaveLength(2);
       const sorted = allTemplates.toSorted((a, b) => a.ordinal - b.ordinal);
-      expect(sorted[0].questionTemplate).toBe("<div>{{Country}}</div>");
-      expect(sorted[0].answerTemplate).toBe("<div>{{Capital}}</div>");
-      expect(sorted[1].questionTemplate).toBe("<div>{{Capital}}</div>");
-      expect(sorted[1].answerTemplate).toBe("<div>{{Country}}</div>");
+      // Templates are converted to WYSIWYG JSON format with resolved CSS
+      expect(sorted[0].questionTemplate).toContain('"version":1');
+      expect(sorted[0].questionTemplate).toContain("Country");
+      expect(sorted[0].answerTemplate).toContain("Capital");
+      expect(sorted[1].questionTemplate).toContain("Capital");
+      expect(sorted[1].answerTemplate).toContain("Country");
 
       // Verify notes have 3 fields
       const allNotes = db

@@ -9,6 +9,8 @@ import { parseApkg } from "../../../lib/import/apkg-parser";
 import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
 import { db } from "../../../db";
 import { notes, media } from "../../../db/schema";
+import { convertAnkiTemplate } from "../../../lib/wysiwyg/html-to-wysiwyg";
+import { stripHtmlToPlainText } from "../../../lib/wysiwyg/field-converter";
 
 export type ApkgPreviewData = {
   decks: Array<{ name: string }>;
@@ -17,14 +19,18 @@ export type ApkgPreviewData = {
     fields: Array<{ name: string; ordinal: number }>;
     templates: Array<{
       name: string;
+      /** WYSIWYG JSON template for the question side. */
       questionFormat: string;
+      /** WYSIWYG JSON template for the answer side. */
       answerFormat: string;
       ordinal: number;
     }>;
+    /** Resolved card styles are now embedded in each template — kept for backwards compat. */
     css: string;
   }>;
   sampleNotes: Array<{
     noteTypeName: string;
+    /** Fields with HTML stripped to plain text + media refs. */
     fields: Record<string, string>;
   }>;
   totalCards: number;
@@ -42,10 +48,10 @@ const MAX_TOTAL_NOTES = 10;
 
 function buildSampleNotes(
   noteTypes: ApkgNoteType[],
-  notes: ApkgNote[],
+  allNotes: ApkgNote[],
 ): ApkgPreviewData["sampleNotes"] {
   const notesByModel = new Map<number, ApkgNote[]>();
-  for (const note of notes) {
+  for (const note of allNotes) {
     const existing = notesByModel.get(note.modelId);
     if (existing) {
       existing.push(note);
@@ -71,7 +77,10 @@ function buildSampleNotes(
       const note = ntNotes[i];
       const fields: Record<string, string> = {};
       for (const field of nt.fields) {
-        fields[field.name] = note.fields[field.ordinal] ?? "";
+        // Strip HTML from sample fields to match how they'll be stored
+        fields[field.name] = stripHtmlToPlainText(
+          note.fields[field.ordinal] ?? "",
+        );
       }
       samples.push({ noteTypeName: nt.name, fields });
     }
@@ -143,12 +152,18 @@ function computeMergeStats(
         );
       }
 
+      // Strip HTML from incoming fields to match stored format
+      const strippedFields: Record<string, string> = {};
+      for (const key of Object.keys(incomingFields)) {
+        strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
+      }
+
       const storedFields = existingMap.get(ankiNote.guid)!;
       const fieldsMatch =
         Object.keys(storedFields).length ===
-          Object.keys(incomingFields).length &&
+          Object.keys(strippedFields).length &&
         Object.keys(storedFields).every(
-          (k) => storedFields[k] === incomingFields[k],
+          (k) => storedFields[k] === strippedFields[k],
         );
 
       if (fieldsMatch) {
@@ -210,8 +225,22 @@ export const Route = createFileRoute("/api/import/preview")({
             noteTypes: apkgData.noteTypes.map((nt) => ({
               name: nt.name,
               fields: nt.fields,
-              templates: nt.templates,
-              css: nt.css,
+              // Convert templates to WYSIWYG JSON for preview
+              templates: nt.templates.map((tmpl) => ({
+                name: tmpl.name,
+                questionFormat: JSON.stringify(
+                  convertAnkiTemplate(
+                    tmpl.questionFormat,
+                    nt.css,
+                    tmpl.ordinal,
+                  ),
+                ),
+                answerFormat: JSON.stringify(
+                  convertAnkiTemplate(tmpl.answerFormat, nt.css, tmpl.ordinal),
+                ),
+                ordinal: tmpl.ordinal,
+              })),
+              css: "", // CSS is now resolved into templates
             })),
             sampleNotes: buildSampleNotes(apkgData.noteTypes, apkgData.notes),
             totalCards: apkgData.cards.length,

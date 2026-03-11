@@ -13,7 +13,7 @@ import {
   useIntervalPreviews,
 } from "@/lib/hooks/use-study";
 import type { CardWithNote } from "@/lib/hooks/use-study";
-import { renderTemplate } from "@/lib/template-renderer";
+import { renderCardTemplate } from "@/lib/wysiwyg";
 
 export const Route = createFileRoute("/_authenticated/study/$deckId")({
   component: StudyPage,
@@ -181,19 +181,19 @@ function StudyPage(): React.ReactElement {
 
     if (showAnswer) {
       // Render front side first (needed for {{FrontSide}} in answer template)
-      const frontHtml = renderTemplate(template.questionTemplate, fields, {
+      const frontHtml = renderCardTemplate(template.questionTemplate, fields, {
         cardOrdinal: ordinal + 1,
         showAnswer: false,
       });
 
-      return renderTemplate(template.answerTemplate, fields, {
+      return renderCardTemplate(template.answerTemplate, fields, {
         cardOrdinal: ordinal + 1,
         frontSide: frontHtml,
         showAnswer: true,
       });
     }
 
-    return renderTemplate(template.questionTemplate, fields, {
+    return renderCardTemplate(template.questionTemplate, fields, {
       cardOrdinal: ordinal + 1,
       showAnswer: false,
     });

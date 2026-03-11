@@ -47,9 +47,12 @@ import type {
   NoteTypeField,
   CardTemplate,
 } from "@/lib/hooks/use-note-types";
-import { renderTemplate } from "@/lib/template-renderer";
+import { renderCardTemplate, isWysiwygTemplate } from "@/lib/wysiwyg";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
 import { replaceSoundTags } from "@/lib/sound";
+import { TemplateEditor as WysiwygTemplateEditor } from "@/components/wysiwyg/template-editor";
+// oxlint-disable-next-line import(no-unassigned-import) -- CSS side-effect import
+import "@/components/wysiwyg/editor-styles.css";
 
 /* ---------- Name Editor ---------- */
 
@@ -284,14 +287,18 @@ export function FieldsTab({
   );
 }
 
+const EMPTY_FIELD_NAMES: string[] = [];
+
 /* ---------- Templates Tab ---------- */
 
 export function TemplatesTab({
   templates,
   noteTypeId,
+  fieldNames,
 }: {
   templates: CardTemplate[];
   noteTypeId: string;
+  fieldNames?: string[];
 }): React.ReactElement {
   const createTemplate = useCreateTemplate();
   const updateTemplate = useUpdateTemplate();
@@ -407,6 +414,7 @@ export function TemplatesTab({
               <TemplateEditor
                 template={template}
                 noteTypeId={noteTypeId}
+                fieldNames={fieldNames ?? EMPTY_FIELD_NAMES}
                 onSave={updateTemplate}
               />
             </CardContent>
@@ -422,10 +430,12 @@ export function TemplatesTab({
 export function TemplateEditor({
   template,
   noteTypeId,
+  fieldNames,
   onSave,
 }: {
   template: CardTemplate;
   noteTypeId: string;
+  fieldNames: string[];
   onSave: ReturnType<typeof useUpdateTemplate>;
 }): React.ReactElement {
   const [question, setQuestion] = useState(template.questionTemplate);
@@ -444,25 +454,42 @@ export function TemplateEditor({
     question !== template.questionTemplate ||
     answer !== template.answerTemplate;
 
+  const useWysiwyg = isWysiwygTemplate(question) || isWysiwygTemplate(answer);
+
   return (
     <div className="grid gap-4">
       <div className="grid gap-2">
-        <Label htmlFor={`q-${template.id}`}>Question Template</Label>
-        <textarea
-          id={`q-${template.id}`}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          className="h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        />
+        <Label>Question Template</Label>
+        {useWysiwyg ? (
+          <WysiwygTemplateEditor
+            content={question}
+            fieldNames={fieldNames}
+            onChange={setQuestion}
+          />
+        ) : (
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            className="h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+        )}
       </div>
       <div className="grid gap-2">
-        <Label htmlFor={`a-${template.id}`}>Answer Template</Label>
-        <textarea
-          id={`a-${template.id}`}
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          className="h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        />
+        <Label>Answer Template</Label>
+        {useWysiwyg ? (
+          <WysiwygTemplateEditor
+            content={answer}
+            fieldNames={fieldNames}
+            isAnswerTemplate
+            onChange={setAnswer}
+          />
+        ) : (
+          <textarea
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            className="h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+        )}
       </div>
       <div className="flex justify-end">
         <Button
@@ -554,7 +581,7 @@ export function PreviewTab({
     if (!template) {
       return "";
     }
-    return renderTemplate(template.questionTemplate, sampleData, {
+    return renderCardTemplate(template.questionTemplate, sampleData, {
       showAnswer: false,
       cardOrdinal: 1,
     });
@@ -564,11 +591,11 @@ export function PreviewTab({
     if (!template) {
       return "";
     }
-    const front = renderTemplate(template.questionTemplate, sampleData, {
+    const front = renderCardTemplate(template.questionTemplate, sampleData, {
       showAnswer: false,
       cardOrdinal: 1,
     });
-    return renderTemplate(template.answerTemplate, sampleData, {
+    return renderCardTemplate(template.answerTemplate, sampleData, {
       showAnswer: true,
       cardOrdinal: 1,
       frontSide: front,

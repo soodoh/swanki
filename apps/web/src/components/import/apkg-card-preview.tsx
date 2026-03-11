@@ -3,8 +3,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { renderTemplate } from "@/lib/template-renderer";
-import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
+import { renderCardTemplate } from "@/lib/wysiwyg";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { replaceSoundTags } from "@/lib/sound";
 
 type NoteTypeInfo = {
@@ -12,6 +12,7 @@ type NoteTypeInfo = {
   fields: Array<{ name: string; ordinal: number }>;
   templates: Array<{
     name: string;
+    /** WYSIWYG JSON template or legacy mustache HTML. */
     questionFormat: string;
     answerFormat: string;
     ordinal: number;
@@ -45,21 +46,18 @@ export function ApkgCardPreview({
     );
   }
 
-  // All HTML is sanitized via DOMPurify (sanitizeHtml) and CSS via sanitizeCss
-  // to prevent XSS from imported card content
+  // Render using the unified renderer (handles both WYSIWYG JSON and legacy mustache)
   const frontHtml = sanitizeHtml(
-    replaceSoundTags(renderTemplate(template.questionFormat, fields)),
+    replaceSoundTags(renderCardTemplate(template.questionFormat, fields)),
   );
   const backHtml = sanitizeHtml(
     replaceSoundTags(
-      renderTemplate(template.answerFormat, fields, {
+      renderCardTemplate(template.answerFormat, fields, {
         frontSide: frontHtml,
         showAnswer: true,
       }),
     ),
   );
-  const scopedCss = sanitizeCss(noteType.css);
-  const scopeId = `apkg-preview-${index}`;
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -97,16 +95,8 @@ export function ApkgCardPreview({
         </Button>
       </div>
 
-      {/* oxlint-disable react/no-danger -- all HTML sanitized via DOMPurify, CSS via sanitizeCss */}
-      <div id={scopeId}>
-        {scopedCss && (
-          <style
-            dangerouslySetInnerHTML={{
-              __html: `#${scopeId} .card-content { ${scopedCss} }`,
-            }}
-          />
-        )}
-
+      {/* oxlint-disable react/no-danger -- all HTML sanitized via DOMPurify */}
+      <div>
         <div className="p-4">
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Front

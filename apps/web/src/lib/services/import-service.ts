@@ -14,6 +14,8 @@ import {
 import { parseCrowdAnki } from "../import/crowdanki-parser";
 import type { CrowdAnkiData } from "../import/crowdanki-parser";
 import type { ApkgData } from "../import/apkg-parser";
+import { convertAnkiTemplate } from "../wysiwyg/html-to-wysiwyg";
+import { stripHtmlToPlainText } from "../wysiwyg/field-converter";
 
 type Db = BunSQLiteDatabase<typeof schema>;
 
@@ -103,6 +105,31 @@ export function extractMediaFilenames(
   return [...new Set(filenames)];
 }
 
+/**
+ * Convert an Anki template HTML string + CSS to a WYSIWYG JSON string.
+ */
+function convertTemplateToWysiwyg(
+  html: string,
+  css: string,
+  cardOrdinal?: number,
+): string {
+  const template = convertAnkiTemplate(html, css, cardOrdinal);
+  return JSON.stringify(template);
+}
+
+/**
+ * Strip HTML formatting from field values, keeping only plain text and media refs.
+ */
+function convertFieldsToPlainText(
+  fields: Record<string, string>,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    result[key] = stripHtmlToPlainText(value);
+  }
+  return result;
+}
+
 export class ImportService {
   private db: Db;
   constructor(db: Db) {
@@ -166,11 +193,11 @@ export class ImportService {
       })
       .run();
 
-    // Create a basic card template
+    // Create a basic card template in WYSIWYG format
     const templateId = generateId();
     const firstField = fieldNames[0];
     const remainingFields = fieldNames.slice(1);
-    const answerContent =
+    const answerHtml =
       remainingFields.length > 0
         ? remainingFields.map((f) => `{{${f}}}`).join("<br>")
         : `{{${firstField}}}`;
@@ -182,8 +209,8 @@ export class ImportService {
         noteTypeId,
         name: "Card 1",
         ordinal: 0,
-        questionTemplate: `{{${firstField}}}`,
-        answerTemplate: answerContent,
+        questionTemplate: convertTemplateToWysiwyg(`{{${firstField}}}`, ""),
+        answerTemplate: convertTemplateToWysiwyg(answerHtml, ""),
       })
       .run();
 
@@ -266,7 +293,7 @@ export class ImportService {
         })
         .run();
 
-      // Create templates
+      // Create templates — convert HTML to WYSIWYG JSON
       for (const tmpl of model.templates) {
         this.db
           .insert(cardTemplates)
@@ -275,8 +302,16 @@ export class ImportService {
             noteTypeId,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
-            questionTemplate: tmpl.questionFormat,
-            answerTemplate: tmpl.answerFormat,
+            questionTemplate: convertTemplateToWysiwyg(
+              tmpl.questionFormat,
+              model.css,
+              tmpl.ordinal,
+            ),
+            answerTemplate: convertTemplateToWysiwyg(
+              tmpl.answerFormat,
+              model.css,
+              tmpl.ordinal,
+            ),
           })
           .run();
       }
@@ -348,10 +383,11 @@ export class ImportService {
         name: string;
         ordinal: number;
       }>;
-      const noteFields: Record<string, string> = {};
+      const rawFields: Record<string, string> = {};
       for (const field of fieldDefs) {
-        noteFields[field.name] = note.fields[field.ordinal] ?? "";
+        rawFields[field.name] = note.fields[field.ordinal] ?? "";
       }
+      const noteFields = convertFieldsToPlainText(rawFields);
 
       this.db
         .insert(notes)
@@ -495,7 +531,7 @@ export class ImportService {
         })
         .run();
 
-      // Create templates
+      // Create templates — convert HTML to WYSIWYG JSON
       for (const tmpl of ankiNoteType.templates) {
         const tmplId = generateId();
         this.db
@@ -505,8 +541,16 @@ export class ImportService {
             noteTypeId,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
-            questionTemplate: tmpl.questionFormat,
-            answerTemplate: tmpl.answerFormat,
+            questionTemplate: convertTemplateToWysiwyg(
+              tmpl.questionFormat,
+              ankiNoteType.css,
+              tmpl.ordinal,
+            ),
+            answerTemplate: convertTemplateToWysiwyg(
+              tmpl.answerFormat,
+              ankiNoteType.css,
+              tmpl.ordinal,
+            ),
           })
           .run();
         templateMap.set(`${noteTypeId}:${tmpl.ordinal}`, tmplId);
@@ -532,7 +576,7 @@ export class ImportService {
           )
           .get();
         if (existing) {
-          // Build the incoming field dict with media URLs rewritten
+          // Build the incoming field dict with media URLs rewritten and HTML stripped
           const ankiNoteType = data.noteTypes.find(
             (nt) => nt.id === ankiNote.modelId,
           );
@@ -550,20 +594,22 @@ export class ImportService {
               );
             }
           }
+          // Strip HTML from fields — fields store plain text + media refs
+          const plainFields = convertFieldsToPlainText(incomingFields);
 
-          // Compare rewritten fields directly against stored fields
-          if (fieldsEqual(existing.fields, incomingFields)) {
+          // Compare rewritten+stripped fields against stored fields
+          if (fieldsEqual(existing.fields, plainFields)) {
             // Unchanged — skip
             skippedNoteIds.add(ankiNote.id);
             duplicatesSkipped += 1;
             continue;
           }
 
-          // Changed — update existing note
+          // Changed — update existing note with plain text fields
           this.db
             .update(notes)
             .set({
-              fields: incomingFields,
+              fields: plainFields,
               tags: ankiNote.tags.trim(),
               updatedAt: now,
             })
@@ -576,7 +622,7 @@ export class ImportService {
               .delete(noteMedia)
               .where(eq(noteMedia.noteId, existing.id))
               .run();
-            this.linkNoteMedia(existing.id, incomingFields);
+            this.linkNoteMedia(existing.id, plainFields);
           }
 
           // Map anki note ID to existing DB note ID (cards already exist)
@@ -611,13 +657,16 @@ export class ImportService {
         }
       }
 
+      // Strip HTML from fields — fields store plain text + media refs
+      const plainNoteFields = convertFieldsToPlainText(noteFields);
+
       this.db
         .insert(notes)
         .values({
           id: noteId,
           userId,
           noteTypeId,
-          fields: noteFields,
+          fields: plainNoteFields,
           tags: ankiNote.tags.trim(),
           ankiGuid: ankiNote.guid || undefined,
           createdAt: now,
@@ -627,7 +676,7 @@ export class ImportService {
 
       // Track media references
       if (mediaMapping) {
-        this.linkNoteMedia(noteId, noteFields);
+        this.linkNoteMedia(noteId, plainNoteFields);
       }
 
       noteCount += 1;

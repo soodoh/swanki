@@ -59,8 +59,7 @@ let sqlJsPromise: ReturnType<typeof initSqlJs> | undefined;
 function getSqlJs(): ReturnType<typeof initSqlJs> {
   if (!sqlJsPromise) {
     sqlJsPromise = initSqlJs({
-      locateFile: (file: string) =>
-        `https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/${file}`,
+      locateFile: (file: string) => `/${file}`,
     });
   }
   return sqlJsPromise;
