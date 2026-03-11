@@ -29,5 +29,19 @@ export default defineConfig({
         "typescript/await-thenable": "off",
       },
     },
+    {
+      // sql.js APIs return `any` types; IDB APIs use `onsuccess`/`onerror` callbacks
+      files: ["src/lib/offline/**/*.{ts,tsx}"],
+      rules: {
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-restricted-types": "off",
+        "typescript/no-redundant-type-constituents": "off",
+        "unicorn/prefer-add-event-listener": "off",
+      },
+    },
   ],
 });
