@@ -292,6 +292,28 @@ function ImportPage(): React.ReactElement {
       const buffer = await previewFile.arrayBuffer();
       const data = await buildClientPreview(buffer);
       setApkgPreview(data);
+
+      // Fetch merge stats from server (needs DB access to compare with existing notes)
+      const mergeMode = config.apkg?.mergeMode ?? "merge";
+      if (mergeMode === "merge") {
+        const formData = new FormData();
+        formData.append("file", previewFile);
+        formData.append("mergeMode", mergeMode);
+        const res = await fetch("/api/import/preview", {
+          method: "POST",
+          body: formData,
+        });
+        if (res.ok) {
+          const serverData = (await res.json()) as {
+            mergeStats?: typeof data.mergeStats;
+          };
+          if (serverData.mergeStats) {
+            setApkgPreview((prev) =>
+              prev ? { ...prev, mergeStats: serverData.mergeStats } : prev,
+            );
+          }
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Preview failed";
       setPreviewError(message);
