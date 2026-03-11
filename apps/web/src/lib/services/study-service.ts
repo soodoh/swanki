@@ -74,6 +74,16 @@ export class StudyService {
     // Derive counts from the due cards list (not getCounts which counts ALL cards)
     const counts = deriveCounts(dueCards);
 
+    // Add pending learning/relearning cards (future due but in learning state)
+    const deckIds = [
+      deckId,
+      ...this.cardService.getDescendantDeckIds(deckId, userId),
+    ];
+    counts.learning += this.cardService.getPendingLearningCount(
+      userId,
+      deckIds,
+    );
+
     // Collect unique template IDs from the due cards
     const templateIds = [...new Set(dueCards.map((c) => c.templateId))];
 
@@ -266,6 +276,11 @@ export class StudyService {
 
     // Derive counts from the filtered cards list
     const counts = deriveCounts(allCards);
+
+    // Add pending learning/relearning cards (future due but in learning state)
+    counts.learning += this.cardService.getPendingLearningCount(userId, [
+      deckId,
+    ]);
 
     return {
       cards: allCards,

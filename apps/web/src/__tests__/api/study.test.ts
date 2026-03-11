@@ -360,6 +360,46 @@ describe("StudyService", () => {
     });
   });
 
+  describe("pending learning counts", () => {
+    it("counts include pending learning cards after review", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+
+      const note = await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+
+      const allCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.noteId, note.id))
+        .all();
+      const cardId = allCards[0].id;
+
+      // Make card due as new
+      await db
+        .update(cards)
+        .set({ due: pastDate, state: 0 })
+        .where(eq(cards.id, cardId));
+
+      // Before review: 1 new card
+      const session1 = studyService.getStudySession(userId, deckId);
+      expect(session1.counts.new).toBe(1);
+      expect(session1.counts.learning).toBe(0);
+
+      // Review with Good → card transitions to Learning with future due
+      studyService.submitReview(userId, cardId, Rating.Good, 5000);
+
+      // After review: card is now Learning state with future due date
+      // It should NOT appear in the cards array (since due > now)
+      // but SHOULD be counted in counts.learning
+      const session2 = studyService.getStudySession(userId, deckId);
+      expect(session2.counts.new).toBe(0);
+      expect(session2.counts.learning).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe("daily limits", () => {
     it("respects daily new card limit across refetches", async () => {
       const pastDate = new Date(Date.now() - 60_000);

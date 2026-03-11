@@ -1,4 +1,4 @@
-import { eq, and, lte, inArray, sql, gte } from "drizzle-orm";
+import { eq, and, lte, gt, inArray, sql, gte } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import type * as schema from "../../db/schema";
 import { cards, notes, decks, reviewLogs } from "../../db/schema";
@@ -286,7 +286,28 @@ export class CardService {
     return counts;
   }
 
-  private getDescendantDeckIds(parentId: string, userId: string): string[] {
+  getPendingLearningCount(userId: string, deckIds: string[]): number {
+    if (deckIds.length === 0) {
+      return 0;
+    }
+    const now = new Date();
+    const row = this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(cards)
+      .innerJoin(notes, eq(cards.noteId, notes.id))
+      .where(
+        and(
+          eq(notes.userId, userId),
+          inArray(cards.deckId, deckIds),
+          inArray(cards.state, [1, 3]),
+          gt(cards.due, now),
+        ),
+      )
+      .get();
+    return Number(row?.count ?? 0);
+  }
+
+  getDescendantDeckIds(parentId: string, userId: string): string[] {
     const children = this.db
       .select({ id: decks.id })
       .from(decks)
