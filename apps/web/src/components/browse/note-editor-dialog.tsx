@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Trash2, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ function flattenDecks(
   return result;
 }
 
+// oxlint-disable-next-line eslint(complexity) -- editor dialog with multiple tabs inherently has high branching
 export function NoteEditorDialog({
   noteId,
   open,
@@ -105,6 +106,11 @@ export function NoteEditorDialog({
 
   // Get field names from the full note type data (already parsed as NoteTypeField[])
   const noteTypeFields: NoteTypeField[] = noteTypeData?.noteType.fields ?? [];
+  const noteTypeFieldsRef = noteTypeData?.noteType.fields;
+  const fieldNames = useMemo(
+    () => (noteTypeFieldsRef ?? []).map((f) => f.name),
+    [noteTypeFieldsRef],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -237,6 +243,7 @@ export function NoteEditorDialog({
                   <TemplatesTab
                     templates={noteTypeData.templates}
                     noteTypeId={noteTypeData.noteType.id}
+                    fieldNames={fieldNames}
                   />
                 ) : (
                   <p className="py-8 text-center text-sm text-muted-foreground">
