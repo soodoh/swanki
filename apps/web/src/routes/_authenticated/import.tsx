@@ -9,7 +9,8 @@ import type { ImportConfig } from "@/components/import/configure-step";
 import { PreviewStep } from "@/components/import/preview-step";
 import { ProgressStep } from "@/components/import/progress-step";
 import type { ImportProgress } from "@/components/import/progress-step";
-import type { ApkgPreviewData } from "@/routes/api/import/preview";
+import type { ApkgPreviewData } from "@/lib/import/apkg-parser-client";
+import { buildClientPreview } from "@/lib/import/apkg-parser-client";
 
 export const Route = createFileRoute("/_authenticated/import")({
   component: ImportPage,
@@ -288,21 +289,8 @@ function ImportPage(): React.ReactElement {
     setApkgPreview(undefined);
 
     try {
-      const formData = new FormData();
-      formData.append("file", previewFile);
-      formData.append("mergeMode", config.apkg?.mergeMode ?? "merge");
-
-      const res = await fetch("/api/import/preview", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errData = (await res.json()) as { error?: string };
-        throw new Error(errData.error ?? "Preview failed");
-      }
-
-      const data = (await res.json()) as ApkgPreviewData;
+      const buffer = await previewFile.arrayBuffer();
+      const data = await buildClientPreview(buffer);
       setApkgPreview(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Preview failed";
