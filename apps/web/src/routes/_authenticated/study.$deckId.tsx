@@ -76,11 +76,10 @@ function StudyPage(): React.ReactElement {
         timeTakenMs,
       });
 
+      // Refetch FIRST, then batch state updates to avoid intermediate render
+      await refetch();
       setReviewedCount((prev) => prev + 1);
       setShowAnswer(false);
-
-      // Refetch to get updated session
-      await refetch();
       setCurrentIndex(0);
     },
     [currentCard, submitReview, refetch],
@@ -93,11 +92,11 @@ function StudyPage(): React.ReactElement {
 
     await undoReview.mutateAsync({ cardId: lastReviewedCardId });
 
+    // Refetch FIRST, then batch state updates to avoid intermediate render
+    await refetch();
     setReviewedCount((prev) => Math.max(0, prev - 1));
     setShowAnswer(false);
     setLastReviewedCardId(undefined);
-
-    await refetch();
     setCurrentIndex(0);
   }, [lastReviewedCardId, undoReview, refetch]);
 
@@ -226,9 +225,9 @@ function StudyPage(): React.ReactElement {
   const isComplete = session && session.cards.length === 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex flex-col bg-background -m-4 md:-m-6 h-[calc(100dvh-3.5rem)]">
       {/* Header */}
-      <header className="border-b">
+      <header className="shrink-0 border-b bg-background">
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4">
           <Link to="/">
             <Button variant="ghost" size="icon-sm">
@@ -252,42 +251,57 @@ function StudyPage(): React.ReactElement {
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center px-4 py-8">
-        {isComplete ? (
+      {isComplete ? (
+        <div className="flex flex-1 min-h-0 items-center justify-center px-4">
           <CongratsScreen reviewedCount={reviewedCount} />
-        ) : (
-          currentCard &&
-          session && (
-            <div className="flex w-full flex-1 flex-col items-center gap-6">
-              {/* Progress */}
-              <StudyProgress
-                counts={session.counts}
-                initialTotal={initialTotalRef.current}
-              />
-
-              {/* Card */}
-              <div className="flex flex-1 w-full items-center justify-center">
+        </div>
+      ) : (
+        currentCard &&
+        session && (
+          <>
+            {/* Scrollable card content area */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-8 pb-4">
+              <div className="mx-auto flex max-w-4xl flex-col items-center gap-4">
+                <StudyProgress
+                  counts={session.counts}
+                  initialTotal={initialTotalRef.current}
+                />
                 <CardDisplay
                   html={renderCardContent()}
                   showAnswer={showAnswer}
                   onShowAnswer={handleShowAnswer}
                   replayRef={replayRef}
+                  hideButton
                 />
               </div>
-
-              {/* Rating buttons */}
-              {showAnswer && (
-                <RatingButtons
-                  previews={previews}
-                  disabled={submitReview.isPending}
-                  onRate={handleRate}
-                />
-              )}
             </div>
-          )
-        )}
-      </main>
+
+            {/* Fixed bottom bar */}
+            <div className="shrink-0 border-t bg-background px-4">
+              <div className="mx-auto flex h-20 w-full max-w-2xl items-center justify-center">
+                {showAnswer ? (
+                  <RatingButtons
+                    previews={previews}
+                    disabled={submitReview.isPending}
+                    onRate={handleRate}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleShowAnswer}
+                    className="w-full rounded-xl border bg-card px-6 py-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Show Answer
+                    <span className="ml-2 text-xs text-muted-foreground/60">
+                      (Space)
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )
+      )}
     </div>
   );
 }

@@ -12,6 +12,7 @@ type CardDisplayProps = {
   showAnswer: boolean;
   onShowAnswer: () => void;
   replayRef?: React.RefObject<(() => void) | undefined>;
+  hideButton?: boolean;
 };
 
 /**
@@ -29,6 +30,7 @@ export function CardDisplay({
   showAnswer,
   onShowAnswer,
   replayRef,
+  hideButton,
 }: CardDisplayProps): React.ReactElement {
   const contentRef = useRef<HTMLDivElement>(null);
   const processedHtml = sanitizeHtml(replaceSoundTags(html));
@@ -60,7 +62,7 @@ export function CardDisplay({
         />
       </div>
 
-      {!showAnswer && (
+      {!showAnswer && !hideButton && (
         <button
           type="button"
           onClick={onShowAnswer}

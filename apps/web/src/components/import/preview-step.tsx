@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApkgCardPreview } from "@/components/import/apkg-card-preview";
-import type { ApkgPreviewData } from "@/routes/api/import/preview";
+import type { ApkgPreviewData } from "@/lib/import/apkg-parser-client";
 
 type PreviewStepProps = {
   file: File | undefined;

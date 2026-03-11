@@ -73,16 +73,17 @@ export function RatingButtons({
             disabled={disabled}
             onClick={() => onRate(rating.value)}
             className={cn(
-              "flex-1 flex flex-col items-center gap-1 rounded-xl border px-3 py-3",
+              "flex-1 flex flex-col items-center justify-center rounded-xl border px-3 py-2",
               "text-sm font-medium transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               "disabled:opacity-40 disabled:pointer-events-none",
               rating.color,
             )}
           >
-            <span>{rating.label}</span>
+            <span>
+              {rating.label} <span className="opacity-50">({rating.key})</span>
+            </span>
             {interval && <span className="text-xs opacity-70">{interval}</span>}
-            <span className="text-[10px] opacity-40">{rating.key}</span>
           </button>
         );
       })}
