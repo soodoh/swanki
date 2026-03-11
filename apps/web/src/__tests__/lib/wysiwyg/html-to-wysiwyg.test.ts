@@ -128,6 +128,26 @@ describe("convertHtmlToDoc", () => {
     expect(doc.content).toHaveLength(1);
     expect(doc.content![0].type).toBe("paragraph");
   });
+
+  it("strips inline SVG elements", () => {
+    const html = `<div class="type">Flag</div>
+<div class="value">
+  <svg class="placeholder" xmlns="http://www.w3.org/2000/svg" width="417" height="250" viewBox="0 0 417 250">
+    <path d="m2 26s45-24 129-24c86 0 146 25 210 25" />
+  </svg>
+</div>`;
+    const doc = convertHtmlToDoc(html);
+    // SVG should be stripped; only the "Flag" text paragraph should remain
+    const texts = doc
+      .content!.flatMap((p) => p.content ?? [])
+      .filter((n) => n.type === "text")
+      .map((n) => n.text);
+    expect(texts).toStrictEqual(["Flag"]);
+    // No SVG attribute text should appear
+    const allText = texts.join(" ");
+    expect(allText).not.toContain("svg");
+    expect(allText).not.toContain("viewBox");
+  });
 });
 
 describe("convertAnkiTemplate", () => {

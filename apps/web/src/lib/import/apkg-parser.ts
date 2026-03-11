@@ -59,9 +59,22 @@ type TypedDatabase = {
   close(): void;
 };
 
-export function parseApkg(buffer: ArrayBuffer): ApkgData {
+export type ParseApkgOptions = {
+  /** When true, skip reading media binary data (useful for preview). */
+  skipMedia?: boolean;
+};
+
+export function parseApkg(
+  buffer: ArrayBuffer,
+  options?: ParseApkgOptions,
+): ApkgData {
   const uint8 = new Uint8Array(buffer);
-  const unzipped = unzipSync(uint8);
+  const unzipped = options?.skipMedia
+    ? unzipSync(uint8, {
+        filter: (file) =>
+          file.name === "media" || file.name.startsWith("collection."),
+      })
+    : unzipSync(uint8);
 
   const dbFilename = findDbFile(unzipped);
   if (!dbFilename) {
@@ -94,7 +107,7 @@ export function parseApkg(buffer: ArrayBuffer): ApkgData {
         : readNoteTypes(db);
       const noteData = readNotes(db);
       const cardData = readCards(db);
-      const mediaData = readMedia(unzipped);
+      const mediaData = options?.skipMedia ? [] : readMedia(unzipped);
 
       return {
         decks: deckData,
@@ -102,6 +115,7 @@ export function parseApkg(buffer: ArrayBuffer): ApkgData {
         notes: noteData,
         cards: cardData,
         media: mediaData,
+        _unzipped: options?.skipMedia ? unzipped : undefined,
       };
     } finally {
       db.close();

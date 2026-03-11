@@ -3,12 +3,14 @@
  * Runs entirely in the browser — no file upload needed for preview.
  */
 import { unzipSync } from "fflate";
-import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
+import initSqlJs from "sql.js";
+import type { Database as SqlJsDatabase } from "sql.js";
 
 import {
   findDbFile,
   prepareDbBytes,
   readMedia,
+  countMedia,
   mapNoteRows,
   mapCardRows,
   parseDecksFromJson,
@@ -106,55 +108,86 @@ export async function parseApkgClient(buffer: ArrayBuffer): Promise<ApkgData> {
 const MAX_NOTES_PER_TYPE = 5;
 const MAX_TOTAL_NOTES = 10;
 
-/** Build a preview from an APKG file entirely client-side */
+/** Build a preview from an APKG file entirely client-side.
+ *  Uses filtered unzip to skip decompressing media binary data. */
 export async function buildClientPreview(
   buffer: ArrayBuffer,
 ): Promise<ApkgPreviewData> {
-  const apkgData = await parseApkgClient(buffer);
+  const SQL = await getSqlJs();
+  const uint8 = new Uint8Array(buffer);
 
-  const notesByModel = new Map<number, (typeof apkgData.notes)[number][]>();
-  for (const note of apkgData.notes) {
-    const existing = notesByModel.get(note.modelId);
-    if (existing) {
-      existing.push(note);
-    } else {
-      notesByModel.set(note.modelId, [note]);
-    }
-  }
+  // Only decompress the DB and media manifest — skip numbered media files
+  const unzipped = unzipSync(uint8, {
+    filter: (file) =>
+      file.name === "media" || file.name.startsWith("collection."),
+  });
 
-  const sampleNotes: ApkgPreviewData["sampleNotes"] = [];
-  for (const nt of apkgData.noteTypes) {
-    if (sampleNotes.length >= MAX_TOTAL_NOTES) {
-      break;
-    }
-    const ntNotes = notesByModel.get(nt.id) ?? [];
-    const limit = Math.min(
-      MAX_NOTES_PER_TYPE,
-      MAX_TOTAL_NOTES - sampleNotes.length,
+  const dbFilename = findDbFile(unzipped);
+  if (!dbFilename) {
+    throw new Error(
+      "No collection database found in .apkg file (expected collection.anki21b, collection.anki21, or collection.anki2)",
     );
-    for (let i = 0; i < Math.min(ntNotes.length, limit); i += 1) {
-      const note = ntNotes[i];
-      const fields: Record<string, string> = {};
-      for (const field of nt.fields) {
-        fields[field.name] = note.fields[field.ordinal] ?? "";
-      }
-      sampleNotes.push({ noteTypeName: nt.name, fields });
-    }
   }
 
-  return {
-    decks: apkgData.decks.map((d) => ({ name: d.name })),
-    noteTypes: apkgData.noteTypes.map((nt) => ({
-      name: nt.name,
-      fields: nt.fields,
-      templates: nt.templates,
-      css: nt.css,
-    })),
-    sampleNotes,
-    totalCards: apkgData.cards.length,
-    totalNotes: apkgData.notes.length,
-    totalMedia: apkgData.media.length,
-  };
+  const dbBytes = prepareDbBytes(unzipped[dbFilename]);
+  const db = new SQL.Database(dbBytes);
+
+  try {
+    const useNewSchema = isNewSchema(db);
+    const deckData = useNewSchema ? readDecksNew(db) : readDecks(db);
+    const noteTypeData = useNewSchema
+      ? readNoteTypesNew(db)
+      : readNoteTypes(db);
+    const noteData = readNotes(db);
+    const cardData = readCards(db);
+    const totalMedia = countMedia(unzipped);
+
+    const notesByModel = new Map<number, Array<(typeof noteData)[number]>>();
+    for (const note of noteData) {
+      const existing = notesByModel.get(note.modelId);
+      if (existing) {
+        existing.push(note);
+      } else {
+        notesByModel.set(note.modelId, [note]);
+      }
+    }
+
+    const sampleNotes: ApkgPreviewData["sampleNotes"] = [];
+    for (const nt of noteTypeData) {
+      if (sampleNotes.length >= MAX_TOTAL_NOTES) {
+        break;
+      }
+      const ntNotes = notesByModel.get(nt.id) ?? [];
+      const limit = Math.min(
+        MAX_NOTES_PER_TYPE,
+        MAX_TOTAL_NOTES - sampleNotes.length,
+      );
+      for (let i = 0; i < Math.min(ntNotes.length, limit); i += 1) {
+        const note = ntNotes[i];
+        const fields: Record<string, string> = {};
+        for (const field of nt.fields) {
+          fields[field.name] = note.fields[field.ordinal] ?? "";
+        }
+        sampleNotes.push({ noteTypeName: nt.name, fields });
+      }
+    }
+
+    return {
+      decks: deckData.map((d) => ({ name: d.name })),
+      noteTypes: noteTypeData.map((nt) => ({
+        name: nt.name,
+        fields: nt.fields,
+        templates: nt.templates,
+        css: nt.css,
+      })),
+      sampleNotes,
+      totalCards: cardData.length,
+      totalNotes: noteData.length,
+      totalMedia,
+    };
+  } finally {
+    db.close();
+  }
 }
 
 // --- sql.js query helpers ---
