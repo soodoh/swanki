@@ -296,9 +296,12 @@ type BlockSegment = {
 function splitIntoBlocks(html: string): BlockSegment[] {
   const blocks: BlockSegment[] = [];
 
+  // Strip <svg>...</svg> blocks (WYSIWYG editor cannot represent inline SVGs)
+  // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
+  let normalized = html.replace(/<svg[\s\S]*?<\/svg>/gi, "");
   // Normalize self-closing tags
   // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
-  let normalized = html.replace(/<br\s*\/?>/gi, "\n");
+  normalized = normalized.replace(/<br\s*\/?>/gi, "\n");
   // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
   normalized = normalized.replace(/<\/p>\s*<p[^>]*>/gi, "\n\n");
   // oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
@@ -402,6 +405,16 @@ function parseInlineHtml(html: string): TemplateNode[] {
     const otherTag = remaining.match(/^<[^>]+>/);
     if (otherTag) {
       remaining = remaining.slice(otherTag[0].length);
+      continue;
+    }
+
+    // Incomplete/malformed tag at start (e.g. "<svg" with no closing ">")
+    // Consume the "<" as literal text to avoid an infinite loop
+    if (remaining.startsWith("<")) {
+      const decoded = decodeEntities("<");
+      const inlineNodes = htmlTextToNodes(decoded, [...markStack]);
+      nodes.push(...inlineNodes);
+      remaining = remaining.slice(1);
       continue;
     }
 

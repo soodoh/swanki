@@ -55,6 +55,8 @@ export type ApkgData = {
   notes: ApkgNote[];
   cards: ApkgCard[];
   media: ApkgMediaEntry[];
+  /** Raw unzipped files, retained when skipMedia is used so media can be read later. */
+  _unzipped?: Record<string, Uint8Array>;
 };
 
 export type ColRow = { decks: string; models: string };
@@ -353,6 +355,18 @@ function parseMediaEntryName(data: Uint8Array): string | undefined {
   }
 
   return undefined;
+}
+
+/**
+ * Count media entries from the manifest without reading binary data.
+ */
+export function countMedia(files: Record<string, Uint8Array>): number {
+  const mediaFile = files.media;
+  if (!mediaFile) {
+    return 0;
+  }
+  const mediaMap = parseMediaMap(mediaFile);
+  return Object.keys(mediaMap).length;
 }
 
 export function readMedia(files: Record<string, Uint8Array>): ApkgMediaEntry[] {

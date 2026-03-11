@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 
 type ToolbarProps = {
@@ -178,40 +179,44 @@ function FieldInsertMenu({
         }
       />
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>Field Reference</DropdownMenuLabel>
-        {fieldNames.map((name) => (
-          <DropdownMenuItem
-            key={`field-${name}`}
-            onSelect={() => {
-              onInsertField(name);
-              setOpen(false);
-            }}
-          >
-            <Type className="mr-2 size-3.5" />
-            <span className="font-mono text-xs">{`{{${name}}}`}</span>
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Field Reference</DropdownMenuLabel>
+          {fieldNames.map((name) => (
+            <DropdownMenuItem
+              key={`field-${name}`}
+              onClick={() => {
+                onInsertField(name);
+                setOpen(false);
+              }}
+            >
+              <Type className="mr-2 size-3.5" />
+              <span className="font-mono text-xs">{`{{${name}}}`}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
 
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Cloze Deletion</DropdownMenuLabel>
-        {fieldNames.map((name) => (
-          <DropdownMenuItem
-            key={`cloze-${name}`}
-            onSelect={() => {
-              onInsertClozeField(name);
-              setOpen(false);
-            }}
-          >
-            <Braces className="mr-2 size-3.5" />
-            <span className="font-mono text-xs">{`{{cloze:${name}}}`}</span>
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Cloze Deletion</DropdownMenuLabel>
+          {fieldNames.map((name) => (
+            <DropdownMenuItem
+              key={`cloze-${name}`}
+              onClick={() => {
+                onInsertClozeField(name);
+                setOpen(false);
+              }}
+            >
+              <Braces className="mr-2 size-3.5" />
+              <span className="font-mono text-xs">{`{{cloze:${name}}}`}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
 
         {isAnswerTemplate && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onSelect={() => {
+              onClick={() => {
                 onInsertFrontSide();
                 setOpen(false);
               }}
