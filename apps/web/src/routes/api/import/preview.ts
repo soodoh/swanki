@@ -5,6 +5,11 @@ import { detectFormat } from "../../../lib/services/import-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
 import { countMedia } from "../../../lib/import/apkg-parser-core";
+import {
+  parseCrowdAnkiZip,
+  parseCrowdAnki,
+} from "../../../lib/import/crowdanki-parser";
+import type { CrowdAnkiData } from "../../../lib/import/crowdanki-parser";
 import { db } from "../../../db";
 import { notes } from "../../../db/schema";
 import { stripHtmlToPlainText } from "../../../lib/field-converter";
@@ -156,6 +161,78 @@ function computeMergeStats(
   return { newNotes, updatedNotes, unchangedNotes };
 }
 
+function collectAllNotes(data: CrowdAnkiData): CrowdAnkiData["notes"] {
+  const result = [...data.notes];
+  for (const child of data.children) {
+    result.push(...collectAllNotes(child));
+  }
+  return result;
+}
+
+function computeCrowdAnkiMergeStats(
+  data: CrowdAnkiData,
+  userId: string,
+): NonNullable<ApkgPreviewData["mergeStats"]> {
+  const existingNotes = db
+    .select({
+      ankiGuid: notes.ankiGuid,
+      fields: notes.fields,
+    })
+    .from(notes)
+    .where(eq(notes.userId, userId))
+    .all();
+
+  const existingMap = new Map<string, Record<string, string>>();
+  for (const n of existingNotes) {
+    if (n.ankiGuid) {
+      existingMap.set(n.ankiGuid, n.fields);
+    }
+  }
+
+  const modelMap = new Map(data.noteModels.map((m) => [m.uuid, m]));
+  const allNotes = collectAllNotes(data);
+
+  let newNotes = 0;
+  let updatedNotes = 0;
+  let unchangedNotes = 0;
+
+  for (const note of allNotes) {
+    if (!note.guid || !existingMap.has(note.guid)) {
+      newNotes += 1;
+    } else {
+      const model = modelMap.get(note.noteModelUuid);
+      const incomingFields: Record<string, string> = {};
+      if (model) {
+        for (const field of model.fields) {
+          incomingFields[field.name] = note.fields[field.ordinal] ?? "";
+        }
+      }
+
+      const strippedFields: Record<string, string> = {};
+      for (const key of Object.keys(incomingFields)) {
+        strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
+      }
+
+      const storedFields = existingMap.get(note.guid)!;
+      const fieldsMatch =
+        Object.keys(storedFields).length ===
+          Object.keys(strippedFields).length &&
+        Object.keys(storedFields).every(
+          (k) =>
+            stripMediaRefs(storedFields[k] ?? "") ===
+            stripMediaRefs(strippedFields[k] ?? ""),
+        );
+
+      if (fieldsMatch) {
+        unchangedNotes += 1;
+      } else {
+        updatedNotes += 1;
+      }
+    }
+  }
+  return { newNotes, updatedNotes, unchangedNotes };
+}
+
 export const Route = createFileRoute("/api/import/preview")({
   server: {
     handlers: {
@@ -184,14 +261,27 @@ export const Route = createFileRoute("/api/import/preview")({
           }
 
           const format = detectFormat(file.name);
-          if (format !== "apkg" && format !== "colpkg") {
+          if (
+            format !== "apkg" &&
+            format !== "colpkg" &&
+            format !== "crowdanki"
+          ) {
             return Response.json(
-              { error: "Preview only supported for .apkg/.colpkg files" },
+              { error: "Preview only supported for .apkg/.colpkg/.zip files" },
               { status: 400 },
             );
           }
 
           const buffer = await file.arrayBuffer();
+
+          if (format === "crowdanki") {
+            const { json } = parseCrowdAnkiZip(buffer);
+            const data = parseCrowdAnki(json);
+            const mergeStats = computeCrowdAnkiMergeStats(data, userId);
+            return Response.json({ mergeStats });
+          }
+
+          // APKG/COLPKG path
           // Skip decompressing media binary data — only need DB + manifest
           const apkgData = parseApkg(buffer, { skipMedia: true });
 

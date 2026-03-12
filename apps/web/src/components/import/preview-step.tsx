@@ -300,7 +300,7 @@ export function PreviewStep({
           </>
         )}
 
-        {isApkg && apkgPreview?.mergeStats && (
+        {hasRichPreview && apkgPreview?.mergeStats && (
           <MergeStatsBadges mergeStats={apkgPreview.mergeStats} />
         )}
 
