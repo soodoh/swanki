@@ -6,6 +6,7 @@ export type DeckTreeNode = {
   userId: string;
   name: string;
   parentId: string | undefined;
+  numericId: number;
   description: string;
   settings: { newCardsPerDay: number; maxReviewsPerDay: number } | undefined;
   createdAt: string;

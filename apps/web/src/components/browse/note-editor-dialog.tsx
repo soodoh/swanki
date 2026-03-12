@@ -20,7 +20,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FieldAttachments } from "@/components/browse/field-attachments";
+import {
+  FieldAttachments,
+  isMediaOnlyField,
+} from "@/components/browse/field-attachments";
 import {
   FieldsTab,
   TemplatesTab,
@@ -151,44 +154,57 @@ export function NoteEditorDialog({
                 <div className="space-y-4">
                   {/* Note fields */}
                   <div className="space-y-3">
-                    {noteTypeFields.map((field) => (
-                      <div key={field.name} className="space-y-1">
-                        <Label className="text-xs">{field.name}</Label>
-                        <Input
-                          value={editFields[field.name] ?? ""}
-                          onChange={(e) =>
-                            handleFieldChange(field.name, e.target.value)
-                          }
-                          className="text-xs"
-                        />
-                        <FieldAttachments
-                          fieldValue={editFields[field.name] ?? ""}
-                          onFieldChange={(newValue) =>
-                            handleFieldChange(field.name, newValue)
-                          }
-                        />
-                      </div>
-                    ))}
-                    {/* Fallback if note type fields not yet loaded */}
-                    {noteTypeFields.length === 0 &&
-                      Object.entries(editFields).map(([key, value]) => (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-xs">{key}</Label>
-                          <Input
-                            value={value}
-                            onChange={(e) =>
-                              handleFieldChange(key, e.target.value)
-                            }
-                            className="text-xs"
-                          />
+                    {noteTypeFields.map((field) => {
+                      const val = editFields[field.name] ?? "";
+                      const mediaOnly = isMediaOnlyField(val);
+                      return (
+                        <div key={field.name} className="space-y-1">
+                          <Label className="text-xs">{field.name}</Label>
+                          {!mediaOnly && (
+                            <Input
+                              value={val}
+                              onChange={(e) =>
+                                handleFieldChange(field.name, e.target.value)
+                              }
+                              className="text-xs"
+                            />
+                          )}
                           <FieldAttachments
-                            fieldValue={value}
+                            fieldValue={val}
                             onFieldChange={(newValue) =>
-                              handleFieldChange(key, newValue)
+                              handleFieldChange(field.name, newValue)
                             }
+                            mediaExclusive
                           />
                         </div>
-                      ))}
+                      );
+                    })}
+                    {/* Fallback if note type fields not yet loaded */}
+                    {noteTypeFields.length === 0 &&
+                      Object.entries(editFields).map(([key, value]) => {
+                        const mediaOnly = isMediaOnlyField(value);
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-xs">{key}</Label>
+                            {!mediaOnly && (
+                              <Input
+                                value={value}
+                                onChange={(e) =>
+                                  handleFieldChange(key, e.target.value)
+                                }
+                                className="text-xs"
+                              />
+                            )}
+                            <FieldAttachments
+                              fieldValue={value}
+                              onFieldChange={(newValue) =>
+                                handleFieldChange(key, newValue)
+                              }
+                              mediaExclusive
+                            />
+                          </div>
+                        );
+                      })}
                   </div>
 
                   {/* Deck selector */}
