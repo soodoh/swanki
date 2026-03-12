@@ -438,6 +438,7 @@ export class ImportService {
           noteTypeId,
           fields: noteFields,
           tags: note.tags.join(" "),
+          ankiGuid: note.guid || undefined,
           createdAt: now,
           updatedAt: now,
         })
