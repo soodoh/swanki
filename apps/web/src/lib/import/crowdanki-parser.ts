@@ -1,3 +1,6 @@
+import { unzipSync, strFromU8 } from "fflate";
+import type { ApkgPreviewData } from "./apkg-parser-client";
+
 export type CrowdAnkiNoteModel = {
   uuid: string;
   name: string;
@@ -99,4 +102,177 @@ function parseNotes(raw: unknown): CrowdAnkiNote[] {
     noteModelUuid: asString(note.note_model_uuid),
     guid: asString(note.guid),
   }));
+}
+
+// --- ZIP support ---
+
+type CrowdAnkiZipResult = {
+  json: unknown;
+  mediaEntries: Array<{ filename: string; data: Uint8Array }>;
+};
+
+/** Locate deck.json at root or one level deep (e.g. DeckName/deck.json). */
+function findDeckJson(
+  unzipped: Record<string, Uint8Array>,
+): string | undefined {
+  // Check root
+  if (unzipped["deck.json"]) {
+    return "deck.json";
+  }
+  // Check one level deep
+  for (const key of Object.keys(unzipped)) {
+    const parts = key.split("/");
+    if (parts.length === 2 && parts[1] === "deck.json") {
+      return key;
+    }
+  }
+  return undefined;
+}
+
+/** Full extraction for server-side import — parses JSON + extracts media. */
+export function parseCrowdAnkiZip(buffer: ArrayBuffer): CrowdAnkiZipResult {
+  const unzipped = unzipSync(new Uint8Array(buffer));
+  const deckJsonPath = findDeckJson(unzipped);
+  if (!deckJsonPath) {
+    throw new Error(
+      "No deck.json found in ZIP (expected at root or inside a single directory)",
+    );
+  }
+
+  const json: unknown = JSON.parse(strFromU8(unzipped[deckJsonPath]));
+
+  // Extract media files (everything that's not deck.json or a directory)
+  const prefix = deckJsonPath.includes("/")
+    ? deckJsonPath.slice(0, deckJsonPath.lastIndexOf("/") + 1)
+    : "";
+  const mediaEntries: CrowdAnkiZipResult["mediaEntries"] = [];
+  for (const [path, data] of Object.entries(unzipped)) {
+    if (path === deckJsonPath) {
+      continue;
+    }
+    if (path.endsWith("/")) {
+      continue;
+    } // directory entry
+    // Strip directory prefix to get bare filename
+    const filename =
+      prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path;
+    if (filename && data.length > 0) {
+      mediaEntries.push({ filename, data });
+    }
+  }
+
+  return { json, mediaEntries };
+}
+
+// --- Client-side preview ---
+
+const MAX_NOTES_PER_TYPE = 5;
+const MAX_TOTAL_NOTES = 10;
+
+function collectDecks(data: CrowdAnkiData): Array<{ name: string }> {
+  const result: Array<{ name: string }> = [{ name: data.name }];
+  for (const child of data.children) {
+    result.push(...collectDecks(child));
+  }
+  return result;
+}
+
+function collectNotes(data: CrowdAnkiData): CrowdAnkiNote[] {
+  const result = [...data.notes];
+  for (const child of data.children) {
+    result.push(...collectNotes(child));
+  }
+  return result;
+}
+
+function countTotalCards(data: CrowdAnkiData): number {
+  let total = 0;
+  // Each note produces one card per template of its note model
+  const templateCounts = new Map<string, number>();
+  for (const model of data.noteModels) {
+    templateCounts.set(model.uuid, model.templates.length);
+  }
+  for (const note of data.notes) {
+    total += templateCounts.get(note.noteModelUuid) ?? 1;
+  }
+  for (const child of data.children) {
+    total += countTotalCards(child);
+  }
+  return total;
+}
+
+/** Lightweight client-side preview — unzips only deck.json, skips media. */
+export function buildCrowdAnkiPreview(buffer: ArrayBuffer): ApkgPreviewData {
+  const unzipped = unzipSync(new Uint8Array(buffer), {
+    filter: (file) => file.name.endsWith("deck.json"),
+  });
+
+  const deckJsonPath = findDeckJson(unzipped);
+  if (!deckJsonPath) {
+    throw new Error(
+      "No deck.json found in ZIP (expected at root or inside a single directory)",
+    );
+  }
+
+  const json: unknown = JSON.parse(strFromU8(unzipped[deckJsonPath]));
+  const data = parseCrowdAnki(json);
+
+  const allNotes = collectNotes(data);
+
+  // Build model UUID → model map
+  const modelMap = new Map<string, CrowdAnkiNoteModel>();
+  for (const model of data.noteModels) {
+    modelMap.set(model.uuid, model);
+  }
+
+  // Group notes by model
+  const notesByModel = new Map<string, CrowdAnkiNote[]>();
+  for (const note of allNotes) {
+    const existing = notesByModel.get(note.noteModelUuid);
+    if (existing) {
+      existing.push(note);
+    } else {
+      notesByModel.set(note.noteModelUuid, [note]);
+    }
+  }
+
+  // Sample notes
+  const sampleNotes: ApkgPreviewData["sampleNotes"] = [];
+  for (const model of data.noteModels) {
+    if (sampleNotes.length >= MAX_TOTAL_NOTES) {
+      break;
+    }
+    const modelNotes = notesByModel.get(model.uuid) ?? [];
+    const limit = Math.min(
+      MAX_NOTES_PER_TYPE,
+      MAX_TOTAL_NOTES - sampleNotes.length,
+    );
+    for (let i = 0; i < Math.min(modelNotes.length, limit); i += 1) {
+      const note = modelNotes[i];
+      const fields: Record<string, string> = {};
+      for (const field of model.fields) {
+        fields[field.name] = note.fields[field.ordinal] ?? "";
+      }
+      sampleNotes.push({ noteTypeName: model.name, fields });
+    }
+  }
+
+  return {
+    decks: collectDecks(data),
+    noteTypes: data.noteModels.map((m) => ({
+      name: m.name,
+      fields: m.fields,
+      templates: m.templates.map((t) => ({
+        name: t.name,
+        questionFormat: t.questionFormat,
+        answerFormat: t.answerFormat,
+        ordinal: t.ordinal,
+      })),
+      css: m.css,
+    })),
+    sampleNotes,
+    totalCards: countTotalCards(data),
+    totalNotes: allNotes.length,
+    totalMedia: data.mediaFiles.length,
+  };
 }

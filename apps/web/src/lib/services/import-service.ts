@@ -52,7 +52,7 @@ const FORMAT_MAP: Record<string, ImportFormat> = {
   ".colpkg": "colpkg",
   ".csv": "csv",
   ".txt": "txt",
-  ".json": "crowdanki",
+  ".zip": "crowdanki",
 };
 
 export function detectFormat(filename: string): ImportFormat | undefined {
@@ -290,7 +290,11 @@ export class ImportService {
     return { deckId, noteCount, cardCount };
   }
 
-  importFromCrowdAnki(userId: string, json: unknown): ImportResult {
+  importFromCrowdAnki(
+    userId: string,
+    json: unknown,
+    mediaMapping?: Map<string, string>,
+  ): ImportResult {
     const data = parseCrowdAnki(json);
 
     let deckCount = 0;
@@ -347,6 +351,7 @@ export class ImportService {
       modelMap,
       undefined,
       now,
+      mediaMapping,
     );
 
     deckCount += importResult.deckCount;
@@ -362,6 +367,7 @@ export class ImportService {
     modelMap: Map<string, string>,
     parentId: string | undefined,
     now: Date,
+    mediaMapping?: Map<string, string>,
   ): { deckCount: number; noteCount: number; cardCount: number } {
     let deckCount = 0;
     let noteCount = 0;
@@ -411,6 +417,17 @@ export class ImportService {
       for (const field of fieldDefs) {
         rawFields[field.name] = note.fields[field.ordinal] ?? "";
       }
+
+      // Rewrite media URLs if mapping is provided
+      if (mediaMapping) {
+        for (const fieldName of Object.keys(rawFields)) {
+          rawFields[fieldName] = rewriteMediaUrls(
+            rawFields[fieldName],
+            mediaMapping,
+          );
+        }
+      }
+
       const noteFields = convertFieldsToPlainText(rawFields);
 
       this.db
@@ -426,6 +443,11 @@ export class ImportService {
         })
         .run();
       noteCount += 1;
+
+      // Track media references
+      if (mediaMapping) {
+        this.linkNoteMedia(noteId, noteFields);
+      }
 
       // Get templates for this note type and create cards
       const templates = this.db
@@ -461,6 +483,7 @@ export class ImportService {
         modelMap,
         deckId,
         now,
+        mediaMapping,
       );
       deckCount += childResult.deckCount;
       noteCount += childResult.noteCount;

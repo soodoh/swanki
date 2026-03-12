@@ -11,6 +11,7 @@ import { ProgressStep } from "@/components/import/progress-step";
 import type { ImportProgress } from "@/components/import/progress-step";
 import type { ApkgPreviewData } from "@/lib/import/apkg-parser-client";
 import { buildClientPreview } from "@/lib/import/apkg-parser-client";
+import { buildCrowdAnkiPreview } from "@/lib/import/crowdanki-parser";
 
 export const Route = createFileRoute("/_authenticated/import")({
   component: ImportPage,
@@ -248,6 +249,7 @@ function ImportPage(): React.ReactElement {
   }, [currentStep, file, detectedFormat, importProgress.status]);
 
   const isApkgFormat = detectedFormat === "apkg" || detectedFormat === "colpkg";
+  const isCrowdAnkiFormat = detectedFormat === "zip";
 
   const handleNext = useCallback(() => {
     if (currentStep >= STEPS.length - 1) {
@@ -258,11 +260,14 @@ function ImportPage(): React.ReactElement {
     } else if (currentStep === 1 && file && isApkgFormat) {
       setCurrentStep(2);
       void fetchApkgPreview(file);
+    } else if (currentStep === 1 && file && isCrowdAnkiFormat) {
+      setCurrentStep(2);
+      void fetchCrowdAnkiPreview(file);
     } else {
       setCurrentStep((prev) => prev + 1);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runImport/fetchApkgPreview are stable functions using file state
-  }, [currentStep, file, isApkgFormat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runImport/fetchApkgPreview/fetchCrowdAnkiPreview are stable functions using file state
+  }, [currentStep, file, isApkgFormat, isCrowdAnkiFormat]);
 
   const handleBack = useCallback(() => {
     if (currentStep > 0) {
@@ -314,6 +319,23 @@ function ImportPage(): React.ReactElement {
           }
         }
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Preview failed";
+      setPreviewError(message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function fetchCrowdAnkiPreview(previewFile: File): Promise<void> {
+    setPreviewLoading(true);
+    setPreviewError(undefined);
+    setApkgPreview(undefined);
+
+    try {
+      const buffer = await previewFile.arrayBuffer();
+      const data = buildCrowdAnkiPreview(buffer);
+      setApkgPreview(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Preview failed";
       setPreviewError(message);

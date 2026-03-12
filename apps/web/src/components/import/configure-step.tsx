@@ -278,7 +278,7 @@ function CrowdAnkiConfigPanel({
 }: {
   fileName: string;
 }): React.ReactElement {
-  const deckName = fileName.replace(/\.json$/i, "") || "Import";
+  const deckName = fileName.replace(/\.zip$/i, "") || "Import";
 
   return (
     <div className="space-y-4">
@@ -294,7 +294,7 @@ function CrowdAnkiConfigPanel({
           </p>
           <p>
             <span className="font-medium text-foreground">Format:</span>{" "}
-            CrowdAnki JSON
+            CrowdAnki ZIP
           </p>
         </div>
       </div>
@@ -316,7 +316,7 @@ export function ConfigureStep({
 }: ConfigureStepProps): React.ReactElement {
   const isCsv = format === "csv" || format === "txt";
   const isApkg = format === "apkg" || format === "colpkg";
-  const isCrowdAnki = format === "json";
+  const isCrowdAnki = format === "zip";
 
   return (
     <div className="space-y-6">
@@ -352,7 +352,7 @@ export function ConfigureStep({
       )}
 
       {isCrowdAnki && (
-        <CrowdAnkiConfigPanel fileName={file?.name ?? "import.json"} />
+        <CrowdAnkiConfigPanel fileName={file?.name ?? "import.zip"} />
       )}
     </div>
   );

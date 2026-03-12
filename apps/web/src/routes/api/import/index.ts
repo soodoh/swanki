@@ -7,6 +7,7 @@ import {
 import { MediaService } from "../../../lib/services/media-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { parseCsv } from "../../../lib/import/csv-parser";
+import { parseCrowdAnkiZip } from "../../../lib/import/crowdanki-parser";
 import { db } from "../../../db";
 
 const importService = new ImportService(db);
@@ -84,11 +85,32 @@ export const Route = createFileRoute("/api/import/")({
             return Response.json(result, { status: 201 });
           }
 
-          // format === "crowdanki"
-          const text = await file.text();
-          const json: unknown = JSON.parse(text);
-          const result = importService.importFromCrowdAnki(userId, json);
-          return Response.json(result, { status: 201 });
+          // format === "crowdanki" (ZIP with deck.json + media)
+          const buffer = await file.arrayBuffer();
+          const { json, mediaEntries } = parseCrowdAnkiZip(buffer);
+          const mediaService = new MediaService(db);
+          const {
+            mapping: mediaMapping,
+            warnings: mediaWarnings,
+            mediaCount,
+          } = await mediaService.importBatch(
+            userId,
+            mediaEntries.map((e, i) => ({
+              filename: e.filename,
+              index: String(i),
+              data: e.data,
+            })),
+          );
+          const result = importService.importFromCrowdAnki(
+            userId,
+            json,
+            mediaMapping,
+          );
+          return Response.json(
+            // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- mediaCount is number from importBatch
+            { ...result, mediaWarnings, mediaCount },
+            { status: 201 },
+          );
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Import failed";
