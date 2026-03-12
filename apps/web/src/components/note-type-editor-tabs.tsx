@@ -47,12 +47,10 @@ import type {
   NoteTypeField,
   CardTemplate,
 } from "@/lib/hooks/use-note-types";
-import { renderCardTemplate, isWysiwygTemplate } from "@/lib/wysiwyg";
+import { renderTemplate } from "@/lib/template-renderer";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
 import { expandMediaTags } from "@/lib/media-tags";
-import { TemplateEditor as WysiwygTemplateEditor } from "@/components/wysiwyg/template-editor";
-// oxlint-disable-next-line import(no-unassigned-import) -- CSS side-effect import
-import "@/components/wysiwyg/editor-styles.css";
+import { TemplateCodeEditor } from "@/components/template-code-editor";
 
 /* ---------- Name Editor ---------- */
 
@@ -454,42 +452,24 @@ export function TemplateEditor({
     question !== template.questionTemplate ||
     answer !== template.answerTemplate;
 
-  const useWysiwyg = isWysiwygTemplate(question) || isWysiwygTemplate(answer);
-
   return (
     <div className="grid gap-4">
       <div className="grid gap-2">
         <Label>Question Template</Label>
-        {useWysiwyg ? (
-          <WysiwygTemplateEditor
-            content={question}
-            fieldNames={fieldNames}
-            onChange={setQuestion}
-          />
-        ) : (
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            className="h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          />
-        )}
+        <TemplateCodeEditor
+          value={question}
+          onChange={setQuestion}
+          fieldNames={fieldNames}
+        />
       </div>
       <div className="grid gap-2">
         <Label>Answer Template</Label>
-        {useWysiwyg ? (
-          <WysiwygTemplateEditor
-            content={answer}
-            fieldNames={fieldNames}
-            isAnswerTemplate
-            onChange={setAnswer}
-          />
-        ) : (
-          <textarea
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            className="h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          />
-        )}
+        <TemplateCodeEditor
+          value={answer}
+          onChange={setAnswer}
+          fieldNames={fieldNames}
+          isAnswerTemplate
+        />
       </div>
       <div className="flex justify-end">
         <Button
@@ -581,7 +561,7 @@ export function PreviewTab({
     if (!template) {
       return "";
     }
-    return renderCardTemplate(template.questionTemplate, sampleData, {
+    return renderTemplate(template.questionTemplate, sampleData, {
       showAnswer: false,
       cardOrdinal: 1,
     });
@@ -591,11 +571,11 @@ export function PreviewTab({
     if (!template) {
       return "";
     }
-    const front = renderCardTemplate(template.questionTemplate, sampleData, {
+    const front = renderTemplate(template.questionTemplate, sampleData, {
       showAnswer: false,
       cardOrdinal: 1,
     });
-    return renderCardTemplate(template.answerTemplate, sampleData, {
+    return renderTemplate(template.answerTemplate, sampleData, {
       showAnswer: true,
       cardOrdinal: 1,
       frontSide: front,

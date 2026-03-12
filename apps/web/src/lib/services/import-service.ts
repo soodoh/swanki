@@ -14,8 +14,7 @@ import {
 import { parseCrowdAnki } from "../import/crowdanki-parser";
 import type { CrowdAnkiData } from "../import/crowdanki-parser";
 import type { ApkgData } from "../import/apkg-parser";
-import { convertAnkiTemplate } from "../wysiwyg/html-to-wysiwyg";
-import { stripHtmlToPlainText } from "../wysiwyg/field-converter";
+import { stripHtmlToPlainText } from "../field-converter";
 
 type Db = BunSQLiteDatabase<typeof schema>;
 
@@ -85,7 +84,9 @@ export function rewriteMediaUrls(
       uq: string | undefined,
     ) => {
       const filename = dq ?? sq ?? uq;
-      if (!filename) return match;
+      if (!filename) {
+        return match;
+      }
       const newFilename = mapping.get(filename);
       return newFilename ? `[image:${newFilename}]` : match;
     },
@@ -108,7 +109,9 @@ export function rewriteMediaUrls(
       uq: string | undefined,
     ) => {
       const filename = dq ?? sq ?? uq;
-      if (!filename) return match;
+      if (!filename) {
+        return match;
+      }
       const newFilename = mapping.get(filename);
       return newFilename ? `[video:${newFilename}]` : match;
     },
@@ -132,18 +135,6 @@ export function extractMediaFilenames(
   }
 
   return [...new Set(filenames)];
-}
-
-/**
- * Convert an Anki template HTML string + CSS to a WYSIWYG JSON string.
- */
-function convertTemplateToWysiwyg(
-  html: string,
-  css: string,
-  cardOrdinal?: number,
-): string {
-  const template = convertAnkiTemplate(html, css, cardOrdinal);
-  return JSON.stringify(template);
 }
 
 /**
@@ -249,8 +240,8 @@ export class ImportService {
         noteTypeId,
         name: "Card 1",
         ordinal: 0,
-        questionTemplate: convertTemplateToWysiwyg(`{{${firstField}}}`, ""),
-        answerTemplate: convertTemplateToWysiwyg(answerHtml, ""),
+        questionTemplate: `{{${firstField}}}`,
+        answerTemplate: answerHtml,
       })
       .run();
 
@@ -342,16 +333,8 @@ export class ImportService {
             noteTypeId,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
-            questionTemplate: convertTemplateToWysiwyg(
-              tmpl.questionFormat,
-              model.css,
-              tmpl.ordinal,
-            ),
-            answerTemplate: convertTemplateToWysiwyg(
-              tmpl.answerFormat,
-              model.css,
-              tmpl.ordinal,
-            ),
+            questionTemplate: tmpl.questionFormat,
+            answerTemplate: tmpl.answerFormat,
           })
           .run();
       }
@@ -582,16 +565,8 @@ export class ImportService {
             noteTypeId,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
-            questionTemplate: convertTemplateToWysiwyg(
-              tmpl.questionFormat,
-              ankiNoteType.css,
-              tmpl.ordinal,
-            ),
-            answerTemplate: convertTemplateToWysiwyg(
-              tmpl.answerFormat,
-              ankiNoteType.css,
-              tmpl.ordinal,
-            ),
+            questionTemplate: tmpl.questionFormat,
+            answerTemplate: tmpl.answerFormat,
           })
           .run();
         templateMap.set(`${noteTypeId}:${tmpl.ordinal}`, tmplId);

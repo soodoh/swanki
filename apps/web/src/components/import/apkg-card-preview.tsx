@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { renderCardTemplate } from "@/lib/wysiwyg";
+import { renderTemplate } from "@/lib/template-renderer";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { expandMediaTags } from "@/lib/media-tags";
 
@@ -12,7 +12,7 @@ type NoteTypeInfo = {
   fields: Array<{ name: string; ordinal: number }>;
   templates: Array<{
     name: string;
-    /** WYSIWYG JSON template or legacy mustache HTML. */
+    /** Mustache HTML template. */
     questionFormat: string;
     answerFormat: string;
     ordinal: number;
@@ -48,11 +48,11 @@ export function ApkgCardPreview({
 
   // Render using the unified renderer (handles both WYSIWYG JSON and legacy mustache)
   const frontHtml = expandMediaTags(
-    sanitizeHtml(renderCardTemplate(template.questionFormat, fields)),
+    sanitizeHtml(renderTemplate(template.questionFormat, fields)),
   );
   const backHtml = expandMediaTags(
     sanitizeHtml(
-      renderCardTemplate(template.answerFormat, fields, {
+      renderTemplate(template.answerFormat, fields, {
         frontSide: frontHtml,
         showAnswer: true,
       }),
@@ -102,7 +102,7 @@ export function ApkgCardPreview({
             Front
           </p>
           <div
-            className="card-content prose prose-sm dark:prose-invert max-w-none"
+            className="card prose prose-sm dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: frontHtml }}
           />
         </div>
@@ -113,7 +113,7 @@ export function ApkgCardPreview({
               Back
             </p>
             <div
-              className="card-content prose prose-sm dark:prose-invert max-w-none"
+              className="card prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: backHtml }}
             />
           </div>

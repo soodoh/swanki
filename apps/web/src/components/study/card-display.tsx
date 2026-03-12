@@ -57,7 +57,7 @@ export function CardDisplay({
       >
         <div
           ref={contentRef}
-          className="card-content prose prose-sm dark:prose-invert max-w-none text-center"
+          className="card prose prose-sm dark:prose-invert max-w-none text-center"
           dangerouslySetInnerHTML={{ __html: processedHtml }}
         />
       </div>
