@@ -1,4 +1,4 @@
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
 import type * as schema from "../../db/schema";
@@ -165,6 +165,15 @@ export class ImportService {
     this.db = db;
   }
 
+  private nextNumericId(userId: string): number {
+    const result = this.db
+      .select({ max: sql<number>`COALESCE(MAX(${decks.numericId}), 0)` })
+      .from(decks)
+      .where(eq(decks.userId, userId))
+      .get();
+    return (result?.max ?? 0) + 1;
+  }
+
   importFromCsv(userId: string, options: CsvImportOptions): ImportResult {
     const deckName = options.deckName ?? "CSV Import";
     const { rows } = options;
@@ -179,6 +188,7 @@ export class ImportService {
           id: deckId,
           userId,
           name: deckName,
+          numericId: this.nextNumericId(userId),
           createdAt: now,
           updatedAt: now,
         })
@@ -202,6 +212,7 @@ export class ImportService {
         id: deckId,
         userId,
         name: deckName,
+        numericId: this.nextNumericId(userId),
         createdAt: now,
         updatedAt: now,
       })
@@ -382,6 +393,7 @@ export class ImportService {
         userId,
         name: data.name,
         parentId: parentId ?? undefined,
+        numericId: this.nextNumericId(userId),
         createdAt: now,
         updatedAt: now,
       })
@@ -827,6 +839,7 @@ export class ImportService {
           userId,
           name: segment,
           parentId: currentParentId ?? null,
+          numericId: this.nextNumericId(userId),
           createdAt: now,
           updatedAt: now,
         })

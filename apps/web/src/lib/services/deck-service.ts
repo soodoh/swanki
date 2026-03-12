@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { generateId } from "../id";
 import type * as schema from "../../db/schema";
@@ -35,6 +35,7 @@ export class DeckService {
   create(userId: string, data: { name: string; parentId?: string }): Deck {
     const id = generateId();
     const now = new Date();
+    const numericId = this.nextNumericId(userId);
 
     this.db
       .insert(decks)
@@ -43,6 +44,7 @@ export class DeckService {
         userId,
         name: data.name,
         parentId: data.parentId ?? null,
+        numericId,
         createdAt: now,
         updatedAt: now,
       })
@@ -68,6 +70,23 @@ export class DeckService {
       .from(decks)
       .where(and(eq(decks.id, id), eq(decks.userId, userId)))
       .get();
+  }
+
+  getByNumericId(numericId: number, userId: string): Deck | undefined {
+    return this.db
+      .select()
+      .from(decks)
+      .where(and(eq(decks.numericId, numericId), eq(decks.userId, userId)))
+      .get();
+  }
+
+  nextNumericId(userId: string): number {
+    const result = this.db
+      .select({ max: sql<number>`COALESCE(MAX(${decks.numericId}), 0)` })
+      .from(decks)
+      .where(eq(decks.userId, userId))
+      .get();
+    return (result?.max ?? 0) + 1;
   }
 
   update(

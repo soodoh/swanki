@@ -43,6 +43,13 @@
       "when": 1773018824422,
       "tag": "0005_open_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1773283715370,
+      "tag": "0006_nasty_gorilla_man",
+      "breakpoints": true
     }
   ]
 }

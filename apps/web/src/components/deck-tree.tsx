@@ -362,7 +362,7 @@ function DeckTreeItem({
 
         <Link
           to="/study/$deckId"
-          params={{ deckId: node.id }}
+          params={{ deckId: String(node.numericId) }}
           className="opacity-0 group-hover:opacity-100 transition-opacity"
           onPointerDown={(e) => e.stopPropagation()}
         >

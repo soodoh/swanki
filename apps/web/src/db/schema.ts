@@ -16,6 +16,7 @@ export const decks = sqliteTable(
     userId: text("user_id").notNull(),
     name: text("name").notNull(),
     parentId: text("parent_id"),
+    numericId: integer("numeric_id"),
     description: text("description").default(""),
     settings: text("settings", { mode: "json" })
       .$type<{
@@ -33,6 +34,7 @@ export const decks = sqliteTable(
   (table) => [
     index("decks_user_id_idx").on(table.userId),
     index("decks_parent_id_idx").on(table.parentId),
+    uniqueIndex("decks_user_numeric_idx").on(table.userId, table.numericId),
   ],
 );
 

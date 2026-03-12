@@ -1,10 +1,18 @@
 import { useState, useRef } from "react";
-import { X, Upload, Volume2, Film } from "lucide-react";
+import { X, Upload, Volume2, Film, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+export function isMediaOnlyField(value: string): boolean {
+  const stripped = value
+    .replaceAll(/\[(image|audio|video):[^\]]+\]/g, "")
+    .trim();
+  return stripped.length === 0 && /\[(image|audio|video):[^\]]+\]/.test(value);
+}
 
 type FieldAttachmentsProps = {
   fieldValue: string;
   onFieldChange: (newValue: string) => void;
+  mediaExclusive?: boolean;
 };
 
 type MediaRef = {
@@ -57,6 +65,7 @@ function parseMediaRefs(text: string): MediaRef[] {
 export function FieldAttachments({
   fieldValue,
   onFieldChange,
+  mediaExclusive,
 }: FieldAttachmentsProps): React.ReactElement {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -99,7 +108,11 @@ export function FieldAttachments({
         tag = `[video:${filename}]`;
       }
 
-      onFieldChange(fieldValue ? `${fieldValue} ${tag}` : tag);
+      if (mediaExclusive) {
+        onFieldChange(tag);
+      } else {
+        onFieldChange(fieldValue ? `${fieldValue} ${tag}` : tag);
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -109,6 +122,10 @@ export function FieldAttachments({
   }
 
   function handleDelete(ref: MediaRef): void {
+    if (mediaExclusive) {
+      onFieldChange("");
+      return;
+    }
     let newValue = fieldValue;
     const escaped = escapeRegExp(ref.filename);
     // Remove bracket media tags: [image:file], [audio:file], [video:file]
@@ -133,8 +150,65 @@ export function FieldAttachments({
           onClick={() => fileInputRef.current?.click()}
         >
           <Upload className="size-3" data-icon="inline-start" />
-          Attach file
+          Attach media
         </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,audio/*,video/*"
+          className="hidden"
+          onChange={handleUpload}
+        />
+      </div>
+    );
+  }
+
+  // Exclusive mode: show prominent preview with Replace/Delete actions
+  if (mediaExclusive && mediaRefs.length > 0) {
+    const ref = mediaRefs[0];
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-2">
+        {ref.type === "image" && (
+          <img src={ref.url} alt="" className="size-20 rounded object-cover" />
+        )}
+        {ref.type === "audio" && (
+          <div className="flex size-20 items-center justify-center rounded bg-muted">
+            <Volume2 className="size-8 text-muted-foreground" />
+          </div>
+        )}
+        {ref.type === "video" && (
+          <div className="flex size-20 items-center justify-center rounded bg-muted">
+            <Film className="size-8 text-muted-foreground" />
+          </div>
+        )}
+        <div className="flex flex-1 flex-col gap-1.5">
+          <span className="truncate text-xs text-muted-foreground">
+            {ref.filename}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <RefreshCw className="size-3" data-icon="inline-start" />
+              Replace
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={() => handleDelete(ref)}
+            >
+              <Trash2 className="size-3" data-icon="inline-start" />
+              Delete
+            </Button>
+          </div>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
