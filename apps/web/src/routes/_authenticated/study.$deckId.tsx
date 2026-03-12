@@ -13,7 +13,7 @@ import {
   useIntervalPreviews,
 } from "@/lib/hooks/use-study";
 import type { CardWithNote } from "@/lib/hooks/use-study";
-import { renderCardTemplate } from "@/lib/wysiwyg";
+import { renderTemplate } from "@/lib/template-renderer";
 
 export const Route = createFileRoute("/_authenticated/study/$deckId")({
   component: StudyPage,
@@ -159,44 +159,54 @@ function StudyPage(): React.ReactElement {
   ]);
 
   // Render functions
-  function renderCardContent(): string {
+  function renderCardContent(): { html: string; css: string } {
     if (!currentCard || !session) {
-      return "";
+      return { html: "", css: "" };
     }
 
     const template = session.templates[currentCard.templateId];
     if (!template) {
       // Fallback: render noteFields directly
       if (showAnswer) {
-        return Object.entries(currentCard.noteFields)
-          .map(([key, val]) => `<div><strong>${key}:</strong> ${val}</div>`)
-          .join("");
+        return {
+          html: Object.entries(currentCard.noteFields)
+            .map(([key, val]) => `<div><strong>${key}:</strong> ${val}</div>`)
+            .join(""),
+          css: "",
+        };
       }
       const firstField = Object.values(currentCard.noteFields)[0] ?? "";
-      return `<div>${firstField}</div>`;
+      return { html: `<div>${firstField}</div>`, css: "" };
     }
 
     const fields = currentCard.noteFields;
     const ordinal = currentCard.ordinal;
+    const css = session.css[template.noteTypeId] ?? "";
 
     if (showAnswer) {
       // Render front side first (needed for {{FrontSide}} in answer template)
-      const frontHtml = renderCardTemplate(template.questionTemplate, fields, {
+      const frontHtml = renderTemplate(template.questionTemplate, fields, {
         cardOrdinal: ordinal + 1,
         showAnswer: false,
       });
 
-      return renderCardTemplate(template.answerTemplate, fields, {
-        cardOrdinal: ordinal + 1,
-        frontSide: frontHtml,
-        showAnswer: true,
-      });
+      return {
+        html: renderTemplate(template.answerTemplate, fields, {
+          cardOrdinal: ordinal + 1,
+          frontSide: frontHtml,
+          showAnswer: true,
+        }),
+        css,
+      };
     }
 
-    return renderCardTemplate(template.questionTemplate, fields, {
-      cardOrdinal: ordinal + 1,
-      showAnswer: false,
-    });
+    return {
+      html: renderTemplate(template.questionTemplate, fields, {
+        cardOrdinal: ordinal + 1,
+        showAnswer: false,
+      }),
+      css,
+    };
   }
 
   if (isLoading) {
@@ -267,7 +277,7 @@ function StudyPage(): React.ReactElement {
                   initialTotal={initialTotalRef.current}
                 />
                 <CardDisplay
-                  html={renderCardContent()}
+                  {...renderCardContent()}
                   showAnswer={showAnswer}
                   onShowAnswer={handleShowAnswer}
                   replayRef={replayRef}

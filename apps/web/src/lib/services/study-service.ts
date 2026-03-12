@@ -99,6 +99,7 @@ export class StudyService {
       for (const t of templates) {
         templateMap[t.id] = {
           id: t.id,
+          noteTypeId: t.noteTypeId,
           questionTemplate: t.questionTemplate,
           answerTemplate: t.answerTemplate,
         };
@@ -244,6 +245,7 @@ export class StudyService {
       for (const t of templates) {
         templateMap[t.id] = {
           id: t.id,
+          noteTypeId: t.noteTypeId,
           questionTemplate: t.questionTemplate,
           answerTemplate: t.answerTemplate,
         };

@@ -29,6 +29,7 @@ export type CardCounts = {
 
 export type StudyCardTemplate = {
   id: string;
+  noteTypeId: string;
   questionTemplate: string;
   answerTemplate: string;
 };

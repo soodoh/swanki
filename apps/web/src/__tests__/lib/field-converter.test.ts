@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripHtmlToPlainText } from "../../../lib/wysiwyg/field-converter";
+import { stripHtmlToPlainText } from "../../lib/field-converter";
 
 describe("stripHtmlToPlainText", () => {
   it("returns empty string for empty input", () => {

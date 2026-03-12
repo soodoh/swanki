@@ -7,8 +7,7 @@ import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
 import { countMedia } from "../../../lib/import/apkg-parser-core";
 import { db } from "../../../db";
 import { notes } from "../../../db/schema";
-import { convertAnkiTemplate } from "../../../lib/wysiwyg/html-to-wysiwyg";
-import { stripHtmlToPlainText } from "../../../lib/wysiwyg/field-converter";
+import { stripHtmlToPlainText } from "../../../lib/field-converter";
 
 export type ApkgPreviewData = {
   decks: Array<{ name: string }>;
@@ -17,13 +16,10 @@ export type ApkgPreviewData = {
     fields: Array<{ name: string; ordinal: number }>;
     templates: Array<{
       name: string;
-      /** WYSIWYG JSON template for the question side. */
       questionFormat: string;
-      /** WYSIWYG JSON template for the answer side. */
       answerFormat: string;
       ordinal: number;
     }>;
-    /** Resolved card styles are now embedded in each template — kept for backwards compat. */
     css: string;
   }>;
   sampleNotes: Array<{
@@ -214,22 +210,13 @@ export const Route = createFileRoute("/api/import/preview")({
             noteTypes: apkgData.noteTypes.map((nt) => ({
               name: nt.name,
               fields: nt.fields,
-              // Convert templates to WYSIWYG JSON for preview
               templates: nt.templates.map((tmpl) => ({
                 name: tmpl.name,
-                questionFormat: JSON.stringify(
-                  convertAnkiTemplate(
-                    tmpl.questionFormat,
-                    nt.css,
-                    tmpl.ordinal,
-                  ),
-                ),
-                answerFormat: JSON.stringify(
-                  convertAnkiTemplate(tmpl.answerFormat, nt.css, tmpl.ordinal),
-                ),
+                questionFormat: tmpl.questionFormat,
+                answerFormat: tmpl.answerFormat,
                 ordinal: tmpl.ordinal,
               })),
-              css: "", // CSS is now resolved into templates
+              css: nt.css,
             })),
             sampleNotes: buildSampleNotes(apkgData.noteTypes, apkgData.notes),
             totalCards: apkgData.cards.length,
