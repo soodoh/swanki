@@ -59,11 +59,9 @@ export type ApkgPreviewData = {
 let sqlJsPromise: ReturnType<typeof initSqlJs> | undefined;
 
 function getSqlJs(): ReturnType<typeof initSqlJs> {
-  if (!sqlJsPromise) {
-    sqlJsPromise = initSqlJs({
-      locateFile: (file: string) => `/${file}`,
-    });
-  }
+  sqlJsPromise ??= initSqlJs({
+    locateFile: (file: string) => `/${file}`,
+  });
   return sqlJsPromise;
 }
 

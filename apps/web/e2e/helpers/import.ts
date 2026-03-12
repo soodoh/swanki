@@ -1,4 +1,5 @@
-import { expect, type Page } from "@playwright/test";
+import { expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { join } from "node:path";
 
 const FIXTURES_DIR = join(import.meta.dirname, "..", "fixtures");

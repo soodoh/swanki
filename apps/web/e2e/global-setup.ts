@@ -1,4 +1,5 @@
-import { chromium, type FullConfig } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import type { FullConfig } from "@playwright/test";
 import { existsSync, unlinkSync, rmSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
@@ -11,7 +12,9 @@ const AUTH_DIR = join(import.meta.dirname, ".auth");
 export default async function globalSetup(_config: FullConfig): Promise<void> {
   // Clean state
   for (const f of [E2E_DB, `${E2E_DB}-wal`, `${E2E_DB}-shm`]) {
-    if (existsSync(f)) unlinkSync(f);
+    if (existsSync(f)) {
+      unlinkSync(f);
+    }
   }
   if (existsSync(MEDIA_DIR)) {
     rmSync(MEDIA_DIR, { recursive: true, force: true });
@@ -49,7 +52,7 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
   await page.getByRole("button", { name: "Create account" }).click();
 
   // Check for registration errors
-  const errorEl = page.locator(".bg-destructive\\/10");
+  const errorEl = page.locator(String.raw`.bg-destructive\/10`);
   const hasError = await errorEl
     .isVisible({ timeout: 3000 })
     .catch(() => false);

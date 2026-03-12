@@ -270,7 +270,9 @@ function createOldSchemaDb(opts: {
     return new Uint8Array(readFileSync(dbPath));
   } finally {
     try {
-      if (existsSync(dbPath)) unlinkSync(dbPath);
+      if (existsSync(dbPath)) {
+        unlinkSync(dbPath);
+      }
     } catch {}
   }
 }
@@ -351,7 +353,9 @@ function createNewSchemaDb(opts: {
     return new Uint8Array(readFileSync(dbPath));
   } finally {
     try {
-      if (existsSync(dbPath)) unlinkSync(dbPath);
+      if (existsSync(dbPath)) {
+        unlinkSync(dbPath);
+      }
     } catch {}
   }
 }

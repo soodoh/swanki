@@ -99,16 +99,24 @@ for (const format of FORMATS) {
             break;
           }
         }
-        if (!rootGroupDiv) return null;
+        if (!rootGroupDiv) {
+          return null;
+        }
         const treeRoot = rootGroupDiv.parentElement;
-        if (!treeRoot) return null;
+        if (!treeRoot) {
+          return null;
+        }
         const vocabSpans = treeRoot.querySelectorAll("span.truncate");
         for (const span of vocabSpans) {
           if (span.textContent?.trim() === "Vocab") {
             const vocabGroup = span.closest(".group");
-            if (!vocabGroup) continue;
+            if (!vocabGroup) {
+              continue;
+            }
             const link = vocabGroup.querySelector('a[href*="/study/"]');
-            if (link) return link.getAttribute("href");
+            if (link) {
+              return link.getAttribute("href");
+            }
           }
         }
         return null;
