@@ -251,6 +251,7 @@ export function PreviewStep({
   previewError,
 }: PreviewStepProps): React.ReactElement {
   const isApkg = format === "apkg" || format === "colpkg";
+  const hasRichPreview = isApkg || format === "zip";
 
   return (
     <div className="space-y-6">
@@ -267,13 +268,13 @@ export function PreviewStep({
           <FileText className="size-4 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium">
-              {isApkg ? (apkgPreview?.totalCards ?? "...") : totalCards}
+              {hasRichPreview ? (apkgPreview?.totalCards ?? "...") : totalCards}
             </p>
             <p className="text-xs text-muted-foreground">Total cards</p>
           </div>
         </div>
 
-        {isApkg && apkgPreview && (
+        {hasRichPreview && apkgPreview && (
           <>
             <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
               <Layers className="size-4 text-muted-foreground" />
@@ -303,7 +304,7 @@ export function PreviewStep({
           <MergeStatsBadges mergeStats={apkgPreview.mergeStats} />
         )}
 
-        {!isApkg && duplicateCount > 0 && (
+        {!hasRichPreview && duplicateCount > 0 && (
           <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
             <AlertTriangle className="size-4 text-amber-500" />
             <div>
@@ -327,7 +328,7 @@ export function PreviewStep({
       </div>
 
       {/* Content area */}
-      {isApkg ? (
+      {hasRichPreview ? (
         <ApkgContentArea
           previewLoading={previewLoading}
           previewError={previewError}
@@ -337,7 +338,7 @@ export function PreviewStep({
         <CsvPreview sampleCards={sampleCards} totalCards={totalCards} />
       )}
 
-      {!isApkg && duplicateCount > 0 && (
+      {!hasRichPreview && duplicateCount > 0 && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 size-4 text-amber-500" />

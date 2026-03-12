@@ -32,8 +32,8 @@ describe("detectFormat", () => {
     expect(detectFormat("notes.txt")).toBe("txt");
   });
 
-  it('detects .json as "crowdanki"', () => {
-    expect(detectFormat("deck.json")).toBe("crowdanki");
+  it('detects .zip as "crowdanki"', () => {
+    expect(detectFormat("deck.zip")).toBe("crowdanki");
   });
 
   it("returns undefined for unknown extensions", () => {

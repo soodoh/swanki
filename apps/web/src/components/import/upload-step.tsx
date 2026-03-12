@@ -4,7 +4,7 @@ import { Upload, File, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const ACCEPTED_EXTENSIONS = [".apkg", ".colpkg", ".csv", ".txt", ".json"];
+const ACCEPTED_EXTENSIONS = [".apkg", ".colpkg", ".csv", ".txt", ".zip"];
 const ACCEPT_STRING = ACCEPTED_EXTENSIONS.join(",");
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -12,7 +12,7 @@ const FORMAT_LABELS: Record<string, string> = {
   colpkg: "Anki Collection",
   csv: "CSV",
   txt: "Tab-Separated Text",
-  json: "CrowdAnki JSON",
+  zip: "CrowdAnki ZIP",
 };
 
 function detectFormat(
@@ -150,7 +150,7 @@ export function UploadStep({
           className="hidden"
         />
         <p className="mt-3 text-[10px] text-muted-foreground">
-          Supported: .apkg, .colpkg, .csv, .txt, .json
+          Supported: .apkg, .colpkg, .csv, .txt, .zip
         </p>
       </div>
 
