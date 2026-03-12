@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseCrowdAnki } from "../../../lib/import/crowdanki-parser";
+import { zipSync, strToU8 } from "fflate";
+import {
+  parseCrowdAnki,
+  parseCrowdAnkiZip,
+} from "../../../lib/import/crowdanki-parser";
 
 function makeFixture(overrides?: Record<string, unknown>) {
   return {
@@ -189,5 +193,54 @@ describe("parseCrowdAnki", () => {
       "Invalid CrowdAnki data",
     );
     expect(() => parseCrowdAnki(42)).toThrow("Invalid CrowdAnki data");
+  });
+});
+
+describe("parseCrowdAnkiZip", () => {
+  function makeZip(files: Record<string, string | Uint8Array>): ArrayBuffer {
+    const entries: Record<string, Uint8Array> = {};
+    for (const [name, content] of Object.entries(files)) {
+      entries[name] = typeof content === "string" ? strToU8(content) : content;
+    }
+    return zipSync(entries).buffer;
+  }
+
+  it("strips media/ subdirectory prefix from filenames", () => {
+    const deckJson = JSON.stringify(makeFixture({ media_files: ["flag.svg"] }));
+    const buf = makeZip({
+      "MyDeck/deck.json": deckJson,
+      "MyDeck/media/flag.svg": "<svg>test</svg>",
+    });
+
+    const result = parseCrowdAnkiZip(buf);
+
+    expect(result.mediaEntries).toHaveLength(1);
+    expect(result.mediaEntries[0].filename).toBe("flag.svg");
+  });
+
+  it("handles media files without media/ subdirectory", () => {
+    const deckJson = JSON.stringify(makeFixture({ media_files: ["pic.png"] }));
+    const buf = makeZip({
+      "MyDeck/deck.json": deckJson,
+      "MyDeck/pic.png": new Uint8Array([0x89, 0x50]),
+    });
+
+    const result = parseCrowdAnkiZip(buf);
+
+    expect(result.mediaEntries).toHaveLength(1);
+    expect(result.mediaEntries[0].filename).toBe("pic.png");
+  });
+
+  it("handles root-level deck.json with media/ subdirectory", () => {
+    const deckJson = JSON.stringify(makeFixture());
+    const buf = makeZip({
+      "deck.json": deckJson,
+      "media/image.jpg": new Uint8Array([0xff, 0xd8]),
+    });
+
+    const result = parseCrowdAnkiZip(buf);
+
+    expect(result.mediaEntries).toHaveLength(1);
+    expect(result.mediaEntries[0].filename).toBe("image.jpg");
   });
 });

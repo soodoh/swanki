@@ -154,8 +154,13 @@ export function parseCrowdAnkiZip(buffer: ArrayBuffer): CrowdAnkiZipResult {
       continue;
     } // directory entry
     // Strip directory prefix to get bare filename
-    const filename =
+    let filename =
       prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path;
+    // CrowdAnki ZIPs may nest media in a media/ subdirectory —
+    // strip it so filenames match note field references
+    if (filename.startsWith("media/")) {
+      filename = filename.slice("media/".length);
+    }
     if (filename && data.length > 0) {
       mediaEntries.push({ filename, data });
     }
