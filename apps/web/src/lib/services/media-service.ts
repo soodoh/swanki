@@ -157,6 +157,7 @@ export class MediaService {
       hash: string;
       filename: string;
       mimeType: string;
+      fileOnly?: boolean; // true when DB record exists but file is missing
     };
     const pendingWrites: PendingWrite[] = [];
     const seenHashes = new Map<string, string>(); // hash → filename (in-batch dedup)
@@ -181,6 +182,19 @@ export class MediaService {
       if (existing) {
         mapping.set(entry.filename, existing.filename);
         seenHashes.set(hash, existing.filename);
+        // Re-write file if DB record exists but file is missing from disk
+        // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
+        const existingPath: string = join(MEDIA_DIR, existing.filename);
+        // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
+        if (!existsSync(existingPath)) {
+          pendingWrites.push({
+            entry,
+            hash,
+            filename: existing.filename,
+            mimeType: existing.mimeType,
+            fileOnly: true,
+          });
+        }
         continue;
       }
 
@@ -219,21 +233,23 @@ export class MediaService {
         }),
       );
 
-      for (const { entry, hash, filename, mimeType } of batch) {
-        this.db
-          .insert(media)
-          .values({
-            id: generateId(),
-            userId,
-            filename,
-            hash,
-            mimeType,
-            size: entry.data.length,
-            createdAt: new Date(),
-          })
-          .run();
+      for (const { entry, hash, filename, mimeType, fileOnly } of batch) {
+        if (!fileOnly) {
+          this.db
+            .insert(media)
+            .values({
+              id: generateId(),
+              userId,
+              filename,
+              hash,
+              mimeType,
+              size: entry.data.length,
+              createdAt: new Date(),
+            })
+            .run();
 
-        mapping.set(entry.filename, filename);
+          mapping.set(entry.filename, filename);
+        }
       }
     }
 
