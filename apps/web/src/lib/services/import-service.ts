@@ -66,6 +66,19 @@ export function detectFormat(filename: string): ImportFormat | undefined {
   return FORMAT_MAP[ext];
 }
 
+/**
+ * Strip Anki addon markup (script tags, link tags, and surrounding HTML comments)
+ * from imported templates. These are injected by addons like Code Highlighter and
+ * serve no purpose outside Anki desktop.
+ */
+export function stripAddonMarkup(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->\s*/g, "") // HTML comments
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>\s*/gi, "") // script tags
+    .replace(/<link\b[^>]*\/?>\s*/gi, "") // link tags
+    .trim();
+}
+
 /* oxlint-disable unicorn(prefer-string-replace-all) -- replaceAll triggers no-unsafe-* lint errors */
 export function rewriteMediaUrls(
   text: string,
@@ -337,8 +350,8 @@ export class ImportService {
             noteTypeId,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
-            questionTemplate: tmpl.questionFormat,
-            answerTemplate: tmpl.answerFormat,
+            questionTemplate: stripAddonMarkup(tmpl.questionFormat),
+            answerTemplate: stripAddonMarkup(tmpl.answerFormat),
           })
           .run();
       }
@@ -589,8 +602,8 @@ export class ImportService {
             noteTypeId,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
-            questionTemplate: tmpl.questionFormat,
-            answerTemplate: tmpl.answerFormat,
+            questionTemplate: stripAddonMarkup(tmpl.questionFormat),
+            answerTemplate: stripAddonMarkup(tmpl.answerFormat),
           })
           .run();
         templateMap.set(`${noteTypeId}:${tmpl.ordinal}`, tmplId);

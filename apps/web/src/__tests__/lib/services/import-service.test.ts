@@ -3,6 +3,7 @@ import { createTestDb } from "../../test-utils";
 import {
   rewriteMediaUrls,
   extractMediaFilenames,
+  stripAddonMarkup,
   ImportService,
 } from "@/lib/services/import-service";
 import { NoteService } from "@/lib/services/note-service";
@@ -49,6 +50,47 @@ describe("rewriteMediaUrls", () => {
   it("should rewrite unquoted img src attributes", () => {
     const input = "<img src=image.jpg>";
     expect(rewriteMediaUrls(input, mapping)).toBe("[image:abc123.jpg]");
+  });
+});
+
+describe("stripAddonMarkup", () => {
+  it("should strip script tags", () => {
+    const input = '{{Front}}\n<script src="_ch-highlight.js"></script>';
+    expect(stripAddonMarkup(input)).toBe("{{Front}}");
+  });
+
+  it("should strip link tags", () => {
+    const input =
+      '{{Front}}\n<link rel="stylesheet" href="_ch-pygments.css" class="anki-code-highlighter">';
+    expect(stripAddonMarkup(input)).toBe("{{Front}}");
+  });
+
+  it("should strip HTML comments", () => {
+    const input =
+      "{{Front}}\n<!-- Anki Code Highlighter BEGIN -->\n<!-- END -->";
+    expect(stripAddonMarkup(input)).toBe("{{Front}}");
+  });
+
+  it("should strip a full addon block with comments, links, and scripts", () => {
+    const input = `{{Front}}
+
+<!-- Anki Code Highlighter (Addon 112228974) BEGIN -->
+<link rel="stylesheet" href="_ch-pygments-solarized.css" class="anki-code-highlighter">
+<link rel="stylesheet" href="_tokyo-night-dark.css" class="anki-code-highlighter">
+<script src="_ch-highlight.js" class="anki-code-highlighter"></script>
+<script src="_ch-my-highlight.js" class="anki-code-highlighter"></script>
+<!-- Anki Code Highlighter (Addon 112228974) END -->`;
+    expect(stripAddonMarkup(input)).toBe("{{Front}}");
+  });
+
+  it("should strip script tags with inline content", () => {
+    const input = "{{Front}}\n<script>console.log('hi');</script>";
+    expect(stripAddonMarkup(input)).toBe("{{Front}}");
+  });
+
+  it("should leave templates without addon markup unchanged", () => {
+    const input = "{{Front}}\n<hr>\n{{Back}}";
+    expect(stripAddonMarkup(input)).toBe("{{Front}}\n<hr>\n{{Back}}");
   });
 });
 
