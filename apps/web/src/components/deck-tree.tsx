@@ -4,7 +4,6 @@ import {
   ChevronRight,
   ChevronDown,
   Plus,
-  BookOpen,
   Layers,
   MoreHorizontal,
   Settings,
@@ -57,7 +56,7 @@ function CountCell({
 }): React.ReactElement {
   return (
     <span
-      className={`w-8 text-right tabular-nums text-xs font-medium ${
+      className={`w-10 text-center tabular-nums text-xs font-medium ${
         value > 0 ? color : "text-muted-foreground/40"
       }`}
     >
@@ -74,7 +73,7 @@ function DeckCountBadges({ deckId }: { deckId: number }): React.ReactElement {
   const r = counts?.review ?? 0;
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-3">
       <CountCell value={n} color="text-blue-700 dark:text-blue-400" />
       <CountCell value={l} color="text-orange-700 dark:text-orange-400" />
       <CountCell value={r} color="text-green-700 dark:text-green-400" />
@@ -229,7 +228,7 @@ function DeckActionMenu({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon-xs">
+            <Button variant="ghost" size="icon-xs" className="cursor-pointer">
               <MoreHorizontal className="size-4" />
             </Button>
           }
@@ -332,17 +331,22 @@ function DeckTreeItem({
 
   return (
     <div>
-      <div
+      <Link
         ref={setNodeRef}
+        to="/study/$deckId"
+        params={{ deckId: String(node.id) }}
         {...attributes}
         {...listeners}
-        className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${dragDropClass}`}
+        className={`group flex items-center gap-2 rounded-lg pr-9 py-1.5 cursor-pointer no-underline text-inherit transition-colors ${dragDropClass}`}
         style={{ paddingLeft: `${String(depth * 20 + 8)}px` }}
       >
         {hasChildren ? (
           <button
             type="button"
-            onClick={() => setExpanded(!expanded)}
+            onClick={(e) => {
+              e.preventDefault();
+              setExpanded(!expanded);
+            }}
             onPointerDown={(e) => e.stopPropagation()}
             className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -362,22 +366,14 @@ function DeckTreeItem({
 
         <DeckCountBadges deckId={node.id} />
 
-        <Link
-          to="/study/$deckId"
-          params={{ deckId: String(node.id) }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
+        <span
+          role="presentation"
+          onClick={(e) => e.preventDefault()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <Button variant="ghost" size="xs">
-            <BookOpen className="size-3.5" />
-            Study
-          </Button>
-        </Link>
-
-        <div onPointerDown={(e) => e.stopPropagation()}>
           <DeckActionMenu node={node} allDecks={allDecks} />
-        </div>
-      </div>
+        </span>
+      </Link>
 
       {hasChildren && expanded && (
         <div>
@@ -593,29 +589,23 @@ export function DeckTree({
           onDragEnd={handleDragEnd}
         >
           <div className="rounded-lg border bg-card">
-            <div className="px-2 py-2 border-b">
+            <div className="pl-2 pr-9 py-2 border-b">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="size-5 shrink-0" />
                 <span className="size-4 shrink-0" />
                 <span className="flex-1">Name</span>
-                <div className="flex items-center gap-1">
-                  <span className="w-8 text-right text-blue-600 dark:text-blue-400">
+                <div className="flex items-center gap-3">
+                  <span className="w-10 text-center text-blue-600 dark:text-blue-400">
                     New
                   </span>
-                  <span className="w-8 text-right text-orange-600 dark:text-orange-400">
+                  <span className="w-10 text-center text-orange-600 dark:text-orange-400">
                     Learn
                   </span>
-                  <span className="w-8 text-right text-green-600 dark:text-green-400">
+                  <span className="w-10 text-center text-green-600 dark:text-green-400">
                     Due
                   </span>
                 </div>
-                {/* Spacer matching Study button + action menu in rows */}
-                <span className="invisible">
-                  <Button variant="ghost" size="xs">
-                    <BookOpen className="size-3.5" />
-                    Study
-                  </Button>
-                </span>
+                {/* Spacer matching action menu in rows */}
                 <span className="size-6 shrink-0" />
               </div>
             </div>

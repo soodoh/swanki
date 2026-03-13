@@ -40,7 +40,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Decks", url: "/", icon: LayoutDashboard },
   { title: "Browse", url: "/browse", icon: Search },
   { title: "Import", url: "/import", icon: Upload },
   { title: "Statistics", url: "/stats", icon: BarChart3 },
