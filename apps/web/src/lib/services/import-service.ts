@@ -10,10 +10,17 @@ import {
   noteMedia,
   media,
 } from "../../db/schema";
+import { sqliteTyped } from "../../db";
 import { parseCrowdAnki } from "../import/crowdanki-parser";
 import type { CrowdAnkiData } from "../import/crowdanki-parser";
 import type { ApkgData } from "../import/apkg-parser";
 import { stripHtmlToPlainText } from "../field-converter";
+
+export type ImportProgressCallback = (
+  phase: string,
+  progress: number,
+  detail: string,
+) => void;
 
 type Db = BunSQLiteDatabase<typeof schema>;
 
@@ -902,5 +909,401 @@ export class ImportService {
           .run();
       }
     }
+  }
+
+  // oxlint-disable-next-line eslint(complexity) -- batched import with merge logic requires high branching
+  async importFromApkgBatched(
+    userId: string,
+    data: ApkgData,
+    mediaMapping: Map<string, string> | undefined,
+    merge: boolean,
+    onProgress?: ImportProgressCallback,
+  ): Promise<ImportResult> {
+    const now = new Date();
+    const BATCH_SIZE = 500;
+
+    onProgress?.("notes", 0, "Creating decks and note types...");
+
+    // === Create decks (same logic as importFromApkg) ===
+    const usedDeckIds = new Set(data.cards.map((c) => c.deckId));
+    const hierarchyCache = new Map<string, number>();
+    const deckMap = new Map<number, number>();
+    for (const ankiDeck of data.decks) {
+      if (!usedDeckIds.has(ankiDeck.id)) {
+        continue;
+      }
+      const leafDeckId = this.resolveOrCreateDeckHierarchy(
+        userId,
+        ankiDeck.name,
+        merge,
+        now,
+        hierarchyCache,
+      );
+      deckMap.set(ankiDeck.id, leafDeckId);
+    }
+
+    // === Create note types ===
+    const noteTypeMap = new Map<number, number>();
+    const templateMap = new Map<string, number>();
+    for (const ankiNoteType of data.noteTypes) {
+      if (merge) {
+        const existing = this.db
+          .select()
+          .from(noteTypes)
+          .where(
+            and(
+              eq(noteTypes.userId, userId),
+              eq(noteTypes.name, ankiNoteType.name),
+            ),
+          )
+          .get();
+        if (existing) {
+          noteTypeMap.set(ankiNoteType.id, existing.id);
+          const existingTemplates = this.db
+            .select()
+            .from(cardTemplates)
+            .where(eq(cardTemplates.noteTypeId, existing.id))
+            .all();
+          for (const tmpl of existingTemplates) {
+            templateMap.set(`${existing.id}:${tmpl.ordinal}`, tmpl.id);
+          }
+          continue;
+        }
+      }
+
+      const fields = ankiNoteType.fields.map((f) => ({
+        name: f.name,
+        ordinal: f.ordinal,
+      }));
+
+      const noteType = this.db
+        .insert(noteTypes)
+        .values({
+          userId,
+          name: ankiNoteType.name,
+          fields,
+          css: stripImportCss(ankiNoteType.css),
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning()
+        .get();
+      noteTypeMap.set(ankiNoteType.id, noteType.id);
+
+      for (const tmpl of ankiNoteType.templates) {
+        const tmplRow = this.db
+          .insert(cardTemplates)
+          .values({
+            noteTypeId: noteType.id,
+            name: tmpl.name,
+            ordinal: tmpl.ordinal,
+            questionTemplate: stripAddonMarkup(tmpl.questionFormat),
+            answerTemplate: stripAddonMarkup(tmpl.answerFormat),
+          })
+          .returning()
+          .get();
+        templateMap.set(`${noteType.id}:${tmpl.ordinal}`, tmplRow.id);
+      }
+    }
+
+    // === Bulk duplicate check (single SELECT instead of per-note) ===
+    onProgress?.("notes", 2, "Checking for duplicates...");
+    const existingByGuid = new Map<
+      string,
+      { id: number; fields: Record<string, string> }
+    >();
+    const allExisting = this.db
+      .select({
+        id: notes.id,
+        ankiGuid: notes.ankiGuid,
+        fields: notes.fields,
+      })
+      .from(notes)
+      .where(eq(notes.userId, userId))
+      .all();
+    for (const n of allExisting) {
+      if (n.ankiGuid) {
+        existingByGuid.set(n.ankiGuid, { id: n.id, fields: n.fields });
+      }
+    }
+
+    // === Build O(1) lookup maps ===
+    const noteTypeById = new Map(data.noteTypes.map((nt) => [nt.id, nt]));
+    const noteById = new Map(data.notes.map((n) => [n.id, n]));
+
+    // === Classify notes into insert / update / skip ===
+    type NoteInsertItem = {
+      ankiId: number;
+      values: typeof notes.$inferInsert;
+      fields: Record<string, string>;
+    };
+    type NoteUpdateItem = {
+      existingId: number;
+      ankiId: number;
+      fields: Record<string, string>;
+      tags: string;
+    };
+
+    const toInsert: NoteInsertItem[] = [];
+    const toUpdate: NoteUpdateItem[] = [];
+    const skippedNoteIds = new Set<number>();
+    const noteMap = new Map<number, number>();
+    let duplicatesSkipped = 0;
+    let notesUpdated = 0;
+
+    for (const ankiNote of data.notes) {
+      const noteTypeId = noteTypeMap.get(ankiNote.modelId);
+      if (!noteTypeId) {
+        continue;
+      }
+
+      const ankiNoteType = noteTypeById.get(ankiNote.modelId);
+      const rawFields: Record<string, string> = {};
+      if (ankiNoteType) {
+        for (const field of ankiNoteType.fields) {
+          rawFields[field.name] = ankiNote.fields[field.ordinal] ?? "";
+        }
+      }
+
+      if (mediaMapping) {
+        for (const fieldName of Object.keys(rawFields)) {
+          rawFields[fieldName] = rewriteMediaUrls(
+            rawFields[fieldName],
+            mediaMapping,
+          );
+        }
+      }
+
+      const plainFields = convertFieldsToPlainText(rawFields);
+
+      if (ankiNote.guid) {
+        const existing = existingByGuid.get(ankiNote.guid);
+        if (existing) {
+          if (!merge) {
+            skippedNoteIds.add(ankiNote.id);
+            duplicatesSkipped += 1;
+            continue;
+          }
+
+          if (fieldsEqual(existing.fields, plainFields)) {
+            skippedNoteIds.add(ankiNote.id);
+            duplicatesSkipped += 1;
+            continue;
+          }
+
+          toUpdate.push({
+            existingId: existing.id,
+            ankiId: ankiNote.id,
+            fields: plainFields,
+            tags: ankiNote.tags.trim(),
+          });
+          noteMap.set(ankiNote.id, existing.id);
+          skippedNoteIds.add(ankiNote.id);
+          notesUpdated += 1;
+          continue;
+        }
+      }
+
+      toInsert.push({
+        ankiId: ankiNote.id,
+        values: {
+          userId,
+          noteTypeId,
+          fields: plainFields,
+          tags: ankiNote.tags.trim(),
+          ankiGuid: ankiNote.guid || undefined,
+          createdAt: now,
+          updatedAt: now,
+        },
+        fields: plainFields,
+      });
+    }
+
+    // === Pre-compute card insert values ===
+    type CardInsertItem = {
+      ankiNoteId: number;
+      deckId: number;
+      templateId: number;
+      ordinal: number;
+      state: number;
+      reps: number;
+      lapses: number;
+    };
+    const cardInserts: CardInsertItem[] = [];
+    for (const ankiCard of data.cards) {
+      if (skippedNoteIds.has(ankiCard.noteId)) {
+        continue;
+      }
+
+      const deckId = deckMap.get(ankiCard.deckId);
+      if (!deckId) {
+        continue;
+      }
+
+      const ankiNote = noteById.get(ankiCard.noteId);
+      if (!ankiNote) {
+        continue;
+      }
+
+      const noteTypeId = noteTypeMap.get(ankiNote.modelId);
+      if (!noteTypeId) {
+        continue;
+      }
+
+      const templateId = templateMap.get(`${noteTypeId}:${ankiCard.ordinal}`);
+      if (!templateId) {
+        continue;
+      }
+
+      cardInserts.push({
+        ankiNoteId: ankiCard.noteId,
+        deckId,
+        templateId,
+        ordinal: ankiCard.ordinal,
+        state: ankiCard.type,
+        reps: ankiCard.reps,
+        lapses: ankiCard.lapses,
+      });
+    }
+
+    // === Transaction: batch insert/update ===
+    onProgress?.(
+      "notes",
+      5,
+      `Importing ${toInsert.length} notes and ${cardInserts.length} cards...`,
+    );
+
+    sqliteTyped.exec("BEGIN TRANSACTION"); // SQLite exec, not child_process
+    try {
+      // Batch insert new notes
+      for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+        const batch = toInsert.slice(i, i + BATCH_SIZE);
+        const inserted = this.db
+          .insert(notes)
+          .values(batch.map((item) => item.values))
+          .returning()
+          .all();
+
+        for (let j = 0; j < inserted.length; j += 1) {
+          noteMap.set(batch[j].ankiId, inserted[j].id);
+        }
+
+        const done = Math.min(i + BATCH_SIZE, toInsert.length);
+        const pct = 5 + Math.round((done / toInsert.length) * 50);
+        onProgress?.(
+          "notes",
+          pct,
+          `Inserted ${done} / ${toInsert.length} notes`,
+        );
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      }
+
+      // Batch update existing notes (merge mode)
+      for (const upd of toUpdate) {
+        this.db
+          .update(notes)
+          .set({ fields: upd.fields, tags: upd.tags, updatedAt: now })
+          .where(eq(notes.id, upd.existingId))
+          .run();
+      }
+
+      // Batch link media references
+      if (mediaMapping) {
+        const allMediaRecords = this.db.select().from(media).all();
+        const mediaByFilename = new Map(
+          allMediaRecords.map((m) => [m.filename, m.id]),
+        );
+
+        // Delete existing media links for updated notes
+        for (const upd of toUpdate) {
+          this.db
+            .delete(noteMedia)
+            .where(eq(noteMedia.noteId, upd.existingId))
+            .run();
+        }
+
+        // Collect all media links
+        const noteMediaValues: Array<{ noteId: number; mediaId: number }> = [];
+        for (const item of toInsert) {
+          const noteId = noteMap.get(item.ankiId);
+          if (!noteId) {
+            continue;
+          }
+          const filenames = extractMediaFilenames(item.fields);
+          for (const filename of filenames) {
+            const mediaId = mediaByFilename.get(filename);
+            if (mediaId) {
+              noteMediaValues.push({ noteId, mediaId });
+            }
+          }
+        }
+        for (const upd of toUpdate) {
+          const filenames = extractMediaFilenames(upd.fields);
+          for (const filename of filenames) {
+            const mediaId = mediaByFilename.get(filename);
+            if (mediaId) {
+              noteMediaValues.push({ noteId: upd.existingId, mediaId });
+            }
+          }
+        }
+
+        // Batch insert noteMedia
+        for (let i = 0; i < noteMediaValues.length; i += BATCH_SIZE) {
+          const batch = noteMediaValues.slice(i, i + BATCH_SIZE);
+          this.db.insert(noteMedia).values(batch).onConflictDoNothing().run();
+        }
+      }
+
+      // Batch insert cards
+      onProgress?.("cards", 0, `Creating ${cardInserts.length} cards...`);
+      for (let i = 0; i < cardInserts.length; i += BATCH_SIZE) {
+        const batch = cardInserts.slice(i, i + BATCH_SIZE);
+        this.db
+          .insert(cards)
+          .values(
+            batch.map((cv) => ({
+              noteId: noteMap.get(cv.ankiNoteId)!,
+              deckId: cv.deckId,
+              templateId: cv.templateId,
+              ordinal: cv.ordinal,
+              state: cv.state,
+              due: now,
+              reps: cv.reps,
+              lapses: cv.lapses,
+              createdAt: now,
+              updatedAt: now,
+            })),
+          )
+          .run();
+
+        const done = Math.min(i + BATCH_SIZE, cardInserts.length);
+        const pct = Math.round((done / cardInserts.length) * 100);
+        onProgress?.(
+          "cards",
+          pct,
+          `Created ${done} / ${cardInserts.length} cards`,
+        );
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      }
+
+      sqliteTyped.exec("COMMIT"); // SQLite exec, not child_process
+    } catch (error) {
+      sqliteTyped.exec("ROLLBACK"); // SQLite exec, not child_process
+      throw error;
+    }
+
+    onProgress?.("cleanup", 100, "Import complete!");
+
+    return {
+      deckCount: deckMap.size,
+      noteCount: toInsert.length,
+      cardCount: cardInserts.length,
+      duplicatesSkipped,
+      notesUpdated,
+    };
   }
 }

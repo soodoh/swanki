@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { eq } from "drizzle-orm";
 import { requireSession } from "../../../lib/auth-middleware";
 import { detectFormat } from "../../../lib/services/import-service";
+import { getUploadPath } from "../../../lib/services/upload-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
 import { countMedia } from "../../../lib/import/apkg-parser-core";
@@ -242,25 +243,63 @@ export const Route = createFileRoute("/api/import/preview")({
 
         try {
           const contentType = request.headers.get("content-type") ?? "";
-          if (!contentType.includes("multipart/form-data")) {
+
+          // Support both JSON body (with fileId) and multipart/form-data
+          let buffer: ArrayBuffer;
+          let format: ReturnType<typeof detectFormat>;
+          let mergeMode: string | undefined;
+
+          if (contentType.includes("application/json")) {
+            // New path: read from previously uploaded file
+            const body = (await request.json()) as {
+              fileId?: string;
+              mergeMode?: string;
+            };
+            if (!body.fileId) {
+              return Response.json(
+                { error: "fileId is required" },
+                { status: 400 },
+              );
+            }
+            mergeMode = body.mergeMode;
+
+            const filePath = getUploadPath(userId, body.fileId);
+            if (!filePath) {
+              return Response.json(
+                { error: "Upload not found or expired" },
+                { status: 404 },
+              );
+            }
+
+            const ext = filePath.slice(filePath.lastIndexOf("."));
+            format = detectFormat(`file${ext}`);
+            /* oxlint-disable typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped */
+            const bunFile: { arrayBuffer(): Promise<ArrayBuffer> } =
+              Bun.file(filePath);
+            buffer = await bunFile.arrayBuffer();
+            /* oxlint-enable typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) */
+          } else if (contentType.includes("multipart/form-data")) {
+            // Legacy path: file uploaded directly
+            const formData = await request.formData();
+            const file = formData.get("file");
+            mergeMode = (formData.get("mergeMode") as string) || undefined;
+
+            if (!(file instanceof File)) {
+              return Response.json(
+                { error: "No file provided" },
+                { status: 400 },
+              );
+            }
+
+            format = detectFormat(file.name);
+            buffer = await file.arrayBuffer();
+          } else {
             return Response.json(
-              { error: "Expected multipart/form-data" },
+              { error: "Expected application/json or multipart/form-data" },
               { status: 400 },
             );
           }
 
-          const formData = await request.formData();
-          const file = formData.get("file");
-          const mergeMode = (formData.get("mergeMode") as string) || undefined;
-
-          if (!(file instanceof File)) {
-            return Response.json(
-              { error: "No file provided" },
-              { status: 400 },
-            );
-          }
-
-          const format = detectFormat(file.name);
           if (
             format !== "apkg" &&
             format !== "colpkg" &&
@@ -271,8 +310,6 @@ export const Route = createFileRoute("/api/import/preview")({
               { status: 400 },
             );
           }
-
-          const buffer = await file.arrayBuffer();
 
           if (format === "crowdanki") {
             const { json } = parseCrowdAnkiZip(buffer);
