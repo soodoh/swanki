@@ -38,7 +38,7 @@ export function CardDisplay({
     () => `${String(showAnswer)}-${html}`,
     [showAnswer, html],
   );
-  const { replay } = useCardAudio(contentRef, audioKey);
+  const { replay } = useCardAudio(contentRef, audioKey, !showAnswer);
 
   // Expose replay to parent via ref
   if (replayRef) {

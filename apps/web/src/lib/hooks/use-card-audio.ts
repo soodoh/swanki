@@ -9,6 +9,7 @@ import { wireSoundButtons } from "@/lib/media-tags";
 export function useCardAudio(
   containerRef: React.RefObject<HTMLElement>,
   audioKey: string,
+  autoplay: boolean = true,
 ): { replay: () => void } {
   const abortRef = useRef(false);
 
@@ -84,11 +85,11 @@ export function useCardAudio(
       cleanupButtons = wireSoundButtons(container);
     }
 
-    // Small delay to ensure DOM has rendered the new audio elements
-    const timer = setTimeout(playAll, 50);
+    // Auto-play only when enabled (e.g. front side only)
+    const timer = autoplay ? setTimeout(playAll, 50) : undefined;
 
     return () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       abortRef.current = true;
       cleanupButtons?.();
       // Pause captured audio elements (not the new card's elements)
@@ -97,7 +98,7 @@ export function useCardAudio(
         audio.currentTime = 0;
       }
     };
-  }, [audioKey, playAll, containerRef]);
+  }, [audioKey, autoplay, playAll, containerRef]);
 
   return { replay: playAll };
 }
