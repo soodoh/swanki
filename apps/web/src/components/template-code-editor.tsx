@@ -1,9 +1,11 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { html } from "@codemirror/lang-html";
+import { oneDark } from "@codemirror/theme-one-dark";
 import { Plus, Type, Braces, Hash } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/lib/theme";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,7 +33,12 @@ type TemplateCodeEditorProps = {
   className?: string;
 };
 
-const extensions = [html()];
+function isDark(theme: "light" | "dark" | "system"): boolean {
+  if (theme === "system") {
+    return globalThis.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  return theme === "dark";
+}
 
 export function TemplateCodeEditor({
   value,
@@ -40,6 +47,12 @@ export function TemplateCodeEditor({
   isAnswerTemplate,
   className,
 }: TemplateCodeEditorProps): React.ReactElement {
+  const { theme } = useTheme();
+  const dark = isDark(theme);
+  const extensions = useMemo(
+    () => (dark ? [html(), oneDark] : [html()]),
+    [dark],
+  );
   const viewRef = useRef<CodeEditorView | undefined>(undefined);
 
   const insertText = useCallback((text: string) => {
@@ -70,6 +83,7 @@ export function TemplateCodeEditor({
       <CodeMirror
         value={value}
         onChange={onChange}
+        theme={dark ? "dark" : "light"}
         extensions={extensions}
         onCreateEditor={(view: CodeEditorView) => {
           viewRef.current = view;
@@ -79,7 +93,7 @@ export function TemplateCodeEditor({
           foldGutter: false,
           highlightActiveLine: false,
         }}
-        className="rounded-b-lg border border-t-0 border-input bg-transparent font-mono text-sm [&_.cm-editor]:bg-transparent [&_.cm-gutters]:bg-transparent [&_.cm-gutters]:border-none [&_.cm-content]:caret-foreground [&_.cm-activeLine]:bg-muted/30 [&_.cm-selectionBackground]:!bg-primary/20 [&_.cm-editor]:outline-none [&_.cm-focused]:outline-none"
+        className="rounded-b-lg border border-t-0 border-input font-mono text-sm [&_.cm-gutters]:border-none [&_.cm-content]:caret-foreground [&_.cm-activeLine]:bg-muted/30 [&_.cm-selectionBackground]:!bg-primary/20 [&_.cm-editor]:outline-none [&_.cm-focused]:outline-none"
         minHeight="96px"
       />
     </div>

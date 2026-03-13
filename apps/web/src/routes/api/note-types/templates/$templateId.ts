@@ -11,12 +11,16 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
         const userId = session.user.id;
+        const templateId = Number(params.templateId);
+        if (Number.isNaN(templateId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
         const body = (await request.json()) as {
           questionTemplate?: string;
           answerTemplate?: string;
         };
         const template = noteTypeService.updateTemplate(
-          params.templateId,
+          templateId,
           userId,
           body,
         );
@@ -28,7 +32,11 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
         const userId = session.user.id;
-        noteTypeService.deleteTemplate(params.templateId, userId);
+        const templateId = Number(params.templateId);
+        if (Number.isNaN(templateId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
+        noteTypeService.deleteTemplate(templateId, userId);
         return new Response(undefined, { status: 204 });
       },
     },

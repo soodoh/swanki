@@ -1,1 +1,0 @@
-ALTER TABLE `notes` DROP COLUMN `anki_fields_hash`;

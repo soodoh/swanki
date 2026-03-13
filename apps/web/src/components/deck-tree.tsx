@@ -66,7 +66,7 @@ function CountCell({
   );
 }
 
-function DeckCountBadges({ deckId }: { deckId: string }): React.ReactElement {
+function DeckCountBadges({ deckId }: { deckId: number }): React.ReactElement {
   const { data: counts } = useDeckCounts(deckId);
 
   const n = counts?.new ?? 0;
@@ -95,7 +95,9 @@ function DeckOptionsDialog({
 }): React.ReactElement {
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description ?? "");
-  const [parentId, setParentId] = useState<string>(deck.parentId ?? "");
+  const [parentId, setParentId] = useState<string>(
+    deck.parentId === undefined ? "" : String(deck.parentId),
+  );
   const [newCardsPerDay, setNewCardsPerDay] = useState(
     String(deck.settings?.newCardsPerDay ?? 20),
   );
@@ -111,7 +113,7 @@ function DeckOptionsDialog({
       deckId: deck.id,
       name: name.trim(),
       description: description.trim(),
-      parentId: parentId || null,
+      parentId: parentId ? Number(parentId) : null,
       settings: {
         newCardsPerDay: Number(newCardsPerDay) || 20,
         maxReviewsPerDay: Number(maxReviewsPerDay) || 200,
@@ -158,7 +160,7 @@ function DeckOptionsDialog({
             >
               <option value="">None (top-level)</option>
               {parentOptions.map((d) => (
-                <option key={d.id} value={d.id}>
+                <option key={d.id} value={String(d.id)}>
                   {d.name}
                 </option>
               ))}
@@ -291,7 +293,7 @@ function DeckTreeItem({
   node: DeckTreeNode;
   allDecks: DeckTreeNode[];
   depth?: number;
-  invalidDropIds: Set<string>;
+  invalidDropIds: Set<number>;
 }): React.ReactElement {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children.length > 0;
@@ -362,7 +364,7 @@ function DeckTreeItem({
 
         <Link
           to="/study/$deckId"
-          params={{ deckId: String(node.numericId) }}
+          params={{ deckId: String(node.id) }}
           className="opacity-0 group-hover:opacity-100 transition-opacity"
           onPointerDown={(e) => e.stopPropagation()}
         >
@@ -397,7 +399,7 @@ function DeckTreeItem({
 function AddDeckDialog({
   parentId,
 }: {
-  parentId?: string;
+  parentId?: number;
 }): React.ReactElement {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -470,9 +472,9 @@ function flattenDecks(nodes: DeckTreeNode[]): DeckTreeNode[] {
 
 function getDescendantIds(
   nodes: DeckTreeNode[],
-  targetId: string,
-): Set<string> {
-  const ids = new Set<string>();
+  targetId: number,
+): Set<number> {
+  const ids = new Set<number>();
 
   function collect(children: DeckTreeNode[]): void {
     for (const child of children) {
@@ -520,21 +522,22 @@ export function DeckTree({
   const allDecks = useMemo(() => flattenDecks(decks), [decks]);
   const updateDeck = useUpdateDeck();
 
-  const [activeDeckId, setActiveDeckId] = useState<string | undefined>(
+  const [activeDeckId, setActiveDeckId] = useState<number | undefined>(
     undefined,
   );
-  const [invalidDropIds, setInvalidDropIds] = useState<Set<string>>(new Set());
+  const [invalidDropIds, setInvalidDropIds] = useState<Set<number>>(new Set());
 
-  const activeDeck = activeDeckId
-    ? allDecks.find((d) => d.id === activeDeckId)
-    : undefined;
+  const activeDeck =
+    activeDeckId === undefined
+      ? undefined
+      : allDecks.find((d) => d.id === activeDeckId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
   function handleDragStart(event: DragStartEvent): void {
-    const id = String(event.active.id);
+    const id = Number(event.active.id);
     setActiveDeckId(id);
     const descendants = getDescendantIds(decks, id);
     descendants.add(id);
@@ -550,8 +553,8 @@ export function DeckTree({
       return;
     }
 
-    const deckId = String(active.id);
-    const overId = String(over.id);
+    const deckId = Number(active.id);
+    const overId = over.id;
 
     // Find the dragged deck to check current parent
     const draggedDeck = allDecks.find((d) => d.id === deckId);
@@ -559,7 +562,7 @@ export function DeckTree({
       return;
     }
 
-    const newParentId = overId === "__root__" ? undefined : overId;
+    const newParentId = overId === "__root__" ? undefined : Number(overId);
 
     // Skip if parent didn't change
     const currentParent = draggedDeck.parentId ?? undefined;

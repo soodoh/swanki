@@ -3,7 +3,6 @@ import { createTestDb } from "../test-utils";
 import { BrowseService } from "../../lib/services/browse-service";
 import { NoteService } from "../../lib/services/note-service";
 import { DeckService } from "../../lib/services/deck-service";
-import { generateId } from "../../lib/id";
 import { noteTypes, cardTemplates, cards } from "../../db/schema";
 import { eq } from "drizzle-orm";
 
@@ -17,9 +16,9 @@ describe("BrowseService", () => {
   const userId = "user-1";
 
   // Shared fixtures
-  let deckId: string;
-  let noteTypeId: string;
-  let templateId: string;
+  let deckId: number;
+  let noteTypeId: number;
+  let templateId: number;
 
   beforeEach(async () => {
     db = createTestDb();
@@ -32,29 +31,35 @@ describe("BrowseService", () => {
     deckId = deck.id;
 
     // Create a note type with 1 template
-    noteTypeId = generateId();
     const now = new Date();
-    await db.insert(noteTypes).values({
-      id: noteTypeId,
-      userId,
-      name: "Basic",
-      fields: [
-        { name: "Front", ordinal: 0 },
-        { name: "Back", ordinal: 1 },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    });
+    const noteType = db
+      .insert(noteTypes)
+      .values({
+        userId,
+        name: "Basic",
+        fields: [
+          { name: "Front", ordinal: 0 },
+          { name: "Back", ordinal: 1 },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
+    noteTypeId = noteType.id;
 
-    templateId = generateId();
-    await db.insert(cardTemplates).values({
-      id: templateId,
-      noteTypeId,
-      name: "Card 1",
-      ordinal: 0,
-      questionTemplate: "{{Front}}",
-      answerTemplate: "{{Back}}",
-    });
+    const template = db
+      .insert(cardTemplates)
+      .values({
+        noteTypeId,
+        name: "Card 1",
+        ordinal: 0,
+        questionTemplate: "{{Front}}",
+        answerTemplate: "{{Back}}",
+      })
+      .returning()
+      .get();
+    templateId = template.id;
   });
 
   describe("search", () => {
@@ -298,22 +303,20 @@ describe("BrowseService", () => {
 
     it("filters by note type name", () => {
       // Create a second note type
-      const noteType2Id = generateId();
-      db.insert(noteTypes)
+      const noteType2 = db
+        .insert(noteTypes)
         .values({
-          id: noteType2Id,
           userId,
           name: "Cloze",
           fields: [{ name: "Text", ordinal: 0 }],
           createdAt: new Date(),
           updatedAt: new Date(),
         })
-        .run();
-      const template2Id = generateId();
+        .returning()
+        .get();
       db.insert(cardTemplates)
         .values({
-          id: template2Id,
-          noteTypeId: noteType2Id,
+          noteTypeId: noteType2.id,
           name: "Cloze Card",
           ordinal: 0,
           questionTemplate: "{{cloze:Text}}",
@@ -327,7 +330,7 @@ describe("BrowseService", () => {
         fields: { Front: "Basic note", Back: "Answer" },
       });
       noteService.create(userId, {
-        noteTypeId: noteType2Id,
+        noteTypeId: noteType2.id,
         deckId,
         fields: { Text: "Cloze note" },
       });
@@ -340,40 +343,44 @@ describe("BrowseService", () => {
 
     it("aggregates multiple cards per note (multi-template note type)", async () => {
       // Create a note type with 2 templates
-      const multiNoteTypeId = generateId();
       const now = new Date();
-      await db.insert(noteTypes).values({
-        id: multiNoteTypeId,
-        userId,
-        name: "Basic (and reversed)",
-        fields: [
-          { name: "Front", ordinal: 0 },
-          { name: "Back", ordinal: 1 },
-        ],
-        createdAt: now,
-        updatedAt: now,
-      });
+      const multiNoteType = db
+        .insert(noteTypes)
+        .values({
+          userId,
+          name: "Basic (and reversed)",
+          fields: [
+            { name: "Front", ordinal: 0 },
+            { name: "Back", ordinal: 1 },
+          ],
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning()
+        .get();
 
-      await db.insert(cardTemplates).values({
-        id: generateId(),
-        noteTypeId: multiNoteTypeId,
-        name: "Card 1",
-        ordinal: 0,
-        questionTemplate: "{{Front}}",
-        answerTemplate: "{{Back}}",
-      });
-      await db.insert(cardTemplates).values({
-        id: generateId(),
-        noteTypeId: multiNoteTypeId,
-        name: "Card 2 (reversed)",
-        ordinal: 1,
-        questionTemplate: "{{Back}}",
-        answerTemplate: "{{Front}}",
-      });
+      db.insert(cardTemplates)
+        .values({
+          noteTypeId: multiNoteType.id,
+          name: "Card 1",
+          ordinal: 0,
+          questionTemplate: "{{Front}}",
+          answerTemplate: "{{Back}}",
+        })
+        .run();
+      db.insert(cardTemplates)
+        .values({
+          noteTypeId: multiNoteType.id,
+          name: "Card 2 (reversed)",
+          ordinal: 1,
+          questionTemplate: "{{Back}}",
+          answerTemplate: "{{Front}}",
+        })
+        .run();
 
       // Create a note using this 2-template note type
       noteService.create(userId, {
-        noteTypeId: multiNoteTypeId,
+        noteTypeId: multiNoteType.id,
         deckId,
         fields: { Front: "Apple", Back: "Ringo" },
       });
@@ -422,7 +429,7 @@ describe("BrowseService", () => {
     });
 
     it("returns undefined for non-existent note", () => {
-      const detail = browseService.getNoteDetail(userId, "no-such-note");
+      const detail = browseService.getNoteDetail(userId, 999999);
       expect(detail).toBeUndefined();
     });
   });

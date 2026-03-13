@@ -20,8 +20,8 @@ export type CardCounts = {
 export type TodayReviewData = {
   newStudied: number;
   reviewStudied: number;
-  reviewedNoteIds: Set<string>;
-  reviewedCardIds: Set<string>;
+  reviewedNoteIds: Set<number>;
+  reviewedCardIds: Set<number>;
 };
 
 export class CardService {
@@ -30,7 +30,7 @@ export class CardService {
     this.db = db;
   }
 
-  getTodayReviewData(userId: string, deckIds: string[]): TodayReviewData {
+  getTodayReviewData(userId: string, deckIds: number[]): TodayReviewData {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -52,10 +52,10 @@ export class CardService {
       )
       .all();
 
-    const newCardIds = new Set<string>();
-    const reviewCardIds = new Set<string>();
-    const reviewedNoteIds = new Set<string>();
-    const reviewedCardIds = new Set<string>();
+    const newCardIds = new Set<number>();
+    const reviewCardIds = new Set<number>();
+    const reviewedNoteIds = new Set<number>();
+    const reviewedCardIds = new Set<number>();
 
     for (const row of rows) {
       reviewedCardIds.add(row.cardId);
@@ -79,7 +79,7 @@ export class CardService {
 
   getDueCards(
     userId: string,
-    deckId: string,
+    deckId: number,
     options?: { includeChildren?: boolean },
   ): CardWithNote[] {
     const now = new Date();
@@ -193,7 +193,7 @@ export class CardService {
     return [...learningCards, ...limitedReviews, ...limitedNew];
   }
 
-  getById(id: string, userId: string): CardWithNote | undefined {
+  getById(id: number, userId: string): CardWithNote | undefined {
     const row = this.db
       .select({
         card: cards,
@@ -214,7 +214,7 @@ export class CardService {
     };
   }
 
-  moveToDeck(cardIds: string[], deckId: string, userId: string): void {
+  moveToDeck(cardIds: number[], deckId: number, userId: string): void {
     if (cardIds.length === 0) {
       return;
     }
@@ -240,7 +240,7 @@ export class CardService {
 
   getDueCounts(
     userId: string,
-    deckId: string,
+    deckId: number,
     options?: { includeChildren?: boolean },
   ): CardCounts {
     const dueCards = this.getDueCards(userId, deckId, options);
@@ -258,7 +258,7 @@ export class CardService {
     return counts;
   }
 
-  getCounts(userId: string, deckId: string): CardCounts {
+  getCounts(userId: string, deckId: number): CardCounts {
     const rows = this.db
       .select({
         state: cards.state,
@@ -286,7 +286,7 @@ export class CardService {
     return counts;
   }
 
-  getPendingLearningCount(userId: string, deckIds: string[]): number {
+  getPendingLearningCount(userId: string, deckIds: number[]): number {
     if (deckIds.length === 0) {
       return 0;
     }
@@ -307,14 +307,14 @@ export class CardService {
     return Number(row?.count ?? 0);
   }
 
-  getDescendantDeckIds(parentId: string, userId: string): string[] {
+  getDescendantDeckIds(parentId: number, userId: string): number[] {
     const children = this.db
       .select({ id: decks.id })
       .from(decks)
       .where(and(eq(decks.parentId, parentId), eq(decks.userId, userId)))
       .all();
 
-    const result: string[] = [];
+    const result: number[] = [];
     for (const child of children) {
       result.push(child.id);
       const grandchildren = this.getDescendantDeckIds(child.id, userId);

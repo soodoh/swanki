@@ -2,11 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 
 export type DeckTreeNode = {
-  id: string;
+  id: number;
   userId: string;
   name: string;
-  parentId: string | undefined;
-  numericId: number;
+  parentId: number | undefined;
   description: string;
   settings: { newCardsPerDay: number; maxReviewsPerDay: number } | undefined;
   createdAt: string;
@@ -36,12 +35,12 @@ export function useDecks(): UseQueryResult<DeckTreeNode[]> {
 export function useCreateDeck(): UseMutationResult<
   DeckTreeNode,
   Error,
-  { name: string; parentId?: string }
+  { name: string; parentId?: number }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string; parentId?: string }) => {
+    mutationFn: async (data: { name: string; parentId?: number }) => {
       const res = await fetch("/api/decks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,7 +58,7 @@ export function useCreateDeck(): UseMutationResult<
 }
 
 export function useDeckCounts(
-  deckId: string | undefined,
+  deckId: number | undefined,
 ): UseQueryResult<CardCounts> {
   return useQuery<CardCounts>({
     queryKey: ["deck-counts", deckId],
@@ -70,15 +69,15 @@ export function useDeckCounts(
       }
       return res.json() as Promise<CardCounts>;
     },
-    enabled: Boolean(deckId),
+    enabled: deckId !== undefined,
   });
 }
 
 export type DeckUpdatePayload = {
-  deckId: string;
+  deckId: number;
   name?: string;
   description?: string;
-  parentId?: string | undefined;
+  parentId?: number | undefined;
   settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
 };
 
@@ -106,11 +105,11 @@ export function useUpdateDeck(): UseMutationResult<
   });
 }
 
-export function useDeleteDeck(): UseMutationResult<void, Error, string> {
+export function useDeleteDeck(): UseMutationResult<void, Error, number> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (deckId: string) => {
+    mutationFn: async (deckId: number) => {
       const res = await fetch(`/api/decks/${deckId}`, {
         method: "DELETE",
       });

@@ -9,7 +9,7 @@ import {
   reviewLogs,
   decks,
 } from "../../db/schema";
-import { generateId } from "../id";
+
 import { CardService } from "./card-service";
 import { scheduleFsrs, previewAll } from "../fsrs";
 import type { CardCounts, CardWithNote } from "./card-service";
@@ -33,7 +33,8 @@ function deriveCounts(dueCards: CardWithNote[]): CardCounts {
 }
 
 export type StudyCardTemplate = {
-  id: string;
+  id: number;
+  noteTypeId: number;
   questionTemplate: string;
   answerTemplate: string;
 };
@@ -41,8 +42,8 @@ export type StudyCardTemplate = {
 export type StudySession = {
   cards: CardWithNote[];
   counts: CardCounts;
-  templates: Record<string, StudyCardTemplate>;
-  css: Record<string, string>;
+  templates: Record<number, StudyCardTemplate>;
+  css: Record<number, string>;
 };
 
 export type ReviewResult = {
@@ -66,7 +67,7 @@ export class StudyService {
     this.cardService = new CardService(db);
   }
 
-  getStudySession(userId: string, deckId: string): StudySession {
+  getStudySession(userId: string, deckId: number): StudySession {
     const dueCards = this.cardService.getDueCards(userId, deckId, {
       includeChildren: true,
     });
@@ -88,7 +89,7 @@ export class StudyService {
     const templateIds = [...new Set(dueCards.map((c) => c.templateId))];
 
     // Fetch templates
-    const templateMap: Record<string, StudyCardTemplate> = {};
+    const templateMap: Record<number, StudyCardTemplate> = {};
     if (templateIds.length > 0) {
       const templates = this.db
         .select()
@@ -108,7 +109,7 @@ export class StudyService {
 
     // Collect unique note IDs to find note types for CSS
     const noteIds = [...new Set(dueCards.map((c) => c.noteId))];
-    const cssMap: Record<string, string> = {};
+    const cssMap: Record<number, string> = {};
     if (noteIds.length > 0) {
       const noteRows = this.db
         .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
@@ -140,7 +141,7 @@ export class StudyService {
 
   getCustomSession(
     userId: string,
-    deckId: string,
+    deckId: number,
     options: CustomStudyOptions,
   ): StudySession {
     const now = new Date();
@@ -234,7 +235,7 @@ export class StudyService {
 
     // Collect templates
     const templateIds = [...new Set(allCards.map((c) => c.templateId))];
-    const templateMap: Record<string, StudyCardTemplate> = {};
+    const templateMap: Record<number, StudyCardTemplate> = {};
     if (templateIds.length > 0) {
       const templates = this.db
         .select()
@@ -254,7 +255,7 @@ export class StudyService {
 
     // Collect CSS
     const noteIds = [...new Set(allCards.map((c) => c.noteId))];
-    const cssMap: Record<string, string> = {};
+    const cssMap: Record<number, string> = {};
     if (noteIds.length > 0) {
       const noteRows = this.db
         .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
@@ -294,7 +295,7 @@ export class StudyService {
 
   submitReview(
     userId: string,
-    cardId: string,
+    cardId: number,
     rating: Grade,
     timeTakenMs: number,
   ): ReviewResult {
@@ -331,7 +332,6 @@ export class StudyService {
     this.db
       .insert(reviewLogs)
       .values({
-        id: generateId(),
         cardId,
         rating: result.log.rating,
         state: result.log.state,
@@ -355,7 +355,7 @@ export class StudyService {
     };
   }
 
-  undoLastReview(userId: string, cardId: string): CardWithNote | undefined {
+  undoLastReview(userId: string, cardId: number): CardWithNote | undefined {
     // Verify the card belongs to the user
     const cardWithNote = this.cardService.getById(cardId, userId);
     if (!cardWithNote) {
@@ -406,7 +406,7 @@ export class StudyService {
 
   getIntervalPreviews(
     userId: string,
-    cardId: string,
+    cardId: number,
   ): Record<number, IntervalPreview> | undefined {
     const cardWithNote = this.cardService.getById(cardId, userId);
     if (!cardWithNote) {

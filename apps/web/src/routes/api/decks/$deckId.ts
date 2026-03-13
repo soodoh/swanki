@@ -10,7 +10,11 @@ export const Route = createFileRoute("/api/decks/$deckId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const deck = deckService.getById(params.deckId, session.user.id);
+        const deckId = Number(params.deckId);
+        if (Number.isNaN(deckId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
+        const deck = deckService.getById(deckId, session.user.id);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -18,13 +22,17 @@ export const Route = createFileRoute("/api/decks/$deckId")({
       },
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
+        const deckId = Number(params.deckId);
+        if (Number.isNaN(deckId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
         const body = (await request.json()) as {
           name?: string;
           description?: string;
-          parentId?: string | undefined;
+          parentId?: number | undefined;
           settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
         };
-        const deck = deckService.update(params.deckId, session.user.id, body);
+        const deck = deckService.update(deckId, session.user.id, body);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -32,7 +40,11 @@ export const Route = createFileRoute("/api/decks/$deckId")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
-        deckService.delete(params.deckId, session.user.id);
+        const deckId = Number(params.deckId);
+        if (Number.isNaN(deckId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
+        deckService.delete(deckId, session.user.id);
         return new Response(undefined, { status: 204 });
       },
     },

@@ -1,6 +1,5 @@
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { generateId } from "../id";
 import type * as schema from "../../db/schema";
 import {
   decks,
@@ -32,27 +31,21 @@ export class DeckService {
     this.db = db;
   }
 
-  create(userId: string, data: { name: string; parentId?: string }): Deck {
-    const id = generateId();
+  create(userId: string, data: { name: string; parentId?: number }): Deck {
     const now = new Date();
-    const numericId = this.nextNumericId(userId);
 
-    this.db
+    const deck = this.db
       .insert(decks)
       .values({
-        id,
         userId,
         name: data.name,
         parentId: data.parentId ?? null,
-        numericId,
         createdAt: now,
         updatedAt: now,
       })
-      .run();
-
-    const deck = this.db.select().from(decks).where(eq(decks.id, id)).get();
-
-    return deck!;
+      .returning()
+      .get();
+    return deck;
   }
 
   listByUser(userId: string): Deck[] {
@@ -64,7 +57,7 @@ export class DeckService {
     return buildTree(allDecks);
   }
 
-  getById(id: string, userId: string): Deck | undefined {
+  getById(id: number, userId: string): Deck | undefined {
     return this.db
       .select()
       .from(decks)
@@ -72,30 +65,13 @@ export class DeckService {
       .get();
   }
 
-  getByNumericId(numericId: number, userId: string): Deck | undefined {
-    return this.db
-      .select()
-      .from(decks)
-      .where(and(eq(decks.numericId, numericId), eq(decks.userId, userId)))
-      .get();
-  }
-
-  nextNumericId(userId: string): number {
-    const result = this.db
-      .select({ max: sql<number>`COALESCE(MAX(${decks.numericId}), 0)` })
-      .from(decks)
-      .where(eq(decks.userId, userId))
-      .get();
-    return (result?.max ?? 0) + 1;
-  }
-
   update(
-    id: string,
+    id: number,
     userId: string,
     data: {
       name?: string;
       description?: string;
-      parentId?: string | undefined;
+      parentId?: number | undefined;
       settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
     },
   ): Deck | undefined {
@@ -116,7 +92,7 @@ export class DeckService {
     return this.getById(id, userId);
   }
 
-  delete(id: string, userId: string): void {
+  delete(id: number, userId: string): void {
     const existing = this.getById(id, userId);
     if (!existing) {
       return;
@@ -249,7 +225,7 @@ export class DeckService {
 }
 
 function buildTree(flatDecks: Deck[]): DeckTreeNode[] {
-  const nodeMap = new Map<string, DeckTreeNode>();
+  const nodeMap = new Map<number, DeckTreeNode>();
 
   // Create nodes with empty children arrays
   for (const deck of flatDecks) {

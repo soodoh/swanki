@@ -2,13 +2,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 
 export type BrowseNote = {
-  noteId: string;
-  noteTypeId: string;
+  noteId: number;
+  noteTypeId: number;
   noteTypeName: string;
   fields: Record<string, string>;
   tags: string;
   deckName: string;
-  deckId: string;
+  deckId: number;
   cardCount: number;
   earliestDue: string | undefined;
   states: number[];
@@ -25,28 +25,28 @@ export type BrowseSearchResult = {
 
 export type NoteDetail = {
   note: {
-    id: string;
+    id: number;
     userId: string;
-    noteTypeId: string;
+    noteTypeId: number;
     fields: Record<string, string>;
     tags: string | undefined;
     createdAt: string;
     updatedAt: string;
   };
   noteType: {
-    id: string;
+    id: number;
     name: string;
     fields: string;
     css: string;
   };
   templates: Array<{
-    id: string;
+    id: number;
     name: string;
     questionTemplate: string;
     answerTemplate: string;
   }>;
   deckName: string;
-  deckId: string;
+  deckId: number;
 };
 
 export type BrowseOptions = {
@@ -89,7 +89,7 @@ export function useBrowse(
 }
 
 export function useNoteDetail(
-  noteId: string | undefined,
+  noteId: number | undefined,
 ): UseQueryResult<NoteDetail> {
   return useQuery<NoteDetail>({
     queryKey: ["note-detail", noteId],
@@ -100,22 +100,22 @@ export function useNoteDetail(
       }
       return res.json() as Promise<NoteDetail>;
     },
-    enabled: Boolean(noteId),
+    enabled: noteId !== undefined,
   });
 }
 
 export function useUpdateNote(): UseMutationResult<
   unknown,
   Error,
-  { noteId: string; fields?: Record<string, string>; deckId?: string }
+  { noteId: number; fields?: Record<string, string>; deckId?: number }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: {
-      noteId: string;
+      noteId: number;
       fields?: Record<string, string>;
-      deckId?: string;
+      deckId?: number;
     }) => {
       const res = await fetch("/api/browse", {
         method: "PATCH",
@@ -136,11 +136,11 @@ export function useUpdateNote(): UseMutationResult<
   });
 }
 
-export function useDeleteNote(): UseMutationResult<unknown, Error, string> {
+export function useDeleteNote(): UseMutationResult<unknown, Error, number> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (noteId: string) => {
+    mutationFn: async (noteId: number) => {
       const res = await fetch("/api/browse", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },

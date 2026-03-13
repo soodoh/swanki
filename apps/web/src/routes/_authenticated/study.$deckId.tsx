@@ -21,8 +21,9 @@ export const Route = createFileRoute("/_authenticated/study/$deckId")({
 
 function StudyPage(): React.ReactElement {
   // oxlint-disable-next-line typescript/no-unsafe-assignment -- TanStack Router params are typed via route tree generation
-  const { deckId } = Route.useParams();
+  const { deckId: deckIdParam } = Route.useParams();
   // oxlint-disable-next-line typescript/no-unsafe-argument -- TanStack Router params are typed via route tree generation
+  const deckId = Number(deckIdParam);
   const { data: session, isLoading, error, refetch } = useStudySession(deckId);
   const submitReview = useSubmitReview();
   const undoReview = useUndoReview();
@@ -31,7 +32,7 @@ function StudyPage(): React.ReactElement {
   const [showAnswer, setShowAnswer] = useState(false);
   const [reviewedCount, setReviewedCount] = useState(0);
   const [lastReviewedCardId, setLastReviewedCardId] = useState<
-    string | undefined
+    number | undefined
   >(undefined);
   const cardStartTime = useRef<number>(Date.now());
   const replayRef = useRef<(() => void) | undefined>(undefined);

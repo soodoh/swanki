@@ -3,7 +3,6 @@ import { createTestDb } from "../test-utils";
 import { CardService } from "../../lib/services/card-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { NoteService } from "../../lib/services/note-service";
-import { generateId } from "../../lib/id";
 import { noteTypes, cardTemplates, cards, decks } from "../../db/schema";
 import { eq } from "drizzle-orm";
 
@@ -17,9 +16,9 @@ describe("CardService", () => {
   const userId = "user-1";
 
   // Shared fixtures
-  let deckId: string;
-  let noteTypeId: string;
-  let templateId: string;
+  let deckId: number;
+  let noteTypeId: number;
+  let templateId: number;
 
   beforeEach(async () => {
     db = createTestDb();
@@ -32,29 +31,35 @@ describe("CardService", () => {
     deckId = deck.id;
 
     // Create a note type with 1 template
-    noteTypeId = generateId();
     const now = new Date();
-    await db.insert(noteTypes).values({
-      id: noteTypeId,
-      userId,
-      name: "Basic",
-      fields: [
-        { name: "Front", ordinal: 0 },
-        { name: "Back", ordinal: 1 },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    });
+    const noteType = db
+      .insert(noteTypes)
+      .values({
+        userId,
+        name: "Basic",
+        fields: [
+          { name: "Front", ordinal: 0 },
+          { name: "Back", ordinal: 1 },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
+    noteTypeId = noteType.id;
 
-    templateId = generateId();
-    await db.insert(cardTemplates).values({
-      id: templateId,
-      noteTypeId,
-      name: "Card 1",
-      ordinal: 0,
-      questionTemplate: "{{Front}}",
-      answerTemplate: "{{Back}}",
-    });
+    const template = db
+      .insert(cardTemplates)
+      .values({
+        noteTypeId,
+        name: "Card 1",
+        ordinal: 0,
+        questionTemplate: "{{Front}}",
+        answerTemplate: "{{Back}}",
+      })
+      .returning()
+      .get();
+    templateId = template.id;
   });
 
   describe("getDueCards", () => {

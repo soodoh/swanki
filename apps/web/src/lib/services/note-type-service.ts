@@ -1,6 +1,5 @@
 import { eq, and } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { generateId } from "../id";
 import type * as schema from "../../db/schema";
 import { noteTypes, cardTemplates, notes } from "../../db/schema";
 
@@ -28,13 +27,11 @@ export class NoteTypeService {
       css?: string;
     },
   ): NoteType {
-    const id = generateId();
     const now = new Date();
 
-    this.db
+    const noteType = this.db
       .insert(noteTypes)
       .values({
-        id,
         userId,
         name: data.name,
         fields: data.fields,
@@ -42,19 +39,14 @@ export class NoteTypeService {
         createdAt: now,
         updatedAt: now,
       })
-      .run();
-
-    const noteType = this.db
-      .select()
-      .from(noteTypes)
-      .where(eq(noteTypes.id, id))
+      .returning()
       .get();
 
-    return noteType!;
+    return noteType;
   }
 
   addTemplate(
-    noteTypeId: string,
+    noteTypeId: number,
     userId: string,
     data: {
       name: string;
@@ -73,8 +65,6 @@ export class NoteTypeService {
       return undefined;
     }
 
-    const id = generateId();
-
     // Determine the next ordinal
     const existing = this.db
       .select()
@@ -85,28 +75,22 @@ export class NoteTypeService {
     const ordinal =
       existing.length > 0 ? Math.max(...existing.map((t) => t.ordinal)) + 1 : 0;
 
-    this.db
+    const template = this.db
       .insert(cardTemplates)
       .values({
-        id,
         noteTypeId,
         name: data.name,
         ordinal,
         questionTemplate: data.questionTemplate,
         answerTemplate: data.answerTemplate,
       })
-      .run();
-
-    const template = this.db
-      .select()
-      .from(cardTemplates)
-      .where(eq(cardTemplates.id, id))
+      .returning()
       .get();
 
-    return template!;
+    return template;
   }
 
-  getById(id: string, userId: string): NoteTypeWithTemplates | undefined {
+  getById(id: number, userId: string): NoteTypeWithTemplates | undefined {
     const noteType = this.db
       .select()
       .from(noteTypes)
@@ -149,7 +133,7 @@ export class NoteTypeService {
   }
 
   updateTemplate(
-    templateId: string,
+    templateId: number,
     userId: string,
     data: { questionTemplate?: string; answerTemplate?: string },
   ): CardTemplate | undefined {
@@ -188,7 +172,7 @@ export class NoteTypeService {
       .get();
   }
 
-  deleteTemplate(templateId: string, userId: string): void {
+  deleteTemplate(templateId: number, userId: string): void {
     // Verify ownership: template -> noteType -> user
     const existing = this.db
       .select()
@@ -207,7 +191,7 @@ export class NoteTypeService {
   }
 
   update(
-    id: string,
+    id: number,
     userId: string,
     data: {
       name?: string;
@@ -251,7 +235,7 @@ export class NoteTypeService {
       .get();
   }
 
-  delete(id: string, userId: string): void {
+  delete(id: number, userId: string): void {
     const existing = this.db
       .select()
       .from(noteTypes)

@@ -128,7 +128,6 @@ describe("importFromApkg noteMedia population", () => {
     // Insert a mock media record
     db.insert(media)
       .values({
-        id: "media-1",
         userId: "user-1",
         filename: "abc123.jpg",
         hash: "abc123",
@@ -196,7 +195,8 @@ describe("importFromApkg noteMedia population", () => {
       .where(eq(noteMedia.noteId, allNotes[0].id))
       .all();
     expect(refs).toHaveLength(1);
-    expect(refs[0].mediaId).toBe("media-1");
+    const mediaRecord = db.select().from(media).all()[0];
+    expect(refs[0].mediaId).toBe(mediaRecord.id);
   });
 });
 
@@ -286,7 +286,7 @@ describe("importFromApkg merge mode", () => {
     expect(allNotes).toHaveLength(2);
   });
 
-  it("should create duplicates on second import with merge=false", () => {
+  it("should skip duplicate notes on second import with merge=false", () => {
     const db = createTestDb();
     const service = new ImportService(db);
     const data = makeApkgData();
@@ -294,17 +294,18 @@ describe("importFromApkg merge mode", () => {
     service.importFromApkg("user-1", data, undefined, false);
     const second = service.importFromApkg("user-1", data, undefined, false);
 
-    expect(second.noteCount).toBe(2);
-    expect(second.cardCount).toBe(2);
-    expect(second.duplicatesSkipped).toBe(0);
+    // Notes with existing ankiGuid are skipped (unique constraint)
+    expect(second.noteCount).toBe(0);
+    expect(second.cardCount).toBe(0);
+    expect(second.duplicatesSkipped).toBe(2);
 
-    // Should create duplicate decks
+    // Should create duplicate decks (decks don't have unique constraint)
     const allDecks = db.select().from(decks).all();
     expect(allDecks).toHaveLength(2);
 
-    // Should have 4 notes total
+    // Should have only 2 notes (no duplicates)
     const allNotes = db.select().from(notes).all();
-    expect(allNotes).toHaveLength(4);
+    expect(allNotes).toHaveLength(2);
   });
 
   it("should import only new notes when some already exist", () => {

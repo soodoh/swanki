@@ -32,7 +32,7 @@ function BrowsePage(): React.ReactElement {
   const typedPage = page as number;
 
   const [searchInput, setSearchInput] = useState<string>(typedQ);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | undefined>(
+  const [selectedNoteId, setSelectedNoteId] = useState<number | undefined>(
     undefined,
   );
   const [sortBy, setSortBy] = useState<BrowseOptions["sortBy"]>(undefined);

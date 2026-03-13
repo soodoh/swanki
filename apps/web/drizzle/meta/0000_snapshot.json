@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e88afc62-88a0-49ee-b01d-bbdc00540c1c",
+  "id": "78d4ac23-5640-4624-9790-66c228c5fe74",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -127,14 +127,14 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "note_type_id": {
           "name": "note_type_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -185,28 +185,28 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "note_id": {
           "name": "note_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
         "deck_id": {
           "name": "deck_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
         "template_id": {
           "name": "template_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -335,10 +335,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "user_id": {
           "name": "user_id",
@@ -356,7 +356,7 @@
         },
         "parent_id": {
           "name": "parent_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -414,10 +414,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "user_id": {
           "name": "user_id",
@@ -479,15 +479,62 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "note_media": {
+      "name": "note_media",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "note_id": {
+          "name": "note_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "media_id": {
+          "name": "media_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "note_media_note_id_idx": {
+          "name": "note_media_note_id_idx",
+          "columns": ["note_id"],
+          "isUnique": false
+        },
+        "note_media_media_id_idx": {
+          "name": "note_media_media_id_idx",
+          "columns": ["media_id"],
+          "isUnique": false
+        },
+        "note_media_note_media_unique": {
+          "name": "note_media_note_media_unique",
+          "columns": ["note_id", "media_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "note_types": {
       "name": "note_types",
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "user_id": {
           "name": "user_id",
@@ -550,10 +597,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "user_id": {
           "name": "user_id",
@@ -564,7 +611,7 @@
         },
         "note_type_id": {
           "name": "note_type_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -583,6 +630,13 @@
           "notNull": false,
           "autoincrement": false,
           "default": "''"
+        },
+        "anki_guid": {
+          "name": "anki_guid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -609,6 +663,11 @@
           "name": "notes_note_type_id_idx",
           "columns": ["note_type_id"],
           "isUnique": false
+        },
+        "notes_anki_guid_idx": {
+          "name": "notes_anki_guid_idx",
+          "columns": ["user_id", "anki_guid"],
+          "isUnique": true
         }
       },
       "foreignKeys": {},
@@ -621,14 +680,14 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "card_id": {
           "name": "card_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -847,6 +906,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'system'"
         },
         "created_at": {
           "name": "created_at",
