@@ -18,7 +18,6 @@ describe("BrowseService", () => {
   // Shared fixtures
   let deckId: number;
   let noteTypeId: number;
-  let templateId: number;
 
   beforeEach(async () => {
     db = createTestDb();
@@ -48,8 +47,7 @@ describe("BrowseService", () => {
       .get();
     noteTypeId = noteType.id;
 
-    const template = db
-      .insert(cardTemplates)
+    db.insert(cardTemplates)
       .values({
         noteTypeId,
         name: "Card 1",
@@ -57,9 +55,7 @@ describe("BrowseService", () => {
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       })
-      .returning()
-      .get();
-    templateId = template.id;
+      .run();
   });
 
   describe("search", () => {
@@ -341,7 +337,7 @@ describe("BrowseService", () => {
       expect(result.notes[0].noteTypeName).toBe("Basic");
     });
 
-    it("aggregates multiple cards per note (multi-template note type)", async () => {
+    it("aggregates multiple cards per note (multi-template note type)", () => {
       // Create a note type with 2 templates
       const now = new Date();
       const multiNoteType = db
