@@ -1,6 +1,6 @@
 import { eq, and, like } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { generateId } from "../id";
+
 import type * as schema from "../../db/schema";
 import { notes, cards, cardTemplates } from "../../db/schema";
 
@@ -23,19 +23,17 @@ export class NoteService {
   create(
     userId: string,
     data: {
-      noteTypeId: string;
-      deckId: string;
+      noteTypeId: number;
+      deckId: number;
       fields: Record<string, string>;
       tags?: string;
     },
   ): Note {
-    const id = generateId();
     const now = new Date();
 
-    this.db
+    const note = this.db
       .insert(notes)
       .values({
-        id,
         userId,
         noteTypeId: data.noteTypeId,
         fields: data.fields,
@@ -43,7 +41,8 @@ export class NoteService {
         createdAt: now,
         updatedAt: now,
       })
-      .run();
+      .returning()
+      .get();
 
     // Auto-generate cards: one per template in the note type
     const templates = this.db
@@ -56,8 +55,7 @@ export class NoteService {
       this.db
         .insert(cards)
         .values({
-          id: generateId(),
-          noteId: id,
+          noteId: note.id,
           deckId: data.deckId,
           templateId: template.id,
           ordinal: template.ordinal,
@@ -69,12 +67,10 @@ export class NoteService {
         .run();
     }
 
-    const note = this.db.select().from(notes).where(eq(notes.id, id)).get();
-
-    return note!;
+    return note;
   }
 
-  getById(id: string, userId: string): NoteWithCards | undefined {
+  getById(id: number, userId: string): NoteWithCards | undefined {
     const note = this.db
       .select()
       .from(notes)
@@ -95,7 +91,7 @@ export class NoteService {
   }
 
   update(
-    id: string,
+    id: number,
     userId: string,
     data: { fields?: Record<string, string>; tags?: string },
   ): Note | undefined {
@@ -132,7 +128,7 @@ export class NoteService {
       .get();
   }
 
-  delete(id: string, userId: string): void {
+  delete(id: number, userId: string): void {
     const existing = this.db
       .select()
       .from(notes)
@@ -153,7 +149,7 @@ export class NoteService {
       .run();
   }
 
-  listByDeck(deckId: string, userId: string): Note[] {
+  listByDeck(deckId: number, userId: string): Note[] {
     // Find notes that have cards in the given deck
     const deckCards = this.db
       .select({ noteId: cards.noteId })

@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/decks/")({
         const session = await requireSession(request);
         const body = (await request.json()) as {
           name: string;
-          parentId?: string;
+          parentId?: number;
         };
         const deck = deckService.create(session.user.id, body);
         return Response.json(deck, { status: 201 });

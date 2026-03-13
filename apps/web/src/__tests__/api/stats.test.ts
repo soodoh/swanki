@@ -3,7 +3,6 @@ import { createTestDb } from "../test-utils";
 import { StatsService } from "../../lib/services/stats-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { NoteService } from "../../lib/services/note-service";
-import { generateId } from "../../lib/id";
 import { noteTypes, cardTemplates, cards, reviewLogs } from "../../db/schema";
 import { eq } from "drizzle-orm";
 
@@ -17,10 +16,8 @@ describe("StatsService", () => {
   const userId = "user-1";
 
   // Shared fixtures
-  let deckId: string;
-  let noteTypeId: string;
-  let templateId: string;
-
+  let deckId: number;
+  let noteTypeId: number;
   beforeEach(async () => {
     db = createTestDb();
     statsService = new StatsService(db);
@@ -32,33 +29,38 @@ describe("StatsService", () => {
     deckId = deck.id;
 
     // Create a note type with 1 template
-    noteTypeId = generateId();
     const now = new Date();
-    await db.insert(noteTypes).values({
-      id: noteTypeId,
-      userId,
-      name: "Basic",
-      fields: [
-        { name: "Front", ordinal: 0 },
-        { name: "Back", ordinal: 1 },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    });
+    const noteType = db
+      .insert(noteTypes)
+      .values({
+        userId,
+        name: "Basic",
+        fields: [
+          { name: "Front", ordinal: 0 },
+          { name: "Back", ordinal: 1 },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
+    noteTypeId = noteType.id;
 
-    templateId = generateId();
-    await db.insert(cardTemplates).values({
-      id: templateId,
-      noteTypeId,
-      name: "Card 1",
-      ordinal: 0,
-      questionTemplate: "{{Front}}",
-      answerTemplate: "{{Back}}",
-    });
+    const template = db
+      .insert(cardTemplates)
+      .values({
+        noteTypeId,
+        name: "Card 1",
+        ordinal: 0,
+        questionTemplate: "{{Front}}",
+        answerTemplate: "{{Back}}",
+      })
+      .returning()
+      .get();
   });
 
   /** Helper: create a note (which auto-creates a card) and return the card ID */
-  async function createCard(front: string, back: string): Promise<string> {
+  async function createCard(front: string, back: string): Promise<number> {
     const note = await noteService.create(userId, {
       noteTypeId,
       deckId,
@@ -73,21 +75,22 @@ describe("StatsService", () => {
   }
 
   /** Helper: insert a review log for a given card at a specific date */
-  async function addReviewLog(cardId: string, reviewedAt: Date): Promise<void> {
-    await db.insert(reviewLogs).values({
-      id: generateId(),
-      cardId,
-      rating: 3,
-      state: 0,
-      due: reviewedAt,
-      stability: 1,
-      difficulty: 5,
-      elapsedDays: 0,
-      lastElapsedDays: 0,
-      scheduledDays: 1,
-      reviewedAt,
-      timeTakenMs: 3000,
-    });
+  async function addReviewLog(cardId: number, reviewedAt: Date): Promise<void> {
+    db.insert(reviewLogs)
+      .values({
+        cardId,
+        rating: 3,
+        state: 0,
+        due: reviewedAt,
+        stability: 1,
+        difficulty: 5,
+        elapsedDays: 0,
+        lastElapsedDays: 0,
+        scheduledDays: 1,
+        reviewedAt,
+        timeTakenMs: 3000,
+      })
+      .run();
   }
 
   /** Helper: create a Date at midnight UTC for a given offset in days from today */
@@ -146,29 +149,31 @@ describe("StatsService", () => {
       const otherDeck = await deckService.create("user-2", {
         name: "Other Deck",
       });
-      const otherNoteTypeId = generateId();
-      await db.insert(noteTypes).values({
-        id: otherNoteTypeId,
-        userId: "user-2",
-        name: "Other Basic",
-        fields: [
-          { name: "Front", ordinal: 0 },
-          { name: "Back", ordinal: 1 },
-        ],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      const otherTemplateId = generateId();
-      await db.insert(cardTemplates).values({
-        id: otherTemplateId,
-        noteTypeId: otherNoteTypeId,
-        name: "Card 1",
-        ordinal: 0,
-        questionTemplate: "{{Front}}",
-        answerTemplate: "{{Back}}",
-      });
+      const otherNoteType = db
+        .insert(noteTypes)
+        .values({
+          userId: "user-2",
+          name: "Other Basic",
+          fields: [
+            { name: "Front", ordinal: 0 },
+            { name: "Back", ordinal: 1 },
+          ],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning()
+        .get();
+      db.insert(cardTemplates)
+        .values({
+          noteTypeId: otherNoteType.id,
+          name: "Card 1",
+          ordinal: 0,
+          questionTemplate: "{{Front}}",
+          answerTemplate: "{{Back}}",
+        })
+        .run();
       const otherNote = await noteService.create("user-2", {
-        noteTypeId: otherNoteTypeId,
+        noteTypeId: otherNoteType.id,
         deckId: otherDeck.id,
         fields: { Front: "Other Q", Back: "Other A" },
       });

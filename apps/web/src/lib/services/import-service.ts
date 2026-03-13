@@ -1,6 +1,5 @@
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { generateId } from "../id";
 import type * as schema from "../../db/schema";
 import {
   decks,
@@ -27,7 +26,7 @@ export type CsvImportOptions = {
 };
 
 export type ImportResult = {
-  deckId?: string;
+  deckId?: number;
   deckCount?: number;
   noteCount: number;
   cardCount: number;
@@ -195,36 +194,25 @@ export class ImportService {
     this.db = db;
   }
 
-  private nextNumericId(userId: string): number {
-    const result = this.db
-      .select({ max: sql<number>`COALESCE(MAX(${decks.numericId}), 0)` })
-      .from(decks)
-      .where(eq(decks.userId, userId))
-      .get();
-    return (result?.max ?? 0) + 1;
-  }
-
   importFromCsv(userId: string, options: CsvImportOptions): ImportResult {
     const deckName = options.deckName ?? "CSV Import";
     const { rows } = options;
 
     if (rows.length === 0) {
       // Still create the deck, but no notes/cards
-      const deckId = generateId();
       const now = new Date();
-      this.db
+      const deck = this.db
         .insert(decks)
         .values({
-          id: deckId,
           userId,
           name: deckName,
-          numericId: this.nextNumericId(userId),
           createdAt: now,
           updatedAt: now,
         })
-        .run();
+        .returning()
+        .get();
 
-      return { deckId, noteCount: 0, cardCount: 0 };
+      return { deckId: deck.id, noteCount: 0, cardCount: 0 };
     }
 
     // Determine field names
@@ -234,37 +222,33 @@ export class ImportService {
       Array.from({ length: fieldCount }, (_, i) => `Field ${i + 1}`);
 
     // Create deck
-    const deckId = generateId();
     const now = new Date();
-    this.db
+    const deck = this.db
       .insert(decks)
       .values({
-        id: deckId,
         userId,
         name: deckName,
-        numericId: this.nextNumericId(userId),
         createdAt: now,
         updatedAt: now,
       })
-      .run();
+      .returning()
+      .get();
 
     // Create note type
-    const noteTypeId = generateId();
     const fields = fieldNames.map((name, i) => ({ name, ordinal: i }));
-    this.db
+    const noteType = this.db
       .insert(noteTypes)
       .values({
-        id: noteTypeId,
         userId,
         name: `${deckName} - Note Type`,
         fields,
         createdAt: now,
         updatedAt: now,
       })
-      .run();
+      .returning()
+      .get();
 
     // Create a basic card template in WYSIWYG format
-    const templateId = generateId();
     const firstField = fieldNames[0];
     const remainingFields = fieldNames.slice(1);
     const answerHtml =
@@ -272,50 +256,48 @@ export class ImportService {
         ? remainingFields.map((f) => `{{${f}}}`).join("<br>")
         : `{{${firstField}}}`;
 
-    this.db
+    const template = this.db
       .insert(cardTemplates)
       .values({
-        id: templateId,
-        noteTypeId,
+        noteTypeId: noteType.id,
         name: "Card 1",
         ordinal: 0,
         questionTemplate: `{{${firstField}}}`,
         answerTemplate: answerHtml,
       })
-      .run();
+      .returning()
+      .get();
 
     // Create notes and cards
     let noteCount = 0;
     let cardCount = 0;
 
     for (const row of rows) {
-      const noteId = generateId();
       const noteFields: Record<string, string> = {};
       for (let i = 0; i < fieldNames.length; i += 1) {
         noteFields[fieldNames[i]] = row[i] ?? "";
       }
 
-      this.db
+      const note = this.db
         .insert(notes)
         .values({
-          id: noteId,
           userId,
-          noteTypeId,
+          noteTypeId: noteType.id,
           fields: noteFields,
           tags: "",
           createdAt: now,
           updatedAt: now,
         })
-        .run();
+        .returning()
+        .get();
       noteCount += 1;
 
       this.db
         .insert(cards)
         .values({
-          id: generateId(),
-          noteId,
-          deckId,
-          templateId,
+          noteId: note.id,
+          deckId: deck.id,
+          templateId: template.id,
           ordinal: 0,
           state: 0,
           due: now,
@@ -326,7 +308,7 @@ export class ImportService {
       cardCount += 1;
     }
 
-    return { deckId, noteCount, cardCount };
+    return { deckId: deck.id, noteCount, cardCount };
   }
 
   importFromCrowdAnki(
@@ -341,23 +323,19 @@ export class ImportService {
     let cardCount = 0;
 
     // Build a map of model UUID -> our note type ID
-    const modelMap = new Map<string, string>();
+    const modelMap = new Map<string, number>();
 
     // Create note types from all models in the data
     const now = new Date();
     for (const model of data.noteModels) {
-      const noteTypeId = generateId();
-      modelMap.set(model.uuid, noteTypeId);
-
       const fields = model.fields.map((f) => ({
         name: f.name,
         ordinal: f.ordinal,
       }));
 
-      this.db
+      const noteType = this.db
         .insert(noteTypes)
         .values({
-          id: noteTypeId,
           userId,
           name: model.name,
           fields,
@@ -365,15 +343,16 @@ export class ImportService {
           createdAt: now,
           updatedAt: now,
         })
-        .run();
+        .returning()
+        .get();
+      modelMap.set(model.uuid, noteType.id);
 
       // Create templates — convert HTML to WYSIWYG JSON
       for (const tmpl of model.templates) {
         this.db
           .insert(cardTemplates)
           .values({
-            id: generateId(),
-            noteTypeId,
+            noteTypeId: noteType.id,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
             questionTemplate: stripAddonMarkup(tmpl.questionFormat),
@@ -403,8 +382,8 @@ export class ImportService {
   private importCrowdAnkiDeck(
     userId: string,
     data: CrowdAnkiData,
-    modelMap: Map<string, string>,
-    parentId: string | undefined,
+    modelMap: Map<string, number>,
+    parentId: number | undefined,
     now: Date,
     mediaMapping?: Map<string, string>,
   ): { deckCount: number; noteCount: number; cardCount: number } {
@@ -413,29 +392,25 @@ export class ImportService {
     let cardCount = 0;
 
     // Create deck
-    const deckId = generateId();
-    this.db
+    const deck = this.db
       .insert(decks)
       .values({
-        id: deckId,
         userId,
         name: data.name,
         parentId: parentId ?? undefined,
-        numericId: this.nextNumericId(userId),
         createdAt: now,
         updatedAt: now,
       })
-      .run();
+      .returning()
+      .get();
     deckCount += 1;
 
     // Create notes for this deck
-    for (const note of data.notes) {
-      const noteTypeId = modelMap.get(note.noteModelUuid);
+    for (const crowdAnkiNote of data.notes) {
+      const noteTypeId = modelMap.get(crowdAnkiNote.noteModelUuid);
       if (!noteTypeId) {
         continue;
       }
-
-      const noteId = generateId();
 
       // Get the note type to map field indices to field names
       const noteType = this.db
@@ -454,7 +429,7 @@ export class ImportService {
       }>;
       const rawFields: Record<string, string> = {};
       for (const field of fieldDefs) {
-        rawFields[field.name] = note.fields[field.ordinal] ?? "";
+        rawFields[field.name] = crowdAnkiNote.fields[field.ordinal] ?? "";
       }
 
       // Rewrite media URLs if mapping is provided
@@ -469,24 +444,41 @@ export class ImportService {
 
       const noteFields = convertFieldsToPlainText(rawFields);
 
-      this.db
+      // Skip notes with duplicate ankiGuid (unique constraint)
+      if (crowdAnkiNote.guid) {
+        const existing = this.db
+          .select({ id: notes.id })
+          .from(notes)
+          .where(
+            and(
+              eq(notes.userId, userId),
+              eq(notes.ankiGuid, crowdAnkiNote.guid),
+            ),
+          )
+          .get();
+        if (existing) {
+          continue;
+        }
+      }
+
+      const note = this.db
         .insert(notes)
         .values({
-          id: noteId,
           userId,
           noteTypeId,
           fields: noteFields,
-          tags: note.tags.join(" "),
-          ankiGuid: note.guid || undefined,
+          tags: crowdAnkiNote.tags.join(" "),
+          ankiGuid: crowdAnkiNote.guid || undefined,
           createdAt: now,
           updatedAt: now,
         })
-        .run();
+        .returning()
+        .get();
       noteCount += 1;
 
       // Track media references
       if (mediaMapping) {
-        this.linkNoteMedia(noteId, noteFields);
+        this.linkNoteMedia(note.id, noteFields);
       }
 
       // Get templates for this note type and create cards
@@ -496,15 +488,14 @@ export class ImportService {
         .where(eq(cardTemplates.noteTypeId, noteTypeId))
         .all();
 
-      for (const template of templates) {
+      for (const tmpl of templates) {
         this.db
           .insert(cards)
           .values({
-            id: generateId(),
-            noteId,
-            deckId,
-            templateId: template.id,
-            ordinal: template.ordinal,
+            noteId: note.id,
+            deckId: deck.id,
+            templateId: tmpl.id,
+            ordinal: tmpl.ordinal,
             state: 0,
             due: now,
             createdAt: now,
@@ -521,7 +512,7 @@ export class ImportService {
         userId,
         child,
         modelMap,
-        deckId,
+        deck.id,
         now,
         mediaMapping,
       );
@@ -551,8 +542,8 @@ export class ImportService {
 
     // Create or reuse decks, mapping anki deck id -> our deck id
     // Anki uses "::" as separator for nested decks (e.g. "Music::Theory::Chords")
-    const hierarchyCache = new Map<string, string>();
-    const deckMap = new Map<number, string>();
+    const hierarchyCache = new Map<string, number>();
+    const deckMap = new Map<number, number>();
     for (const ankiDeck of data.decks) {
       if (!usedDeckIds.has(ankiDeck.id)) {
         continue;
@@ -568,8 +559,8 @@ export class ImportService {
     }
 
     // Create or reuse note types, mapping anki model id -> our note type id
-    const noteTypeMap = new Map<number, string>();
-    const templateMap = new Map<string, string>();
+    const noteTypeMap = new Map<number, number>();
+    const templateMap = new Map<string, number>();
     for (const ankiNoteType of data.noteTypes) {
       if (merge) {
         const existing = this.db
@@ -597,18 +588,14 @@ export class ImportService {
         }
       }
 
-      const noteTypeId = generateId();
-      noteTypeMap.set(ankiNoteType.id, noteTypeId);
-
       const fields = ankiNoteType.fields.map((f) => ({
         name: f.name,
         ordinal: f.ordinal,
       }));
 
-      this.db
+      const noteType = this.db
         .insert(noteTypes)
         .values({
-          id: noteTypeId,
           userId,
           name: ankiNoteType.name,
           fields,
@@ -616,28 +603,29 @@ export class ImportService {
           createdAt: now,
           updatedAt: now,
         })
-        .run();
+        .returning()
+        .get();
+      noteTypeMap.set(ankiNoteType.id, noteType.id);
 
       // Create templates — convert HTML to WYSIWYG JSON
       for (const tmpl of ankiNoteType.templates) {
-        const tmplId = generateId();
-        this.db
+        const tmplRow = this.db
           .insert(cardTemplates)
           .values({
-            id: tmplId,
-            noteTypeId,
+            noteTypeId: noteType.id,
             name: tmpl.name,
             ordinal: tmpl.ordinal,
             questionTemplate: stripAddonMarkup(tmpl.questionFormat),
             answerTemplate: stripAddonMarkup(tmpl.answerFormat),
           })
-          .run();
-        templateMap.set(`${noteTypeId}:${tmpl.ordinal}`, tmplId);
+          .returning()
+          .get();
+        templateMap.set(`${noteType.id}:${tmpl.ordinal}`, tmplRow.id);
       }
     }
 
     // Create notes, mapping anki note id -> our note id
-    const noteMap = new Map<number, string>();
+    const noteMap = new Map<number, number>();
     const skippedNoteIds = new Set<number>();
     for (const ankiNote of data.notes) {
       const noteTypeId = noteTypeMap.get(ankiNote.modelId);
@@ -645,8 +633,8 @@ export class ImportService {
         continue;
       }
 
-      // Check for existing note by ankiGuid when merging
-      if (merge && ankiNote.guid) {
+      // Check for existing note by ankiGuid (unique constraint prevents duplicates)
+      if (ankiNote.guid) {
         const existing = this.db
           .select()
           .from(notes)
@@ -655,6 +643,13 @@ export class ImportService {
           )
           .get();
         if (existing) {
+          if (!merge) {
+            // Without merge, just skip existing notes (unique constraint prevents duplicates)
+            skippedNoteIds.add(ankiNote.id);
+            duplicatesSkipped += 1;
+            continue;
+          }
+
           // Build the incoming field dict with media URLs rewritten and HTML stripped
           const ankiNoteType = data.noteTypes.find(
             (nt) => nt.id === ankiNote.modelId,
@@ -712,9 +707,6 @@ export class ImportService {
         }
       }
 
-      const noteId = generateId();
-      noteMap.set(ankiNote.id, noteId);
-
       // Get the note type fields to map indices to names
       const ankiNoteType = data.noteTypes.find(
         (nt) => nt.id === ankiNote.modelId,
@@ -739,10 +731,9 @@ export class ImportService {
       // Strip HTML from fields — fields store plain text + media refs
       const plainNoteFields = convertFieldsToPlainText(noteFields);
 
-      this.db
+      const note = this.db
         .insert(notes)
         .values({
-          id: noteId,
           userId,
           noteTypeId,
           fields: plainNoteFields,
@@ -751,11 +742,13 @@ export class ImportService {
           createdAt: now,
           updatedAt: now,
         })
-        .run();
+        .returning()
+        .get();
+      noteMap.set(ankiNote.id, note.id);
 
       // Track media references
       if (mediaMapping) {
-        this.linkNoteMedia(noteId, plainNoteFields);
+        this.linkNoteMedia(note.id, plainNoteFields);
       }
 
       noteCount += 1;
@@ -793,7 +786,6 @@ export class ImportService {
       this.db
         .insert(cards)
         .values({
-          id: generateId(),
           noteId,
           deckId,
           templateId,
@@ -823,8 +815,8 @@ export class ImportService {
     fullName: string,
     merge: boolean,
     now: Date,
-    hierarchyCache: Map<string, string>,
-  ): string {
+    hierarchyCache: Map<string, number>,
+  ): number {
     // Anki uses "::" in older format and U+001F (unit separator) in newer format
     // oxlint-disable-next-line eslint(no-control-regex), unicorn(prefer-string-replace-all) -- intentionally matching Anki's U+001F separator
     const normalized = fullName.replace(/\u001F/g, "::");
@@ -836,7 +828,7 @@ export class ImportService {
       segments.push(fullName);
     }
 
-    let currentParentId: string | undefined;
+    let currentParentId: number | undefined;
     let pathKey = "";
 
     for (const segment of segments) {
@@ -869,29 +861,27 @@ export class ImportService {
         }
       }
 
-      const deckId = generateId();
-      this.db
+      const deck = this.db
         .insert(decks)
         .values({
-          id: deckId,
           userId,
           name: segment,
           parentId: currentParentId ?? null,
-          numericId: this.nextNumericId(userId),
           createdAt: now,
           updatedAt: now,
         })
-        .run();
+        .returning()
+        .get();
 
-      hierarchyCache.set(pathKey, deckId);
-      currentParentId = deckId;
+      hierarchyCache.set(pathKey, deck.id);
+      currentParentId = deck.id;
     }
 
     return currentParentId!;
   }
 
   private linkNoteMedia(
-    noteId: string,
+    noteId: number,
     noteFields: Record<string, string>,
   ): void {
     const mediaFilenames = extractMediaFilenames(noteFields);
@@ -905,7 +895,6 @@ export class ImportService {
         this.db
           .insert(noteMedia)
           .values({
-            id: generateId(),
             noteId,
             mediaId: mediaRecord.id,
           })

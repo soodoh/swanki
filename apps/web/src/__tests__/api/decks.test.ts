@@ -11,7 +11,6 @@ import {
   noteMedia,
   media,
 } from "../../db/schema";
-import { generateId } from "../../lib/id";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
@@ -160,7 +159,7 @@ describe("DeckService", () => {
     });
 
     it("returns undefined for non-existent id", async () => {
-      const found = await deckService.getById("non-existent", userId);
+      const found = await deckService.getById(999999, userId);
 
       expect(found).toBeUndefined();
     });
@@ -260,56 +259,55 @@ describe("DeckService", () => {
       const deck = deckService.create(userId, { name: "Cascade Test" });
 
       // Create a note type, template, note, and card
-      const noteTypeId = generateId();
-      db.insert(noteTypes)
+      const noteType = db
+        .insert(noteTypes)
         .values({
-          id: noteTypeId,
           userId,
           name: "Basic",
           fields: [{ name: "Front", ordinal: 0 }],
           createdAt: new Date(),
           updatedAt: new Date(),
         })
-        .run();
-      const templateId = generateId();
-      db.insert(cardTemplates)
+        .returning()
+        .get();
+      const template = db
+        .insert(cardTemplates)
         .values({
-          id: templateId,
-          noteTypeId,
+          noteTypeId: noteType.id,
           name: "Card 1",
           ordinal: 0,
           questionTemplate: "{{Front}}",
           answerTemplate: "{{Front}}",
         })
-        .run();
-      const noteId = generateId();
-      db.insert(notes)
+        .returning()
+        .get();
+      const note = db
+        .insert(notes)
         .values({
-          id: noteId,
           userId,
-          noteTypeId,
+          noteTypeId: noteType.id,
           fields: { Front: "hello" },
           createdAt: new Date(),
           updatedAt: new Date(),
         })
-        .run();
-      const cardId = generateId();
-      db.insert(cards)
+        .returning()
+        .get();
+      const card = db
+        .insert(cards)
         .values({
-          id: cardId,
-          noteId,
+          noteId: note.id,
           deckId: deck.id,
-          templateId,
+          templateId: template.id,
           ordinal: 0,
           due: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
         })
-        .run();
+        .returning()
+        .get();
       db.insert(reviewLogs)
         .values({
-          id: generateId(),
-          cardId,
+          cardId: card.id,
           rating: 3,
           state: 0,
           due: new Date(),
@@ -346,45 +344,44 @@ describe("DeckService", () => {
       const mediaFilename = mediaUrl.replace("/api/media/", "");
 
       // Create note referencing the media
-      const noteTypeId = generateId();
-      db.insert(noteTypes)
+      const noteType = db
+        .insert(noteTypes)
         .values({
-          id: noteTypeId,
           userId,
           name: "Basic",
           fields: [{ name: "Front", ordinal: 0 }],
           createdAt: new Date(),
           updatedAt: new Date(),
         })
-        .run();
-      const templateId = generateId();
-      db.insert(cardTemplates)
+        .returning()
+        .get();
+      const template = db
+        .insert(cardTemplates)
         .values({
-          id: templateId,
-          noteTypeId,
+          noteTypeId: noteType.id,
           name: "Card 1",
           ordinal: 0,
           questionTemplate: "{{Front}}",
           answerTemplate: "{{Front}}",
         })
-        .run();
-      const noteId = generateId();
-      db.insert(notes)
+        .returning()
+        .get();
+      const note = db
+        .insert(notes)
         .values({
-          id: noteId,
           userId,
-          noteTypeId,
+          noteTypeId: noteType.id,
           fields: { Front: `<img src="${mediaUrl}">` },
           createdAt: new Date(),
           updatedAt: new Date(),
         })
-        .run();
+        .returning()
+        .get();
       db.insert(cards)
         .values({
-          id: generateId(),
-          noteId,
+          noteId: note.id,
           deckId: deck.id,
-          templateId,
+          templateId: template.id,
           ordinal: 0,
           due: new Date(),
           createdAt: new Date(),
@@ -395,7 +392,7 @@ describe("DeckService", () => {
       // Link note to media
       const mediaRecord = db.select().from(media).all()[0];
       db.insert(noteMedia)
-        .values({ id: generateId(), noteId, mediaId: mediaRecord.id })
+        .values({ noteId: note.id, mediaId: mediaRecord.id })
         .run();
 
       // Verify media file exists before delete

@@ -165,10 +165,16 @@ function createAnkiDb(options?: {
     ];
 
     const insertNote = db.prepare(
-      `INSERT INTO notes VALUES (?, 'guid', ?, 0, 0, ?, ?, '', 0, 0, '')`,
+      `INSERT INTO notes VALUES (?, ?, ?, 0, 0, ?, ?, '', 0, 0, '')`,
     );
     for (const note of noteList) {
-      insertNote.run(note.id, note.mid, note.tags, note.flds);
+      insertNote.run(
+        note.id,
+        `guid-${note.id}`,
+        note.mid,
+        note.tags,
+        note.flds,
+      );
     }
 
     // Insert cards
@@ -350,10 +356,8 @@ function createProtobufNewSchemaDb(options: {
 
     for (const n of options.notes) {
       sqliteDb
-        .prepare(
-          "INSERT INTO notes VALUES (?, 'guid', ?, 0, 0, ?, ?, '', 0, 0, '')",
-        )
-        .run(n.id, n.mid, n.tags, n.flds);
+        .prepare("INSERT INTO notes VALUES (?, ?, ?, 0, 0, ?, ?, '', 0, 0, '')")
+        .run(n.id, `guid-${n.id}`, n.mid, n.tags, n.flds);
     }
 
     for (const c of options.cards) {
@@ -541,7 +545,8 @@ describe("Import Integration", () => {
         .all();
       expect(allNoteTypes).toHaveLength(1);
       expect(allNoteTypes[0].name).toBe("Basic");
-      expect(allNoteTypes[0].css).toBe(".card { color: black; }");
+      // .card { ... } rules are stripped at import time
+      expect(allNoteTypes[0].css).toBe("");
 
       // Verify notes have correct field values
       const allNotes = db
@@ -1125,7 +1130,8 @@ describe("Import Integration", () => {
           .where(eq(noteTypes.userId, userId))
           .all();
         expect(allNoteTypes).toHaveLength(1);
-        expect(allNoteTypes[0].css).toBe(".card { color: red; }");
+        // .card { ... } rules are stripped at import time
+        expect(allNoteTypes[0].css).toBe("");
 
         // Verify note fields
         const allNotes = db
@@ -1214,9 +1220,8 @@ describe("Import Integration", () => {
         .where(eq(noteTypes.userId, userId))
         .all();
       expect(allNoteTypes).toHaveLength(1);
-      expect(allNoteTypes[0].css).toBe(
-        ".card { background: #eee; font-size: 18px; }",
-      );
+      // .card { ... } rules are stripped at import time
+      expect(allNoteTypes[0].css).toBe("");
 
       // Verify templates have correct field references (raw mustache HTML)
       const allTemplates = db.select().from(cardTemplates).all();

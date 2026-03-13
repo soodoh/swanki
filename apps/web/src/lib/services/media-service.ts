@@ -1,6 +1,5 @@
 import { eq, and } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { generateId } from "../id";
 import type * as schema from "../../db/schema";
 import { media, noteMedia } from "../../db/schema";
 import { existsSync, mkdirSync, unlinkSync } from "node:fs";
@@ -103,13 +102,11 @@ export class MediaService {
     await Bun.write(filePath, bytes);
 
     // Record in DB
-    const id = generateId();
     const now = new Date();
 
-    this.db
+    const record = this.db
       .insert(media)
       .values({
-        id,
         userId,
         filename,
         hash,
@@ -117,11 +114,9 @@ export class MediaService {
         size: bytes.length,
         createdAt: now,
       })
-      .run();
-
-    const record = this.db.select().from(media).where(eq(media.id, id)).get();
-
-    return record!;
+      .returning()
+      .get();
+    return record;
   }
 
   async importBatch(
@@ -238,7 +233,6 @@ export class MediaService {
           this.db
             .insert(media)
             .values({
-              id: generateId(),
               userId,
               filename,
               hash,
@@ -274,7 +268,7 @@ export class MediaService {
     return { record, filePath };
   }
 
-  reconcileNoteReferences(noteId: string, currentFilenames: string[]): void {
+  reconcileNoteReferences(noteId: number, currentFilenames: string[]): void {
     const existingRefs = this.db
       .select()
       .from(noteMedia)
@@ -283,7 +277,7 @@ export class MediaService {
 
     const existingMediaIds = new Set(existingRefs.map((r) => r.mediaId));
 
-    const currentMediaIds = new Set<string>();
+    const currentMediaIds = new Set<number>();
     for (const filename of currentFilenames) {
       const record = this.db
         .select()
@@ -300,7 +294,7 @@ export class MediaService {
       if (!existingMediaIds.has(mediaId)) {
         this.db
           .insert(noteMedia)
-          .values({ id: generateId(), noteId, mediaId })
+          .values({ noteId, mediaId })
           .onConflictDoNothing()
           .run();
       }

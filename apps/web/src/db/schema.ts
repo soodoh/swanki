@@ -12,11 +12,10 @@ export { user, session, account, verification } from "./auth-schema";
 export const decks = sqliteTable(
   "decks",
   {
-    id: text("id").primaryKey(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
     userId: text("user_id").notNull(),
     name: text("name").notNull(),
-    parentId: text("parent_id"),
-    numericId: integer("numeric_id"),
+    parentId: integer("parent_id"),
     description: text("description").default(""),
     settings: text("settings", { mode: "json" })
       .$type<{
@@ -34,14 +33,13 @@ export const decks = sqliteTable(
   (table) => [
     index("decks_user_id_idx").on(table.userId),
     index("decks_parent_id_idx").on(table.parentId),
-    uniqueIndex("decks_user_numeric_idx").on(table.userId, table.numericId),
   ],
 );
 
 export const noteTypes = sqliteTable(
   "note_types",
   {
-    id: text("id").primaryKey(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
     userId: text("user_id").notNull(),
     name: text("name").notNull(),
     fields: text("fields", { mode: "json" })
@@ -61,8 +59,8 @@ export const noteTypes = sqliteTable(
 export const cardTemplates = sqliteTable(
   "card_templates",
   {
-    id: text("id").primaryKey(),
-    noteTypeId: text("note_type_id").notNull(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    noteTypeId: integer("note_type_id").notNull(),
     name: text("name").notNull(),
     ordinal: integer("ordinal").notNull(),
     questionTemplate: text("question_template").notNull(),
@@ -74,9 +72,9 @@ export const cardTemplates = sqliteTable(
 export const notes = sqliteTable(
   "notes",
   {
-    id: text("id").primaryKey(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
     userId: text("user_id").notNull(),
-    noteTypeId: text("note_type_id").notNull(),
+    noteTypeId: integer("note_type_id").notNull(),
     fields: text("fields", { mode: "json" })
       .$type<Record<string, string>>()
       .notNull(),
@@ -92,17 +90,17 @@ export const notes = sqliteTable(
   (table) => [
     index("notes_user_id_idx").on(table.userId),
     index("notes_note_type_id_idx").on(table.noteTypeId),
-    index("notes_anki_guid_idx").on(table.userId, table.ankiGuid),
+    uniqueIndex("notes_anki_guid_idx").on(table.userId, table.ankiGuid),
   ],
 );
 
 export const cards = sqliteTable(
   "cards",
   {
-    id: text("id").primaryKey(),
-    noteId: text("note_id").notNull(),
-    deckId: text("deck_id").notNull(),
-    templateId: text("template_id").notNull(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    noteId: integer("note_id").notNull(),
+    deckId: integer("deck_id").notNull(),
+    templateId: integer("template_id").notNull(),
     ordinal: integer("ordinal").notNull(),
     due: integer("due", { mode: "timestamp" })
       .notNull()
@@ -133,8 +131,8 @@ export const cards = sqliteTable(
 export const reviewLogs = sqliteTable(
   "review_logs",
   {
-    id: text("id").primaryKey(),
-    cardId: text("card_id").notNull(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    cardId: integer("card_id").notNull(),
     rating: integer("rating").notNull(), // 1=again, 2=hard, 3=good, 4=easy
     state: integer("state").notNull(), // state before review
     due: integer("due", { mode: "timestamp" }).notNull(), // due before review
@@ -157,7 +155,7 @@ export const reviewLogs = sqliteTable(
 export const media = sqliteTable(
   "media",
   {
-    id: text("id").primaryKey(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
     userId: text("user_id").notNull(),
     filename: text("filename").notNull(),
     hash: text("hash").notNull(),
@@ -176,9 +174,9 @@ export const media = sqliteTable(
 export const noteMedia = sqliteTable(
   "note_media",
   {
-    id: text("id").primaryKey(),
-    noteId: text("note_id").notNull(),
-    mediaId: text("media_id").notNull(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    noteId: integer("note_id").notNull(),
+    mediaId: integer("media_id").notNull(),
   },
   (table) => [
     index("note_media_note_id_idx").on(table.noteId),

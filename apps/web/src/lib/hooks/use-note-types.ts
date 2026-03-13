@@ -7,8 +7,8 @@ export type NoteTypeField = {
 };
 
 export type CardTemplate = {
-  id: string;
-  noteTypeId: string;
+  id: number;
+  noteTypeId: number;
   name: string;
   ordinal: number;
   questionTemplate: string;
@@ -16,7 +16,7 @@ export type CardTemplate = {
 };
 
 export type NoteType = {
-  id: string;
+  id: number;
   userId: string;
   name: string;
   fields: NoteTypeField[];
@@ -44,7 +44,7 @@ export function useNoteTypes(): UseQueryResult<NoteTypeWithTemplates[]> {
 }
 
 export function useNoteType(
-  id: string | undefined,
+  id: number | undefined,
 ): UseQueryResult<NoteTypeWithTemplates> {
   return useQuery<NoteTypeWithTemplates>({
     queryKey: ["note-types", id],
@@ -55,7 +55,7 @@ export function useNoteType(
       }
       return res.json() as Promise<NoteTypeWithTemplates>;
     },
-    enabled: Boolean(id),
+    enabled: id !== undefined,
   });
 }
 
@@ -92,7 +92,7 @@ export function useUpdateNoteType(): UseMutationResult<
   NoteType,
   Error,
   {
-    id: string;
+    id: number;
     name?: string;
     fields?: NoteTypeField[];
     css?: string;
@@ -102,7 +102,7 @@ export function useUpdateNoteType(): UseMutationResult<
 
   return useMutation({
     mutationFn: async (data: {
-      id: string;
+      id: number;
       name?: string;
       fields?: NoteTypeField[];
       css?: string;
@@ -127,11 +127,11 @@ export function useUpdateNoteType(): UseMutationResult<
   });
 }
 
-export function useDeleteNoteType(): UseMutationResult<void, Error, string> {
+export function useDeleteNoteType(): UseMutationResult<void, Error, number> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: number) => {
       const res = await fetch(`/api/note-types/${id}`, {
         method: "DELETE",
       });
@@ -150,7 +150,7 @@ export function useCreateTemplate(): UseMutationResult<
   CardTemplate,
   Error,
   {
-    noteTypeId: string;
+    noteTypeId: number;
     name: string;
     questionTemplate: string;
     answerTemplate: string;
@@ -160,7 +160,7 @@ export function useCreateTemplate(): UseMutationResult<
 
   return useMutation({
     mutationFn: async (data: {
-      noteTypeId: string;
+      noteTypeId: number;
       name: string;
       questionTemplate: string;
       answerTemplate: string;
@@ -188,8 +188,8 @@ export function useUpdateTemplate(): UseMutationResult<
   CardTemplate,
   Error,
   {
-    templateId: string;
-    noteTypeId: string;
+    templateId: number;
+    noteTypeId: number;
     questionTemplate?: string;
     answerTemplate?: string;
   }
@@ -198,8 +198,8 @@ export function useUpdateTemplate(): UseMutationResult<
 
   return useMutation({
     mutationFn: async (data: {
-      templateId: string;
-      noteTypeId: string;
+      templateId: number;
+      noteTypeId: number;
       questionTemplate?: string;
       answerTemplate?: string;
     }) => {
@@ -226,12 +226,12 @@ export function useUpdateTemplate(): UseMutationResult<
 export function useDeleteTemplate(): UseMutationResult<
   void,
   Error,
-  { templateId: string; noteTypeId: string }
+  { templateId: number; noteTypeId: number }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { templateId: string; noteTypeId: string }) => {
+    mutationFn: async (data: { templateId: number; noteTypeId: number }) => {
       const res = await fetch(`/api/note-types/templates/${data.templateId}`, {
         method: "DELETE",
       });

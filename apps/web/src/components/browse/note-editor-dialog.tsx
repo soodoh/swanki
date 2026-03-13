@@ -42,8 +42,8 @@ import type { DeckTreeNode } from "@/lib/hooks/use-decks";
 
 function flattenDecks(
   nodes: DeckTreeNode[],
-): Array<{ id: string; name: string }> {
-  const result: Array<{ id: string; name: string }> = [];
+): Array<{ id: number; name: string }> {
+  const result: Array<{ id: number; name: string }> = [];
   for (const node of nodes) {
     result.push({ id: node.id, name: node.name });
     if (node.children.length > 0) {
@@ -59,7 +59,7 @@ export function NoteEditorDialog({
   open,
   onOpenChange,
 }: {
-  noteId: string;
+  noteId: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }): React.ReactElement {
@@ -85,7 +85,7 @@ export function NoteEditorDialog({
           ? (JSON.parse(noteDetail.note.fields) as Record<string, string>)
           : noteDetail.note.fields,
       );
-      setSelectedDeckId(noteDetail.deckId);
+      setSelectedDeckId(String(noteDetail.deckId));
     }
   }, [noteDetail]);
 
@@ -97,7 +97,7 @@ export function NoteEditorDialog({
     await updateNote.mutateAsync({
       noteId,
       fields: editFields,
-      deckId: selectedDeckId || undefined,
+      deckId: selectedDeckId ? Number(selectedDeckId) : undefined,
     });
   }, [noteId, editFields, selectedDeckId, updateNote]);
 
@@ -219,7 +219,7 @@ export function NoteEditorDialog({
                       </SelectTrigger>
                       <SelectContent>
                         {flatDecks.map((deck) => (
-                          <SelectItem key={deck.id} value={deck.id}>
+                          <SelectItem key={deck.id} value={String(deck.id)}>
                             {deck.name}
                           </SelectItem>
                         ))}

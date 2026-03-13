@@ -2,10 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 
 export type CardWithNote = {
-  id: string;
-  noteId: string;
-  deckId: string;
-  templateId: string;
+  id: number;
+  noteId: number;
+  deckId: number;
+  templateId: number;
   ordinal: number;
   due: string;
   stability: number | undefined;
@@ -28,8 +28,8 @@ export type CardCounts = {
 };
 
 export type StudyCardTemplate = {
-  id: string;
-  noteTypeId: string;
+  id: number;
+  noteTypeId: number;
   questionTemplate: string;
   answerTemplate: string;
 };
@@ -37,8 +37,8 @@ export type StudyCardTemplate = {
 export type StudySession = {
   cards: CardWithNote[];
   counts: CardCounts;
-  templates: Record<string, StudyCardTemplate>;
-  css: Record<string, string>;
+  templates: Record<number, StudyCardTemplate>;
+  css: Record<number, string>;
 };
 
 export type IntervalPreview = {
@@ -51,16 +51,16 @@ export type IntervalPreview = {
 };
 
 type ReviewInput = {
-  cardId: string;
+  cardId: number;
   rating: number;
   timeTakenMs: number;
 };
 
 type UndoInput = {
-  cardId: string;
+  cardId: number;
 };
 
-export function useStudySession(deckId: string): UseQueryResult<StudySession> {
+export function useStudySession(deckId: number): UseQueryResult<StudySession> {
   return useQuery<StudySession>({
     queryKey: ["study-session", deckId],
     queryFn: async () => {
@@ -125,7 +125,7 @@ export function useUndoReview(): UseMutationResult<unknown, Error, UndoInput> {
 }
 
 export function useIntervalPreviews(
-  cardId: string | undefined,
+  cardId: number | undefined,
 ): UseQueryResult<Record<number, IntervalPreview>> {
   return useQuery<Record<number, IntervalPreview>>({
     queryKey: ["interval-previews", cardId],
@@ -136,6 +136,6 @@ export function useIntervalPreviews(
       }
       return res.json() as Promise<Record<number, IntervalPreview>>;
     },
-    enabled: Boolean(cardId),
+    enabled: cardId !== undefined,
   });
 }

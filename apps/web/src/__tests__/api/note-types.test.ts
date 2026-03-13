@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createTestDb } from "../test-utils";
 import { NoteTypeService } from "../../lib/services/note-type-service";
-import { generateId } from "../../lib/id";
 import { notes, cardTemplates } from "../../db/schema";
 import { eq } from "drizzle-orm";
 
@@ -143,7 +142,7 @@ describe("NoteTypeService", () => {
     });
 
     it("returns undefined for non-existent id", async () => {
-      const result = await service.getById("non-existent", userId);
+      const result = await service.getById(999999, userId);
       expect(result).toBeUndefined();
     });
   });
@@ -239,7 +238,7 @@ describe("NoteTypeService", () => {
     });
 
     it("returns undefined for non-existent template", async () => {
-      const updated = await service.updateTemplate("non-existent", userId, {
+      const updated = await service.updateTemplate(999999, userId, {
         questionTemplate: "test",
       });
 
@@ -380,14 +379,15 @@ describe("NoteTypeService", () => {
 
       // Insert a note that references this note type
       const now = new Date();
-      await db.insert(notes).values({
-        id: generateId(),
-        userId,
-        noteTypeId: noteType.id,
-        fields: { Front: "Hello", Back: "World" },
-        createdAt: now,
-        updatedAt: now,
-      });
+      db.insert(notes)
+        .values({
+          userId,
+          noteTypeId: noteType.id,
+          fields: { Front: "Hello", Back: "World" },
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
 
       expect(() => service.delete(noteType.id, userId)).toThrow(
         "Cannot delete note type that is referenced by existing notes",

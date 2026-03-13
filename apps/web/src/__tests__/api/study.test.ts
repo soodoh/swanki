@@ -3,7 +3,6 @@ import { createTestDb } from "../test-utils";
 import { StudyService } from "../../lib/services/study-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { NoteService } from "../../lib/services/note-service";
-import { generateId } from "../../lib/id";
 import { noteTypes, cardTemplates, cards, reviewLogs } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { Rating, State } from "../../lib/fsrs";
@@ -18,9 +17,9 @@ describe("StudyService", () => {
   const userId = "user-1";
 
   // Shared fixtures
-  let deckId: string;
-  let noteTypeId: string;
-  let templateId: string;
+  let deckId: number;
+  let noteTypeId: number;
+  let templateId: number;
 
   beforeEach(async () => {
     db = createTestDb();
@@ -33,29 +32,35 @@ describe("StudyService", () => {
     deckId = deck.id;
 
     // Create a note type with 1 template
-    noteTypeId = generateId();
     const now = new Date();
-    await db.insert(noteTypes).values({
-      id: noteTypeId,
-      userId,
-      name: "Basic",
-      fields: [
-        { name: "Front", ordinal: 0 },
-        { name: "Back", ordinal: 1 },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    });
+    const noteTypeRow = db
+      .insert(noteTypes)
+      .values({
+        userId,
+        name: "Basic",
+        fields: [
+          { name: "Front", ordinal: 0 },
+          { name: "Back", ordinal: 1 },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
+    noteTypeId = noteTypeRow.id;
 
-    templateId = generateId();
-    await db.insert(cardTemplates).values({
-      id: templateId,
-      noteTypeId,
-      name: "Card 1",
-      ordinal: 0,
-      questionTemplate: "{{Front}}",
-      answerTemplate: "{{Back}}",
-    });
+    const templateRow = db
+      .insert(cardTemplates)
+      .values({
+        noteTypeId,
+        name: "Card 1",
+        ordinal: 0,
+        questionTemplate: "{{Front}}",
+        answerTemplate: "{{Back}}",
+      })
+      .returning()
+      .get();
+    templateId = templateRow.id;
   });
 
   describe("getStudySession", () => {
@@ -225,7 +230,7 @@ describe("StudyService", () => {
 
     it("throws error for non-existent card", () => {
       expect(() =>
-        studyService.submitReview(userId, "nonexistent", Rating.Good, 1000),
+        studyService.submitReview(userId, 999999, Rating.Good, 1000),
       ).toThrow("Card not found");
     });
   });
@@ -283,7 +288,7 @@ describe("StudyService", () => {
     });
 
     it("returns undefined for non-existent card", async () => {
-      const result = await studyService.undoLastReview(userId, "nonexistent");
+      const result = await studyService.undoLastReview(userId, 999999);
       expect(result).toBeUndefined();
     });
 
@@ -311,15 +316,16 @@ describe("StudyService", () => {
       const pastDate = new Date(Date.now() - 60_000);
 
       // Create a second template for the note type (multi-card note)
-      const template2Id = generateId();
-      await db.insert(cardTemplates).values({
-        id: template2Id,
-        noteTypeId,
-        name: "Card 2",
-        ordinal: 1,
-        questionTemplate: "{{Back}}",
-        answerTemplate: "{{Front}}",
-      });
+      db.insert(cardTemplates)
+        .values({
+          noteTypeId,
+          name: "Card 2",
+          ordinal: 1,
+          questionTemplate: "{{Back}}",
+          answerTemplate: "{{Front}}",
+        })
+        .returning()
+        .get();
 
       // Create a note (produces 2 cards)
       const note = await noteService.create(userId, {
@@ -603,10 +609,7 @@ describe("StudyService", () => {
     });
 
     it("returns undefined for non-existent card", async () => {
-      const result = await studyService.getIntervalPreviews(
-        userId,
-        "nonexistent",
-      );
+      const result = await studyService.getIntervalPreviews(userId, 999999);
       expect(result).toBeUndefined();
     });
   });

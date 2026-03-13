@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/notes/")({
       GET: async ({ request }) => {
         const session = await requireSession(request);
         const url = new URL(request.url);
-        const deckId = url.searchParams.get("deckId");
+        const deckIdParam = url.searchParams.get("deckId");
         const query = url.searchParams.get("q");
 
         if (query) {
@@ -19,7 +19,11 @@ export const Route = createFileRoute("/api/notes/")({
           return Response.json(results);
         }
 
-        if (deckId) {
+        if (deckIdParam) {
+          const deckId = Number(deckIdParam);
+          if (Number.isNaN(deckId)) {
+            return Response.json({ error: "Invalid deckId" }, { status: 400 });
+          }
           const notes = noteService.listByDeck(deckId, session.user.id);
           return Response.json(notes);
         }
@@ -32,8 +36,8 @@ export const Route = createFileRoute("/api/notes/")({
       POST: async ({ request }) => {
         const session = await requireSession(request);
         const body = (await request.json()) as {
-          noteTypeId: string;
-          deckId: string;
+          noteTypeId: number;
+          deckId: number;
           fields: Record<string, string>;
           tags?: string;
         };

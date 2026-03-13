@@ -10,9 +10,13 @@ export const Route = createFileRoute("/api/study/preview/$cardId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
+        const cardId = Number(params.cardId);
+        if (Number.isNaN(cardId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
         const result = studyService.getIntervalPreviews(
           session.user.id,
-          params.cardId,
+          cardId,
         );
 
         if (!result) {

@@ -10,10 +10,11 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const result = noteTypeService.getById(
-          params.noteTypeId,
-          session.user.id,
-        );
+        const noteTypeId = Number(params.noteTypeId);
+        if (Number.isNaN(noteTypeId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
+        const result = noteTypeService.getById(noteTypeId, session.user.id);
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -21,13 +22,17 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId")({
       },
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
+        const noteTypeId = Number(params.noteTypeId);
+        if (Number.isNaN(noteTypeId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
         const body = (await request.json()) as {
           name?: string;
           fields?: Array<{ name: string; ordinal: number }>;
           css?: string;
         };
         const noteType = noteTypeService.update(
-          params.noteTypeId,
+          noteTypeId,
           session.user.id,
           body,
         );
@@ -38,8 +43,12 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
+        const noteTypeId = Number(params.noteTypeId);
+        if (Number.isNaN(noteTypeId)) {
+          return Response.json({ error: "Invalid ID" }, { status: 400 });
+        }
         try {
-          noteTypeService.delete(params.noteTypeId, session.user.id);
+          noteTypeService.delete(noteTypeId, session.user.id);
           return new Response(undefined, { status: 204 });
         } catch (error) {
           if (

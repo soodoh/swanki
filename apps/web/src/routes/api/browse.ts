@@ -20,8 +20,12 @@ export const Route = createFileRoute("/api/browse")({
         const url = new URL(request.url);
 
         // Check for note detail request
-        const noteId = url.searchParams.get("noteId");
-        if (noteId) {
+        const noteIdParam = url.searchParams.get("noteId");
+        if (noteIdParam) {
+          const noteId = Number(noteIdParam);
+          if (Number.isNaN(noteId)) {
+            return Response.json({ error: "Invalid noteId" }, { status: 400 });
+          }
           const detail = browseService.getNoteDetail(session.user.id, noteId);
           if (!detail) {
             return Response.json({ error: "Note not found" }, { status: 404 });
@@ -65,9 +69,9 @@ export const Route = createFileRoute("/api/browse")({
       PATCH: async ({ request }) => {
         const session = await requireSession(request);
         const body = (await request.json()) as {
-          noteId: string;
+          noteId: number;
           fields?: Record<string, string>;
-          deckId?: string;
+          deckId?: number;
         };
 
         const { noteId, fields, deckId } = body;
@@ -101,7 +105,7 @@ export const Route = createFileRoute("/api/browse")({
       },
       DELETE: async ({ request }) => {
         const session = await requireSession(request);
-        const body = (await request.json()) as { noteId: string };
+        const body = (await request.json()) as { noteId: number };
         if (!body.noteId) {
           return Response.json(
             { error: "noteId is required" },
