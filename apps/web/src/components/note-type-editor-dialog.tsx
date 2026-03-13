@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -6,14 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useNoteType, useUpdateNoteType } from "@/lib/hooks/use-note-types";
+import {
+  useNoteType,
+  useUpdateNoteType,
+  useSampleNote,
+} from "@/lib/hooks/use-note-types";
 import type { NoteTypeField, CardTemplate } from "@/lib/hooks/use-note-types";
 import {
   NameEditor,
   FieldsTab,
-  TemplatesTab,
-  CssTab,
-  PreviewTab,
+  CardsTab,
 } from "@/components/note-type-editor-tabs";
 
 export function NoteTypeEditorDialog({
@@ -57,7 +60,7 @@ function NoteTypeEditorContent({
 }: {
   data: {
     noteType: {
-      id: string;
+      id: number;
       name: string;
       fields: NoteTypeField[];
       css: string;
@@ -67,6 +70,12 @@ function NoteTypeEditorContent({
 }): React.ReactElement {
   const { noteType, templates } = data;
   const updateNoteType = useUpdateNoteType();
+  const { data: sampleNote } = useSampleNote(noteType.id);
+
+  const fieldNames = useMemo(
+    () => noteType.fields.map((f) => f.name),
+    [noteType.fields],
+  );
 
   return (
     <>
@@ -88,9 +97,7 @@ function NoteTypeEditorContent({
       <Tabs defaultValue="fields" className="flex min-h-0 flex-1 flex-col">
         <TabsList>
           <TabsTrigger value="fields">Fields</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="css">CSS</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="cards">Cards</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fields" className="mt-4 overflow-y-auto">
@@ -101,23 +108,14 @@ function NoteTypeEditorContent({
           />
         </TabsContent>
 
-        <TabsContent value="templates" className="mt-4 overflow-y-auto">
-          <TemplatesTab templates={templates} noteTypeId={noteType.id} />
-        </TabsContent>
-
-        <TabsContent value="css" className="mt-4 overflow-y-auto">
-          <CssTab
-            css={noteType.css ?? ""}
-            noteTypeId={noteType.id}
-            onSave={updateNoteType}
-          />
-        </TabsContent>
-
-        <TabsContent value="preview" className="mt-4 overflow-y-auto">
-          <PreviewTab
-            fields={noteType.fields}
+        <TabsContent value="cards" className="mt-4 overflow-y-auto">
+          <CardsTab
             templates={templates}
+            noteTypeId={noteType.id}
             css={noteType.css ?? ""}
+            fieldNames={fieldNames}
+            previewFields={sampleNote}
+            onSaveCss={updateNoteType}
           />
         </TabsContent>
       </Tabs>

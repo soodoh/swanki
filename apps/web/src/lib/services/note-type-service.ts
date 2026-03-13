@@ -90,6 +90,19 @@ export class NoteTypeService {
     return template;
   }
 
+  getFirstNoteFields(
+    noteTypeId: number,
+    userId: string,
+  ): Record<string, string> | undefined {
+    const row = this.db
+      .select({ fields: notes.fields })
+      .from(notes)
+      .where(and(eq(notes.noteTypeId, noteTypeId), eq(notes.userId, userId)))
+      .limit(1)
+      .get();
+    return row?.fields;
+  }
+
   getById(id: number, userId: string): NoteTypeWithTemplates | undefined {
     const noteType = this.db
       .select()

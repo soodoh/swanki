@@ -23,12 +23,7 @@ import {
   FieldAttachments,
   isMediaOnlyField,
 } from "@/components/browse/field-attachments";
-import {
-  FieldsTab,
-  TemplatesTab,
-  CssTab,
-  PreviewTab,
-} from "@/components/note-type-editor-tabs";
+import { FieldsTab, CardsTab } from "@/components/note-type-editor-tabs";
 import {
   useNoteDetail,
   useUpdateNote,
@@ -144,9 +139,7 @@ export function NoteEditorDialog({
               <TabsList>
                 <TabsTrigger value="note">Note</TabsTrigger>
                 <TabsTrigger value="fields">Fields</TabsTrigger>
-                <TabsTrigger value="templates">Templates</TabsTrigger>
-                <TabsTrigger value="css">CSS</TabsTrigger>
-                <TabsTrigger value="preview">Preview</TabsTrigger>
+                <TabsTrigger value="cards">Cards</TabsTrigger>
               </TabsList>
 
               <TabsContent value="note" className="mt-4 overflow-y-auto">
@@ -243,40 +236,15 @@ export function NoteEditorDialog({
                 )}
               </TabsContent>
 
-              <TabsContent value="templates" className="mt-4 overflow-y-auto">
+              <TabsContent value="cards" className="mt-4 overflow-y-auto">
                 {noteTypeData ? (
-                  <TemplatesTab
+                  <CardsTab
                     templates={noteTypeData.templates}
                     noteTypeId={noteTypeData.noteType.id}
+                    css={noteTypeData.noteType.css ?? ""}
                     fieldNames={fieldNames}
-                  />
-                ) : (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    Loading...
-                  </p>
-                )}
-              </TabsContent>
-
-              <TabsContent value="css" className="mt-4 overflow-y-auto">
-                {noteTypeData ? (
-                  <CssTab
-                    css={noteTypeData.noteType.css ?? ""}
-                    noteTypeId={noteTypeData.noteType.id}
-                    onSave={updateNoteType}
-                  />
-                ) : (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    Loading...
-                  </p>
-                )}
-              </TabsContent>
-
-              <TabsContent value="preview" className="mt-4 overflow-y-auto">
-                {noteTypeData ? (
-                  <PreviewTab
-                    fields={noteTypeData.noteType.fields}
-                    templates={noteTypeData.templates}
-                    css={noteTypeData.noteType.css ?? ""}
+                    previewFields={editFields}
+                    onSaveCss={updateNoteType}
                   />
                 ) : (
                   <p className="py-8 text-center text-sm text-muted-foreground">

@@ -1,0 +1,28 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { requireSession } from "../../../../lib/auth-middleware";
+import { NoteTypeService } from "../../../../lib/services/note-type-service";
+import { db } from "../../../../db";
+
+const noteTypeService = new NoteTypeService(db);
+
+export const Route = createFileRoute("/api/note-types/$noteTypeId/sample-note")(
+  {
+    server: {
+      handlers: {
+        GET: async ({ request, params }) => {
+          const session = await requireSession(request);
+          // oxlint-disable-next-line typescript/no-unsafe-member-access -- TanStack server handler params are untyped
+          const noteTypeId = Number(params.noteTypeId);
+          if (Number.isNaN(noteTypeId)) {
+            return Response.json({ error: "Invalid ID" }, { status: 400 });
+          }
+          const fields = noteTypeService.getFirstNoteFields(
+            noteTypeId,
+            session.user.id,
+          );
+          return Response.json({ fields });
+        },
+      },
+    },
+  },
+);
