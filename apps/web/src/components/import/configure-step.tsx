@@ -320,13 +320,6 @@ export function ConfigureStep({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Configure Import</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Adjust settings before importing.
-        </p>
-      </div>
-
       {isCsv && (
         <CsvConfigPanel
           config={

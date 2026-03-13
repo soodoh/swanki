@@ -334,13 +334,6 @@ export function PreviewStep({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Preview Import</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review the cards that will be imported.
-        </p>
-      </div>
-
       {/* Summary stats */}
       <div className="flex flex-wrap gap-4">
         <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
