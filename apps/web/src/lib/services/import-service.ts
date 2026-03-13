@@ -71,6 +71,20 @@ export function detectFormat(filename: string): ImportFormat | undefined {
  * from imported templates. These are injected by addons like Code Highlighter and
  * serve no purpose outside Anki desktop.
  */
+/**
+ * Strip CSS rules and directives that shouldn't be imported from Anki decks:
+ * - `.card { ... }` rules with hardcoded colors that conflict with the app theme
+ * - `@import` statements that reference external stylesheets
+ */
+function stripImportCss(css: string): string {
+  return css
+    .split(/\.card\s*\{[^}]*\}/g)
+    .join("") // .card { ... } rules
+    .split(/@import\b[^;]*;/g)
+    .join("") // @import url(...); or @import "...";
+    .trim();
+}
+
 export function stripAddonMarkup(html: string): string {
   const noComments = html.split(/<!--[\s\S]*?-->\s*/).join("");
   const noScripts = noComments
@@ -347,7 +361,7 @@ export class ImportService {
           userId,
           name: model.name,
           fields,
-          css: model.css,
+          css: stripImportCss(model.css),
           createdAt: now,
           updatedAt: now,
         })
@@ -598,7 +612,7 @@ export class ImportService {
           userId,
           name: ankiNoteType.name,
           fields,
-          css: ankiNoteType.css,
+          css: stripImportCss(ankiNoteType.css),
           createdAt: now,
           updatedAt: now,
         })
