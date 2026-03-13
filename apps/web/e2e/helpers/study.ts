@@ -12,7 +12,7 @@ export async function assertMediaLoads(page: Page): Promise<void> {
   // Check images load
   const images = cardContent.locator("img");
   const imgCount = await images.count();
-  for (let i = 0; i < imgCount; i++) {
+  for (let i = 0; i < imgCount; i += 1) {
     const img = images.nth(i);
     const src = await img.getAttribute("src");
     expect(src).toContain("/api/media/");
@@ -27,18 +27,17 @@ export async function assertMediaLoads(page: Page): Promise<void> {
   // Check audio elements
   const audios = cardContent.locator("audio");
   const audioCount = await audios.count();
-  for (let i = 0; i < audioCount; i++) {
+  for (let i = 0; i < audioCount; i += 1) {
     const audio = audios.nth(i);
     const src = await audio.getAttribute("src");
     expect(src).toContain("/api/media/");
 
     // Verify media URL is accessible
-    if (src) {
-      const origin = new URL(page.url()).origin;
-      const fullUrl = src.startsWith("http") ? src : `${origin}${src}`;
-      const response = await page.request.get(fullUrl);
-      expect(response.status()).toBe(200);
-    }
+    expect(src).toBeTruthy();
+    const origin = new URL(page.url()).origin;
+    const fullUrl = src!.startsWith("http") ? src! : `${origin}${src}`;
+    const response = await page.request.get(fullUrl);
+    expect(response.status()).toBe(200);
   }
 }
 
@@ -48,7 +47,7 @@ export async function assertMediaLoads(page: Page): Promise<void> {
 export async function assertSoundPlayersWork(page: Page): Promise<void> {
   const soundPlayers = page.locator(".sound-player audio");
   const count = await soundPlayers.count();
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < count; i += 1) {
     const src = await soundPlayers.nth(i).getAttribute("src");
     expect(src).toContain("/api/media/");
   }
@@ -60,11 +59,8 @@ export async function assertSoundPlayersWork(page: Page): Promise<void> {
 export async function showAnswer(page: Page): Promise<void> {
   // Try clicking the Show Answer button, or press space
   const showBtn = page.getByRole("button", { name: /Show Answer/i });
-  if (await showBtn.isVisible()) {
-    await showBtn.click();
-  } else {
-    await page.keyboard.press("Space");
-  }
+  const isVisible = await showBtn.isVisible();
+  await (isVisible ? showBtn.click() : page.keyboard.press("Space"));
 }
 
 /**
@@ -94,7 +90,7 @@ export async function studyCardsWithMediaAssertions(
     page.locator(".card-content").or(page.getByText("Congratulations!")),
   ).toBeVisible({ timeout: 15_000 });
 
-  for (let i = 0; i < maxCards; i++) {
+  for (let i = 0; i < maxCards; i += 1) {
     // Check if study is complete (congrats screen)
     const congrats = page.getByText("Congratulations!");
     if (await congrats.isVisible({ timeout: 1000 }).catch(() => false)) {
@@ -119,7 +115,7 @@ export async function studyCardsWithMediaAssertions(
 
     // Rate as Good (3)
     await rateCard(page, 3);
-    reviewed++;
+    reviewed += 1;
   }
 
   return reviewed;

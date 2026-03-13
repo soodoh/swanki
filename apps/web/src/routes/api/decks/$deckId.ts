@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
         const body = (await request.json()) as {
           name?: string;
           description?: string;
-          parentId?: string | null;
+          parentId?: string | undefined;
           settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
         };
         const deck = deckService.update(params.deckId, session.user.id, body);

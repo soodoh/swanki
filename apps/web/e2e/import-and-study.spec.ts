@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import {
   uploadFixture,
   goToConfigureStep,
@@ -11,6 +12,36 @@ import {
   goToDashboard,
 } from "./helpers/import";
 import { studyCardsWithMediaAssertions } from "./helpers/study";
+
+/**
+ * Find the study link href for a "Vocab" deck nested under the given rootDeck.
+ * Runs in the browser context via page.evaluate.
+ */
+function findVocabStudyHref(rootDeck: string): string | undefined {
+  const spans = [...document.querySelectorAll("span.truncate")];
+  const rootSpan = spans.find((span) => span.textContent?.trim() === rootDeck);
+  const treeRoot = rootSpan?.closest(".group")?.parentElement;
+  const vocabSpans = [...(treeRoot?.querySelectorAll("span.truncate") ?? [])];
+  const vocabSpan = vocabSpans.find(
+    (span) => span.textContent?.trim() === "Vocab",
+  );
+  const link = vocabSpan
+    ?.closest(".group")
+    ?.querySelector('a[href*="/study/"]');
+  return link?.getAttribute("href") ?? undefined;
+}
+
+async function navigateToVocabStudy(
+  page: Page,
+  rootDeck: string,
+): Promise<string> {
+  const href = await page.evaluate(findVocabStudyHref, rootDeck);
+  expect(href).toBeTruthy();
+  await page.goto(href!);
+  await page.waitForTimeout(2000);
+  await page.waitForURL("**/study/**", { timeout: 10_000 });
+  return href!;
+}
 
 const FORMATS = [
   {
@@ -86,48 +117,8 @@ for (const format of FORMATS) {
         page.getByText(format.rootDeck, { exact: true }),
       ).toBeVisible({ timeout: 15_000 });
 
-      // Find the Vocab study link within this format's tree using DOM traversal.
-      // Each deck tree item is: <div> <div.group>name+studyLink</div> <div>children</div> </div>
-      // We find the rootDeck's .group, go to its parent (the tree root div),
-      // then find the Vocab .group within that subtree.
-      const href = await page.evaluate((rootDeck) => {
-        const spans = document.querySelectorAll("span.truncate");
-        let rootGroupDiv: Element | null = null;
-        for (const span of spans) {
-          if (span.textContent?.trim() === rootDeck) {
-            rootGroupDiv = span.closest(".group");
-            break;
-          }
-        }
-        if (!rootGroupDiv) {
-          return null;
-        }
-        const treeRoot = rootGroupDiv.parentElement;
-        if (!treeRoot) {
-          return null;
-        }
-        const vocabSpans = treeRoot.querySelectorAll("span.truncate");
-        for (const span of vocabSpans) {
-          if (span.textContent?.trim() === "Vocab") {
-            const vocabGroup = span.closest(".group");
-            if (!vocabGroup) {
-              continue;
-            }
-            const link = vocabGroup.querySelector('a[href*="/study/"]');
-            if (link) {
-              return link.getAttribute("href");
-            }
-          }
-        }
-        return null;
-      }, format.rootDeck);
-      expect(href).toBeTruthy();
-
-      // Navigate directly to the study page
-      await page.goto(href!);
-      // Wait for study page to fully load (card or congrats)
-      await page.waitForTimeout(2000);
-      await page.waitForURL("**/study/**", { timeout: 10_000 });
+      // Find the Vocab study link and navigate to it
+      await navigateToVocabStudy(page, format.rootDeck);
 
       // Study at least 2 cards, asserting media on each one
       // This covers forward + reverse of multiple notes and catches

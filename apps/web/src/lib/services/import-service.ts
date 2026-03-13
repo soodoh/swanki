@@ -72,30 +72,47 @@ export function detectFormat(filename: string): ImportFormat | undefined {
  * serve no purpose outside Anki desktop.
  */
 export function stripAddonMarkup(html: string): string {
-  return html
-    .replace(/<!--[\s\S]*?-->\s*/g, "") // HTML comments
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>\s*/gi, "") // script tags
-    .replace(/<link\b[^>]*\/?>\s*/gi, "") // link tags
-    .trim();
+  const noComments = html.split(/<!--[\s\S]*?-->\s*/).join("");
+  const noScripts = noComments
+    .split(/<script\b[^>]*>[\s\S]*?<\/script>\s*/i)
+    .join("");
+  const noLinks = noScripts.split(/<link\b[^>]*\/?>\s*/i).join("");
+  return noLinks.trim();
 }
 
-/* oxlint-disable unicorn(prefer-string-replace-all) -- replaceAll triggers no-unsafe-* lint errors */
+/** Global regex replace with a callback, typed to return `string` (avoids oxlint no-unsafe-* on replaceAll). */
+function replaceGlobal(
+  str: string,
+  pattern: RegExp,
+  replacer: (...args: string[]) => string,
+): string {
+  let result = "";
+  let lastIndex = 0;
+  const flags = pattern.flags.includes("g")
+    ? pattern.flags
+    : `${pattern.flags}g`;
+  const re = new RegExp(pattern.source, flags);
+  let m = re.exec(str);
+  while (m !== null) {
+    result += str.slice(lastIndex, m.index);
+    result += replacer(...m);
+    lastIndex = re.lastIndex;
+    m = re.exec(str);
+  }
+  result += str.slice(lastIndex);
+  return result;
+}
+
 export function rewriteMediaUrls(
   text: string,
   mapping: Map<string, string>,
 ): string {
-  let result = text;
-
   // Rewrite <img src="filename"> → [image:hash.ext]
   // Supports double quotes, single quotes, and unquoted src values
-  result = result.replace(
+  let result = replaceGlobal(
+    text,
     /<img\s[^>]*src=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*\/?>/gi,
-    (
-      match,
-      dq: string | undefined,
-      sq: string | undefined,
-      uq: string | undefined,
-    ) => {
+    (match, dq, sq, uq) => {
       const filename = dq ?? sq ?? uq;
       if (!filename) {
         return match;
@@ -106,21 +123,17 @@ export function rewriteMediaUrls(
   );
 
   // Rewrite [sound:filename] → [audio:hash.ext]
-  result = result.replace(/\[sound:([^\]]+)\]/g, (match, filename: string) => {
+  result = replaceGlobal(result, /\[sound:([^\]]+)\]/g, (match, filename) => {
     const newFilename = mapping.get(filename);
     return newFilename ? `[audio:${newFilename}]` : match;
   });
 
   // Rewrite <video src="filename"...>...</video> → [video:hash.ext]
   // Supports double quotes, single quotes, and unquoted src values
-  result = result.replace(
+  result = replaceGlobal(
+    result,
     /<video\s[^>]*src=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>[\s\S]*?<\/video>/gi,
-    (
-      match,
-      dq: string | undefined,
-      sq: string | undefined,
-      uq: string | undefined,
-    ) => {
+    (match, dq, sq, uq) => {
       const filename = dq ?? sq ?? uq;
       if (!filename) {
         return match;
@@ -132,7 +145,6 @@ export function rewriteMediaUrls(
 
   return result;
 }
-/* oxlint-enable unicorn(prefer-string-replace-all) */
 
 export function extractMediaFilenames(
   fields: Record<string, string>,

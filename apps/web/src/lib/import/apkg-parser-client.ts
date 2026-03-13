@@ -4,7 +4,6 @@
  */
 import { unzipSync } from "fflate";
 import initSqlJs from "sql.js";
-import type { Database as SqlJsDatabase } from "sql.js";
 
 import {
   findDbFile,
@@ -28,6 +27,23 @@ import type {
 } from "./apkg-parser-core";
 
 export type { ApkgNoteType, ApkgData, ApkgMediaEntry };
+
+/** Local type definitions for sql.js (which ships without .d.ts files). */
+type SqlJsStatement = {
+  step(): boolean;
+  getAsObject(): Record<string, unknown>;
+  free(): void;
+};
+
+type SqlJsDatabase = {
+  prepare(sql: string): SqlJsStatement;
+  exec(sql: string): void;
+  close(): void;
+};
+
+type SqlJsStatic = {
+  Database: new (data: Uint8Array) => SqlJsDatabase;
+};
 
 export type ApkgPreviewData = {
   decks: Array<{ name: string }>;
@@ -56,10 +72,14 @@ export type ApkgPreviewData = {
   };
 };
 
-let sqlJsPromise: ReturnType<typeof initSqlJs> | undefined;
+let sqlJsPromise: Promise<SqlJsStatic> | undefined;
 
-function getSqlJs(): ReturnType<typeof initSqlJs> {
-  sqlJsPromise ??= initSqlJs({
+const initSqlJsTyped = initSqlJs as (config: {
+  locateFile: (file: string) => string;
+}) => Promise<SqlJsStatic>;
+
+async function getSqlJs(): Promise<SqlJsStatic> {
+  sqlJsPromise ??= initSqlJsTyped({
     locateFile: (file: string) => `/${file}`,
   });
   return sqlJsPromise;

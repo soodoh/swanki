@@ -1,13 +1,35 @@
 import { chromium } from "@playwright/test";
 import type { FullConfig } from "@playwright/test";
-import { existsSync, unlinkSync, rmSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { execSync } from "node:child_process";
+import {
+  existsSync as _existsSync,
+  unlinkSync as _unlinkSync,
+  rmSync as _rmSync,
+  mkdirSync as _mkdirSync,
+} from "node:fs";
+import { join as _join } from "node:path";
+import { execSync as _execSync } from "node:child_process";
 
-const WEB_DIR = join(import.meta.dirname, "..");
+const join = _join as (...args: string[]) => string;
+const existsSync = _existsSync as (path: string) => boolean;
+const unlinkSync = _unlinkSync as (path: string) => void;
+const rmSync = _rmSync as (
+  path: string,
+  options?: { recursive?: boolean; force?: boolean },
+) => void;
+const mkdirSync = _mkdirSync as (
+  path: string,
+  options?: { recursive?: boolean },
+) => void;
+const execSync = _execSync as (
+  command: string,
+  options?: { cwd?: string; env?: Record<string, string>; stdio?: string },
+) => void;
+
+const dirname = import.meta.dirname;
+const WEB_DIR = join(dirname, "..");
 const E2E_DB = join(WEB_DIR, "sqlite-e2e.db");
 const MEDIA_DIR = join(WEB_DIR, "data", "media");
-const AUTH_DIR = join(import.meta.dirname, ".auth");
+const AUTH_DIR = join(dirname, ".auth");
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
   // Clean state
@@ -23,10 +45,12 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
   // Push DB schema to the e2e database
   execSync("bun x drizzle-kit push --force", {
     cwd: WEB_DIR,
-    env: { ...process.env, DATABASE_URL: "sqlite-e2e.db" },
+    env: {
+      ...(process as { env: Record<string, string> }).env,
+      DATABASE_URL: "sqlite-e2e.db",
+    },
     stdio: "pipe",
   });
-  console.log("Database schema pushed to e2e DB");
 
   // Ensure auth dir exists
   mkdirSync(AUTH_DIR, { recursive: true });
@@ -58,7 +82,6 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     .catch(() => false);
   if (hasError) {
     const errorText = await errorEl.textContent();
-    console.log(`Registration error: ${errorText}`);
     // If user already exists, try logging in instead
     if (errorText?.includes("already")) {
       await page.goto("http://localhost:3000/login", {

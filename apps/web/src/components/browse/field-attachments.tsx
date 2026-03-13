@@ -3,9 +3,8 @@ import { X, Upload, Volume2, Film, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function isMediaOnlyField(value: string): boolean {
-  const stripped = value
-    .replaceAll(/\[(image|audio|video):[^\]]+\]/g, "")
-    .trim();
+  const withoutMedia = value.split(/\[(image|audio|video):[^\]]+\]/).join("");
+  const stripped = withoutMedia.trim();
   return stripped.length === 0 && /\[(image|audio|video):[^\]]+\]/.test(value);
 }
 
