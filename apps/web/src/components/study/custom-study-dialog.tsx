@@ -1,6 +1,7 @@
 "use client";
 
-import * as React from "react";
+import { useState } from "react";
+import type { ReactElement, ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -25,21 +26,21 @@ export type CustomStudySettings = {
 
 type CustomStudyDialogProps = {
   onStart: (settings: CustomStudySettings) => void;
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
 export function CustomStudyDialog({
   onStart,
   children,
-}: CustomStudyDialogProps): React.ReactElement {
-  const [open, setOpen] = React.useState(false);
-  const [mode, setMode] = React.useState<
+}: CustomStudyDialogProps): ReactElement {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<
     "studyAhead" | "extraNew" | "tag" | "preview"
   >("studyAhead");
-  const [studyAheadDays, setStudyAheadDays] = React.useState(1);
-  const [extraNewCards, setExtraNewCards] = React.useState(10);
-  const [tag, setTag] = React.useState("");
-  const [previewMode, setPreviewMode] = React.useState(false);
+  const [studyAheadDays, setStudyAheadDays] = useState(1);
+  const [extraNewCards, setExtraNewCards] = useState(10);
+  const [tag, setTag] = useState("");
+  const [previewMode, setPreviewMode] = useState(false);
 
   function handleStart() {
     const settings: CustomStudySettings = {};

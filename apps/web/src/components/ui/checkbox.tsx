@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type { ReactElement } from "react";
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";
 
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { CheckIcon } from "lucide-react";
 function Checkbox({
   className,
   ...props
-}: CheckboxPrimitive.Root.Props): React.ReactElement {
+}: CheckboxPrimitive.Root.Props): ReactElement {
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"

@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type { ReactElement } from "react";
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ function Progress({
   children,
   value,
   ...props
-}: ProgressPrimitive.Root.Props): React.ReactElement {
+}: ProgressPrimitive.Root.Props): ReactElement {
   return (
     <ProgressPrimitive.Root
       value={value}
@@ -29,7 +29,7 @@ function Progress({
 function ProgressTrack({
   className,
   ...props
-}: ProgressPrimitive.Track.Props): React.ReactElement {
+}: ProgressPrimitive.Track.Props): ReactElement {
   return (
     <ProgressPrimitive.Track
       className={cn(
@@ -45,7 +45,7 @@ function ProgressTrack({
 function ProgressIndicator({
   className,
   ...props
-}: ProgressPrimitive.Indicator.Props): React.ReactElement {
+}: ProgressPrimitive.Indicator.Props): ReactElement {
   return (
     <ProgressPrimitive.Indicator
       data-slot="progress-indicator"
@@ -58,7 +58,7 @@ function ProgressIndicator({
 function ProgressLabel({
   className,
   ...props
-}: ProgressPrimitive.Label.Props): React.ReactElement {
+}: ProgressPrimitive.Label.Props): ReactElement {
   return (
     <ProgressPrimitive.Label
       className={cn("text-sm font-medium", className)}
@@ -71,7 +71,7 @@ function ProgressLabel({
 function ProgressValue({
   className,
   ...props
-}: ProgressPrimitive.Value.Props): React.ReactElement {
+}: ProgressPrimitive.Value.Props): ReactElement {
   return (
     <ProgressPrimitive.Value
       className={cn(

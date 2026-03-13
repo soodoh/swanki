@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   FileText,
@@ -10,6 +11,15 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import type { CarouselApi } from "@/components/ui/carousel";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+  useCarousel,
+} from "@/components/ui/carousel";
 import {
   Table,
   TableBody,
@@ -18,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { ApkgCardPreview } from "@/components/import/apkg-card-preview";
 import type { ApkgPreviewData } from "@/lib/import/apkg-parser-client";
 
@@ -100,39 +111,107 @@ function CsvPreview({
   );
 }
 
+function CarouselDots(): React.ReactNode {
+  const { api } = useCarousel();
+  const [current, setCurrent] = useState(0);
+  const [count, setCount] = useState(0);
+
+  const onSelect = useCallback(() => {
+    if (!api) {
+      return;
+    }
+    setCurrent(api.selectedScrollSnap());
+  }, [api]);
+
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+    setCount(api.scrollSnapList().length);
+    setCurrent(api.selectedScrollSnap());
+    api.on("select", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api, onSelect]);
+
+  if (count <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="flex justify-center gap-1.5 pt-2">
+      {Array.from({ length: count }).map((_, i) => (
+        <button
+          // oxlint-disable-next-line eslint-plugin-react(no-array-index-key) -- stable dot order
+          key={i}
+          type="button"
+          className={cn(
+            "size-2 rounded-full transition-colors",
+            i === current ? "bg-primary" : "bg-muted-foreground/30",
+          )}
+          onClick={() => api?.scrollTo(i)}
+          aria-label={`Go to slide ${i + 1}`}
+        />
+      ))}
+    </div>
+  );
+}
+
 function ApkgPreview({
   preview,
 }: {
   preview: ApkgPreviewData;
 }): React.ReactElement {
   const noteTypeMap = new Map(preview.noteTypes.map((nt) => [nt.name, nt]));
+  const [current, setCurrent] = useState(0);
+  const [api, setApi] = useState<CarouselApi>();
+
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+    const onSelect = () => setCurrent(api.selectedScrollSnap());
+    setCurrent(api.selectedScrollSnap());
+    api.on("select", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api]);
+
+  const validNotes = preview.sampleNotes.filter((note) =>
+    noteTypeMap.has(note.noteTypeName),
+  );
 
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-medium">
-        Sample Cards ({preview.sampleNotes.length} of {preview.totalNotes}{" "}
-        notes)
+        Card {current + 1} of {validNotes.length} samples ({preview.totalNotes}{" "}
+        total notes)
       </h3>
 
-      <div className="space-y-3">
-        {preview.sampleNotes.map((note, index) => {
-          const noteType = noteTypeMap.get(note.noteTypeName);
-          if (!noteType) {
-            return null;
-          }
-          const firstField = Object.values(note.fields)[0] ?? "";
-          const keyStr = `${note.noteTypeName}-${firstField.slice(0, 40)}`;
-          return (
-            <ApkgCardPreview
-              key={keyStr}
-              noteTypeName={note.noteTypeName}
-              fields={note.fields}
-              noteType={noteType}
-              index={index}
-            />
-          );
-        })}
-      </div>
+      <Carousel setApi={setApi} className="mx-12">
+        <CarouselContent>
+          {validNotes.map((note, index) => {
+            const noteType = noteTypeMap.get(note.noteTypeName)!;
+            const firstField = Object.values(note.fields)[0] ?? "";
+            const keyStr = `${note.noteTypeName}-${firstField.slice(0, 40)}`;
+            return (
+              <CarouselItem key={keyStr}>
+                <ApkgCardPreview
+                  noteTypeName={note.noteTypeName}
+                  fields={note.fields}
+                  noteType={noteType}
+                  index={index}
+                />
+              </CarouselItem>
+            );
+          })}
+        </CarouselContent>
+        <CarouselPrevious />
+        <CarouselNext />
+        <CarouselDots />
+      </Carousel>
 
       <div className="flex items-start gap-2 rounded-lg border bg-muted/20 p-3">
         <Info className="mt-0.5 size-4 text-muted-foreground" />
