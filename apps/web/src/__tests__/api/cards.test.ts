@@ -18,7 +18,6 @@ describe("CardService", () => {
   // Shared fixtures
   let deckId: number;
   let noteTypeId: number;
-  let templateId: number;
 
   beforeEach(async () => {
     db = createTestDb();
@@ -48,8 +47,7 @@ describe("CardService", () => {
       .get();
     noteTypeId = noteType.id;
 
-    const template = db
-      .insert(cardTemplates)
+    db.insert(cardTemplates)
       .values({
         noteTypeId,
         name: "Card 1",
@@ -57,9 +55,7 @@ describe("CardService", () => {
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       })
-      .returning()
-      .get();
-    templateId = template.id;
+      .run();
   });
 
   describe("getDueCards", () => {

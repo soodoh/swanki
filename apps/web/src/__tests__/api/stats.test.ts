@@ -46,8 +46,7 @@ describe("StatsService", () => {
       .get();
     noteTypeId = noteType.id;
 
-    const template = db
-      .insert(cardTemplates)
+    db.insert(cardTemplates)
       .values({
         noteTypeId,
         name: "Card 1",
@@ -55,8 +54,7 @@ describe("StatsService", () => {
         questionTemplate: "{{Front}}",
         answerTemplate: "{{Back}}",
       })
-      .returning()
-      .get();
+      .run();
   });
 
   /** Helper: create a note (which auto-creates a card) and return the card ID */
@@ -75,7 +73,7 @@ describe("StatsService", () => {
   }
 
   /** Helper: insert a review log for a given card at a specific date */
-  async function addReviewLog(cardId: number, reviewedAt: Date): Promise<void> {
+  function addReviewLog(cardId: number, reviewedAt: Date): void {
     db.insert(reviewLogs)
       .values({
         cardId,
@@ -106,10 +104,10 @@ describe("StatsService", () => {
       const cardId = await createCard("Q1", "A1");
 
       // Add reviews on different days
-      await addReviewLog(cardId, daysAgo(0)); // today
-      await addReviewLog(cardId, daysAgo(0)); // today (second review)
-      await addReviewLog(cardId, daysAgo(1)); // yesterday
-      await addReviewLog(cardId, daysAgo(5)); // 5 days ago
+      addReviewLog(cardId, daysAgo(0)); // today
+      addReviewLog(cardId, daysAgo(0)); // today (second review)
+      addReviewLog(cardId, daysAgo(1)); // yesterday
+      addReviewLog(cardId, daysAgo(5)); // 5 days ago
 
       const result = await statsService.getReviewsPerDay(userId, 7);
 
@@ -143,7 +141,7 @@ describe("StatsService", () => {
 
     it("excludes reviews from other users", async () => {
       const cardId = await createCard("Q1", "A1");
-      await addReviewLog(cardId, daysAgo(0));
+      addReviewLog(cardId, daysAgo(0));
 
       // Create a card for another user
       const otherDeck = await deckService.create("user-2", {
@@ -182,7 +180,7 @@ describe("StatsService", () => {
         .from(cards)
         .where(eq(cards.noteId, otherNote.id))
         .all();
-      await addReviewLog(otherCards[0].id, daysAgo(0));
+      addReviewLog(otherCards[0].id, daysAgo(0));
 
       const result = await statsService.getReviewsPerDay(userId, 7);
       const todayStr = daysAgo(0).toISOString().split("T")[0];
@@ -239,9 +237,9 @@ describe("StatsService", () => {
       const cardId = await createCard("Q1", "A1");
 
       // Create a streak of 3 consecutive days (today, yesterday, 2 days ago)
-      await addReviewLog(cardId, daysAgo(0));
-      await addReviewLog(cardId, daysAgo(1));
-      await addReviewLog(cardId, daysAgo(2));
+      addReviewLog(cardId, daysAgo(0));
+      addReviewLog(cardId, daysAgo(1));
+      addReviewLog(cardId, daysAgo(2));
 
       const result = await statsService.getStreak(userId);
 
@@ -253,8 +251,8 @@ describe("StatsService", () => {
       const cardId = await createCard("Q1", "A1");
 
       // Reviews only yesterday and 2 days ago
-      await addReviewLog(cardId, daysAgo(1));
-      await addReviewLog(cardId, daysAgo(2));
+      addReviewLog(cardId, daysAgo(1));
+      addReviewLog(cardId, daysAgo(2));
 
       const result = await statsService.getStreak(userId);
 
@@ -268,12 +266,12 @@ describe("StatsService", () => {
       // Streak: today, yesterday (2 days)
       // Gap: 2 days ago
       // Old streak: 3, 4, 5 days ago (3 days)
-      await addReviewLog(cardId, daysAgo(0));
-      await addReviewLog(cardId, daysAgo(1));
+      addReviewLog(cardId, daysAgo(0));
+      addReviewLog(cardId, daysAgo(1));
       // gap at daysAgo(2)
-      await addReviewLog(cardId, daysAgo(3));
-      await addReviewLog(cardId, daysAgo(4));
-      await addReviewLog(cardId, daysAgo(5));
+      addReviewLog(cardId, daysAgo(3));
+      addReviewLog(cardId, daysAgo(4));
+      addReviewLog(cardId, daysAgo(5));
 
       const result = await statsService.getStreak(userId);
 
@@ -297,10 +295,10 @@ describe("StatsService", () => {
       const jan2 = new Date("2026-01-02T12:00:00Z");
       const mar5 = new Date("2026-03-05T12:00:00Z");
 
-      await addReviewLog(cardId, jan1);
-      await addReviewLog(cardId, jan1); // 2 reviews on Jan 1
-      await addReviewLog(cardId, jan2);
-      await addReviewLog(cardId, mar5);
+      addReviewLog(cardId, jan1);
+      addReviewLog(cardId, jan1); // 2 reviews on Jan 1
+      addReviewLog(cardId, jan2);
+      addReviewLog(cardId, mar5);
 
       const result = await statsService.getHeatmap(userId, 2026);
 
@@ -325,9 +323,9 @@ describe("StatsService", () => {
       const jan2026 = new Date("2026-01-01T12:00:00Z");
       const jan2027 = new Date("2027-01-01T12:00:00Z");
 
-      await addReviewLog(cardId, dec2025);
-      await addReviewLog(cardId, jan2026);
-      await addReviewLog(cardId, jan2027);
+      addReviewLog(cardId, dec2025);
+      addReviewLog(cardId, jan2026);
+      addReviewLog(cardId, jan2027);
 
       const result = await statsService.getHeatmap(userId, 2026);
 
