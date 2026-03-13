@@ -103,6 +103,7 @@ export function ApkgCardPreview({
           </p>
           <div
             className="card prose prose-sm dark:prose-invert max-w-none"
+            style={{ backgroundColor: "transparent", color: "inherit" }}
             dangerouslySetInnerHTML={{ __html: frontHtml }}
           />
         </div>
@@ -114,6 +115,7 @@ export function ApkgCardPreview({
             </p>
             <div
               className="card prose prose-sm dark:prose-invert max-w-none"
+              style={{ backgroundColor: "transparent", color: "inherit" }}
               dangerouslySetInnerHTML={{ __html: backHtml }}
             />
           </div>

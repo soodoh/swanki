@@ -70,7 +70,7 @@ export function TemplateCodeEditor({
           foldGutter: false,
           highlightActiveLine: false,
         }}
-        className="rounded-b-lg border border-t-0 border-input bg-transparent font-mono text-sm [&_.cm-editor]:outline-none [&_.cm-focused]:outline-none"
+        className="rounded-b-lg border border-t-0 border-input bg-transparent font-mono text-sm [&_.cm-editor]:bg-transparent [&_.cm-gutters]:bg-transparent [&_.cm-gutters]:border-none [&_.cm-content]:caret-foreground [&_.cm-activeLine]:bg-muted/30 [&_.cm-selectionBackground]:!bg-primary/20 [&_.cm-editor]:outline-none [&_.cm-focused]:outline-none"
         minHeight="96px"
       />
     </div>
