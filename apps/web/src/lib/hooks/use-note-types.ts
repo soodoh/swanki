@@ -81,6 +81,37 @@ export function useNoteType(
   });
 }
 
+export function useSampleNote(
+  noteTypeId: number | undefined,
+): UseQueryResult<Record<string, string> | undefined> {
+  const { db, isOnline, isLocalReady } = useOffline();
+
+  return useQuery<Record<string, string> | undefined>({
+    queryKey: ["note-types", noteTypeId, "sample-note"],
+    queryFn: async () =>
+      offlineQuery({
+        serverFetch: async () => {
+          const res = await fetch(`/api/note-types/${noteTypeId}/sample-note`);
+          if (!res.ok) {
+            throw new Error("Failed to fetch sample note");
+          }
+          const data = (await res.json()) as {
+            fields: Record<string, string> | undefined;
+          };
+          return data.fields;
+        },
+        localQuery: (localDb) =>
+          noteTypeId
+            ? localQueries.getFirstNoteFields(localDb, noteTypeId)
+            : undefined,
+        db,
+        isOnline,
+        isLocalReady,
+      }),
+    enabled: noteTypeId !== undefined,
+  });
+}
+
 // Mutations remain server-only for now since note type CRUD is less
 // latency-sensitive and has complex side effects (card generation).
 // They still work online and fall back gracefully.

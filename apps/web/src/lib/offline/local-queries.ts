@@ -668,6 +668,19 @@ export function getNoteType(
   return all.find((nt) => nt.noteType.id === id);
 }
 
+export function getFirstNoteFields(
+  db: LocalDrizzleDb,
+  noteTypeId: number,
+): Record<string, string> | undefined {
+  const row = db
+    .select({ fields: notes.fields })
+    .from(notes)
+    .where(eq(notes.noteTypeId, noteTypeId))
+    .limit(1)
+    .get();
+  return row?.fields;
+}
+
 // -- Browse queries --
 
 type BrowseNote = {

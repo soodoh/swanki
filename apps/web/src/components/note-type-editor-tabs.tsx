@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, ChevronRight } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,11 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -50,7 +55,9 @@ import type {
 import { renderTemplate } from "@/lib/template-renderer";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
 import { expandMediaTags } from "@/lib/media-tags";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TemplateCodeEditor } from "@/components/template-code-editor";
+import { CssCodeEditor } from "@/components/css-code-editor";
 
 /* ---------- Name Editor ---------- */
 
@@ -60,7 +67,7 @@ export function NameEditor({
   onSave,
 }: {
   name: string;
-  noteTypeId: string;
+  noteTypeId: number;
   onSave: ReturnType<typeof useUpdateNoteType>;
 }): React.ReactElement {
   const [editName, setEditName] = useState(name);
@@ -160,7 +167,7 @@ export function FieldsTab({
   onSave,
 }: {
   fields: NoteTypeField[];
-  noteTypeId: string;
+  noteTypeId: number;
   onSave: ReturnType<typeof useUpdateNoteType>;
 }): React.ReactElement {
   const [localFields, setLocalFields] = useState<NoteTypeField[]>(fields);
@@ -285,31 +292,55 @@ export function FieldsTab({
   );
 }
 
-const EMPTY_FIELD_NAMES: string[] = [];
+/* ---------- Cards Tab ---------- */
 
-/* ---------- Templates Tab ---------- */
-
-export function TemplatesTab({
+export function CardsTab({
   templates,
   noteTypeId,
+  css,
   fieldNames,
+  previewFields,
+  onSaveCss,
 }: {
   templates: CardTemplate[];
-  noteTypeId: string;
-  fieldNames?: string[];
+  noteTypeId: number;
+  css: string;
+  fieldNames: string[];
+  previewFields: Record<string, string> | undefined;
+  onSaveCss: ReturnType<typeof useUpdateNoteType>;
 }): React.ReactElement {
   const createTemplate = useCreateTemplate();
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
-  const [editingId, setEditingId] = useState<string | undefined>(undefined);
+
+  const [localCss, setLocalCss] = useState(css);
+  const [expandedId, setExpandedId] = useState<number | undefined>(
+    templates[0]?.id,
+  );
+  const [cssOpen, setCssOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
+
+  const sampleFields = useMemo(() => {
+    if (previewFields) {
+      return previewFields;
+    }
+    const data: Record<string, string> = {};
+    for (const name of fieldNames) {
+      data[name] = `(sample ${name})`;
+    }
+    return data;
+  }, [previewFields, fieldNames]);
+
+  function handleSaveCss(): void {
+    void onSaveCss.mutateAsync({ id: noteTypeId, css: localCss });
+  }
 
   async function handleCreate(): Promise<void> {
     if (!newTemplateName.trim()) {
       return;
     }
-    await createTemplate.mutateAsync({
+    const created = await createTemplate.mutateAsync({
       noteTypeId,
       name: newTemplateName.trim(),
       questionTemplate: "{{Front}}",
@@ -317,14 +348,50 @@ export function TemplatesTab({
     });
     setNewTemplateName("");
     setCreateOpen(false);
+    setExpandedId(created.id);
   }
 
-  async function handleDelete(templateId: string): Promise<void> {
+  async function handleDelete(templateId: number): Promise<void> {
     await deleteTemplate.mutateAsync({ templateId, noteTypeId });
+    if (expandedId === templateId) {
+      setExpandedId(undefined);
+    }
   }
 
   return (
     <div className="grid gap-4">
+      {/* CSS Section */}
+      <Collapsible open={cssOpen} onOpenChange={setCssOpen}>
+        <CollapsibleTrigger
+          render={
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm font-medium hover:bg-muted/50"
+            >
+              <ChevronRight
+                className={`size-4 transition-transform ${cssOpen ? "rotate-90" : ""}`}
+              />
+              Custom CSS
+            </button>
+          }
+        />
+        <CollapsibleContent>
+          <div className="mt-2 grid gap-2">
+            <CssCodeEditor value={localCss} onChange={setLocalCss} />
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveCss}
+                disabled={localCss === css || onSaveCss.isPending}
+                size="sm"
+              >
+                {onSaveCss.isPending ? "Saving..." : "Save CSS"}
+              </Button>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Template header + add button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">
           Card Templates ({templates.length})
@@ -379,65 +446,96 @@ export function TemplatesTab({
         </div>
       )}
 
-      {templates.map((template) => (
-        <Card key={template.id}>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>{template.name}</span>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setEditingId(
-                      editingId === template.id ? undefined : template.id,
-                    )
-                  }
-                >
-                  {editingId === template.id ? "Close" : "Edit"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => void handleDelete(template.id)}
-                  disabled={deleteTemplate.isPending || templates.length <= 1}
-                >
-                  <Trash2 className="size-3.5 text-destructive" />
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          {editingId === template.id && (
-            <CardContent>
-              <TemplateEditor
-                template={template}
-                noteTypeId={noteTypeId}
-                fieldNames={fieldNames ?? EMPTY_FIELD_NAMES}
-                onSave={updateTemplate}
-              />
-            </CardContent>
-          )}
-        </Card>
-      ))}
+      {/* Template accordions */}
+      {templates.map((template) => {
+        const isExpanded = expandedId === template.id;
+        return (
+          <TemplateAccordionItem
+            key={template.id}
+            template={template}
+            noteTypeId={noteTypeId}
+            fieldNames={fieldNames}
+            sampleFields={sampleFields}
+            localCss={localCss}
+            isExpanded={isExpanded}
+            onToggle={() => setExpandedId(isExpanded ? undefined : template.id)}
+            onSave={updateTemplate}
+            onDelete={() => void handleDelete(template.id)}
+            canDelete={templates.length > 1}
+            deleteIsPending={deleteTemplate.isPending}
+          />
+        );
+      })}
     </div>
   );
 }
 
-/* ---------- Template Editor ---------- */
+/* ---------- Template Preview Pane ---------- */
 
-export function TemplateEditor({
+function TemplatePreviewPane({
+  label,
+  html,
+  css,
+}: {
+  label: string;
+  html: string;
+  css: string;
+}): React.ReactElement {
+  return (
+    <div className="grid gap-2">
+      <Label className="text-xs font-medium text-muted-foreground">
+        {label}
+      </Label>
+      <Card className="min-h-[200px] flex items-center justify-center">
+        <CardContent className="p-3">
+          {css && <style>{sanitizeCss(css)}</style>}
+          {/* oxlint-disable react/no-danger -- sanitized via DOMPurify */}
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none text-center"
+            dangerouslySetInnerHTML={{
+              __html: expandMediaTags(sanitizeHtml(html)),
+            }}
+          />
+          {/* oxlint-enable react/no-danger */}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------- Template Accordion Item ---------- */
+
+function TemplateAccordionItem({
   template,
   noteTypeId,
   fieldNames,
+  sampleFields,
+  localCss,
+  isExpanded,
+  onToggle,
   onSave,
+  onDelete,
+  canDelete,
+  deleteIsPending,
 }: {
   template: CardTemplate;
-  noteTypeId: string;
+  noteTypeId: number;
   fieldNames: string[];
+  sampleFields: Record<string, string>;
+  localCss: string;
+  isExpanded: boolean;
+  onToggle: () => void;
   onSave: ReturnType<typeof useUpdateTemplate>;
+  onDelete: () => void;
+  canDelete: boolean;
+  deleteIsPending: boolean;
 }): React.ReactElement {
   const [question, setQuestion] = useState(template.questionTemplate);
   const [answer, setAnswer] = useState(template.answerTemplate);
+
+  const hasChanges =
+    question !== template.questionTemplate ||
+    answer !== template.answerTemplate;
 
   function handleSave(): void {
     void onSave.mutateAsync({
@@ -448,236 +546,117 @@ export function TemplateEditor({
     });
   }
 
-  const hasChanges =
-    question !== template.questionTemplate ||
-    answer !== template.answerTemplate;
-
-  return (
-    <div className="grid gap-4">
-      <div className="grid gap-2">
-        <Label>Question Template</Label>
-        <TemplateCodeEditor
-          value={question}
-          onChange={setQuestion}
-          fieldNames={fieldNames}
-        />
-      </div>
-      <div className="grid gap-2">
-        <Label>Answer Template</Label>
-        <TemplateCodeEditor
-          value={answer}
-          onChange={setAnswer}
-          fieldNames={fieldNames}
-          isAnswerTemplate
-        />
-      </div>
-      <div className="flex justify-end">
-        <Button
-          onClick={handleSave}
-          disabled={!hasChanges || onSave.isPending}
-          size="sm"
-        >
-          {onSave.isPending ? "Saving..." : "Save Template"}
-        </Button>
-      </div>
-    </div>
+  const questionHtml = useMemo(
+    () =>
+      renderTemplate(question, sampleFields, {
+        showAnswer: false,
+        cardOrdinal: template.ordinal + 1,
+      }),
+    [question, sampleFields, template.ordinal],
   );
-}
 
-/* ---------- CSS Tab ---------- */
+  const answerHtml = useMemo(() => {
+    const front = renderTemplate(question, sampleFields, {
+      showAnswer: false,
+      cardOrdinal: template.ordinal + 1,
+    });
+    return renderTemplate(answer, sampleFields, {
+      showAnswer: true,
+      cardOrdinal: template.ordinal + 1,
+      frontSide: front,
+    });
+  }, [question, answer, sampleFields, template.ordinal]);
 
-export function CssTab({
-  css,
-  noteTypeId,
-  onSave,
-}: {
-  css: string;
-  noteTypeId: string;
-  onSave: ReturnType<typeof useUpdateNoteType>;
-}): React.ReactElement {
-  const [localCss, setLocalCss] = useState(css);
-
-  function handleSave(): void {
-    void onSave.mutateAsync({ id: noteTypeId, css: localCss });
-  }
+  // Content rendered via dangerouslySetInnerHTML is sanitized through
+  // sanitizeHtml (DOMPurify) and sanitizeCss before rendering, consistent
+  // with the study page pattern used throughout the app.
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Custom CSS</CardTitle>
-        <CardDescription>
-          Style your cards with custom CSS. These styles apply to all templates
-          in this note type.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
-          <textarea
-            value={localCss}
-            onChange={(e) => setLocalCss(e.target.value)}
-            placeholder=".card { font-family: serif; }"
-            className="h-48 w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          />
-          <div className="flex justify-end">
+    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+      <CollapsibleTrigger
+        render={
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium hover:bg-muted/30"
+          >
+            <ChevronRight
+              className={`size-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            />
+            {template.name}
+          </button>
+        }
+      />
+      <CollapsibleContent>
+        <div className="mt-2 rounded-lg border p-4">
+          <Tabs defaultValue="edit">
+            <TabsList>
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="edit">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Question Template
+                  </Label>
+                  <TemplateCodeEditor
+                    value={question}
+                    onChange={setQuestion}
+                    fieldNames={fieldNames}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Answer Template
+                  </Label>
+                  <TemplateCodeEditor
+                    value={answer}
+                    onChange={setAnswer}
+                    fieldNames={fieldNames}
+                    isAnswerTemplate
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="preview">
+              <div className="grid gap-4">
+                <TemplatePreviewPane
+                  label="Question Preview"
+                  html={questionHtml}
+                  css={localCss}
+                />
+                <TemplatePreviewPane
+                  label="Answer Preview"
+                  html={answerHtml}
+                  css={localCss}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Action buttons */}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onDelete}
+              disabled={!canDelete || deleteIsPending}
+            >
+              <Trash2 className="size-3.5" data-icon="inline-start" />
+              Delete
+            </Button>
             <Button
               onClick={handleSave}
-              disabled={localCss === css || onSave.isPending}
+              disabled={!hasChanges || onSave.isPending}
+              size="sm"
             >
-              {onSave.isPending ? "Saving..." : "Save CSS"}
+              {onSave.isPending ? "Saving..." : "Save Template"}
             </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ---------- Preview Tab ---------- */
-
-export function PreviewTab({
-  fields,
-  templates,
-  css,
-}: {
-  fields: NoteTypeField[];
-  templates: CardTemplate[];
-  css: string;
-}): React.ReactElement {
-  const [sampleData, setSampleData] = useState<Record<string, string>>(() => {
-    const data: Record<string, string> = {};
-    for (const field of fields) {
-      data[field.name] = `(sample ${field.name})`;
-    }
-    return data;
-  });
-
-  const [selectedTemplate, setSelectedTemplate] = useState<string>(
-    templates[0]?.id ?? "",
-  );
-
-  const template = templates.find((t) => t.id === selectedTemplate);
-
-  const questionHtml = useMemo(() => {
-    if (!template) {
-      return "";
-    }
-    return renderTemplate(template.questionTemplate, sampleData, {
-      showAnswer: false,
-      cardOrdinal: 1,
-    });
-  }, [template, sampleData]);
-
-  const answerHtml = useMemo(() => {
-    if (!template) {
-      return "";
-    }
-    const front = renderTemplate(template.questionTemplate, sampleData, {
-      showAnswer: false,
-      cardOrdinal: 1,
-    });
-    return renderTemplate(template.answerTemplate, sampleData, {
-      showAnswer: true,
-      cardOrdinal: 1,
-      frontSide: front,
-    });
-  }, [template, sampleData]);
-
-  // Note: dangerouslySetInnerHTML is used intentionally here to render
-  // user-authored card templates, consistent with the study page pattern.
-  // Content is sanitized via sanitizeHtml/sanitizeCss from DOMPurify.
-
-  return (
-    <div className="grid gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Sample Data</CardTitle>
-          <CardDescription>
-            Enter sample values for each field to preview the card.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            {fields.map((field) => (
-              <div key={field.name} className="grid gap-1">
-                <Label htmlFor={`sample-${field.name}`}>{field.name}</Label>
-                <Input
-                  id={`sample-${field.name}`}
-                  value={sampleData[field.name] ?? ""}
-                  onChange={(e) =>
-                    setSampleData((prev) => ({
-                      ...prev,
-                      [field.name]: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {templates.length > 1 && (
-        <div className="flex items-center gap-2">
-          <Label>Template:</Label>
-          <select
-            className="rounded-lg border border-input bg-transparent px-2 py-1 text-sm"
-            value={selectedTemplate}
-            onChange={(e) => setSelectedTemplate(e.target.value)}
-          >
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {template && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Question</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {css && <style>{sanitizeCss(css)}</style>}
-              {/* oxlint-disable react/no-danger -- sanitized HTML */}
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: expandMediaTags(sanitizeHtml(questionHtml)),
-                }}
-              />
-              {/* oxlint-enable react/no-danger */}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Answer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {css && <style>{sanitizeCss(css)}</style>}
-              {/* oxlint-disable react/no-danger -- sanitized HTML */}
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: expandMediaTags(sanitizeHtml(answerHtml)),
-                }}
-              />
-              {/* oxlint-enable react/no-danger */}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {!template && templates.length === 0 && (
-        <div className="flex items-center justify-center rounded-lg border border-dashed py-8">
-          <p className="text-sm text-muted-foreground">
-            Add a template first to see a preview.
-          </p>
-        </div>
-      )}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

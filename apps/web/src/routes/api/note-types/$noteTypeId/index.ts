@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireSession } from "../../../lib/auth-middleware";
-import { NoteTypeService } from "../../../lib/services/note-type-service";
-import { db } from "../../../db";
+import { requireSession } from "../../../../lib/auth-middleware";
+import { NoteTypeService } from "../../../../lib/services/note-type-service";
+import { db } from "../../../../db";
 
 const noteTypeService = new NoteTypeService(db);
 
-export const Route = createFileRoute("/api/note-types/$noteTypeId")({
+export const Route = createFileRoute("/api/note-types/$noteTypeId/")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
