@@ -1,7 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { html } from "@codemirror/lang-html";
-import type { EditorView } from "@codemirror/view";
 import { Plus, Type, Braces, Hash } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
+
+/** Minimal type for the CodeMirror EditorView methods we use. */
+type CodeEditorView = {
+  state: { selection: { main: { from: number; to: number } } };
+  dispatch(spec: {
+    changes: { from: number; to: number; insert: string };
+    selection: { anchor: number };
+  }): void;
+  focus(): void;
+};
 
 type TemplateCodeEditorProps = {
   value: string;
@@ -31,7 +40,7 @@ export function TemplateCodeEditor({
   isAnswerTemplate,
   className,
 }: TemplateCodeEditorProps): React.ReactElement {
-  const viewRef = useRef<EditorView | null>(null);
+  const viewRef = useRef<CodeEditorView | undefined>(undefined);
 
   const insertText = useCallback((text: string) => {
     const view = viewRef.current;
@@ -62,7 +71,7 @@ export function TemplateCodeEditor({
         value={value}
         onChange={onChange}
         extensions={extensions}
-        onCreateEditor={(view) => {
+        onCreateEditor={(view: CodeEditorView) => {
           viewRef.current = view;
         }}
         basicSetup={{

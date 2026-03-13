@@ -1,6 +1,39 @@
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
+/**
+ * Helper: set sample data for a field in the preview tab.
+ */
+async function setSampleField(
+  page: Page,
+  fieldName: string,
+  value: string,
+): Promise<void> {
+  const input = page.locator(`#sample-${fieldName}`);
+  await input.clear();
+  await input.fill(value);
+}
+
+/**
+ * Helper: get the question preview card element.
+ */
+function questionCard(page: Page) {
+  return page
+    .locator('[class*="card"]')
+    .filter({ has: page.getByText("Question", { exact: true }) })
+    .locator(".card");
+}
+
+/**
+ * Helper: get the answer preview card element.
+ */
+function answerCard(page: Page) {
+  return page
+    .locator('[class*="card"]')
+    .filter({ has: page.getByText("Answer", { exact: true }) })
+    .locator(".card");
+}
+
 test.describe("Template preview rendering", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -70,39 +103,6 @@ test.describe("Template preview rendering", () => {
     // Switch to preview tab
     await page.getByRole("tab", { name: "Preview" }).click();
     await expect(page.getByText("Sample Data")).toBeVisible();
-  }
-
-  /**
-   * Helper: set sample data for a field in the preview tab.
-   */
-  async function setSampleField(
-    page: Page,
-    fieldName: string,
-    value: string,
-  ): Promise<void> {
-    const input = page.locator(`#sample-${fieldName}`);
-    await input.clear();
-    await input.fill(value);
-  }
-
-  /**
-   * Helper: get the question preview card element.
-   */
-  function questionCard(page: Page) {
-    return page
-      .locator('[class*="card"]')
-      .filter({ has: page.getByText("Question", { exact: true }) })
-      .locator(".card");
-  }
-
-  /**
-   * Helper: get the answer preview card element.
-   */
-  function answerCard(page: Page) {
-    return page
-      .locator('[class*="card"]')
-      .filter({ has: page.getByText("Answer", { exact: true }) })
-      .locator(".card");
   }
 
   test("setup: create note type with template", async ({ page }) => {

@@ -9,7 +9,7 @@ import { wireSoundButtons } from "@/lib/media-tags";
 export function useCardAudio(
   containerRef: React.RefObject<HTMLElement>,
   audioKey: string,
-  autoplay: boolean = true,
+  autoplay = true,
 ): { replay: () => void } {
   const abortRef = useRef(false);
 
@@ -89,7 +89,9 @@ export function useCardAudio(
     const timer = autoplay ? setTimeout(playAll, 50) : undefined;
 
     return () => {
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       abortRef.current = true;
       cleanupButtons?.();
       // Pause captured audio elements (not the new card's elements)

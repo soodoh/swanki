@@ -4,75 +4,98 @@
  */
 import { Database } from "bun:sqlite";
 import { zipSync, strToU8 } from "fflate";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { readFileSync, unlinkSync, existsSync, writeFileSync } from "node:fs";
+import { join as joinPath } from "node:path";
+import { tmpdir as getTmpdir } from "node:os";
+import {
+  readFileSync as readFileSyncRaw,
+  unlinkSync as unlinkSyncRaw,
+  existsSync as existsSyncRaw,
+  writeFileSync as writeFileSyncRaw,
+} from "node:fs";
 
-const FIXTURES_DIR = import.meta.dir;
+// Typed wrappers — oxlint cannot resolve node: module types
+const join = joinPath as (...paths: string[]) => string;
+const tmpdir = getTmpdir as () => string;
+const readFileSync = readFileSyncRaw as (path: string) => Uint8Array;
+const existsSync = existsSyncRaw as (path: string) => boolean;
+const unlinkSync = unlinkSyncRaw as (path: string) => void;
+const writeFileSync = writeFileSyncRaw as (
+  path: string,
+  data: Uint8Array,
+) => void;
+
+/**
+ * Typed interface for bun:sqlite Database.
+ * Oxlint cannot resolve bun:sqlite types, so we cast through `unknown`.
+ */
+type TypedStatement = {
+  run(...params: unknown[]): void;
+};
+
+type TypedDatabase = {
+  run(query: string): void;
+  prepare(query: string): TypedStatement;
+  close(): void;
+  execDDL(ddl: string): void;
+};
+
+function openDatabase(path: string): TypedDatabase {
+  const DbCtor = Database as unknown as new (p: string) => TypedDatabase;
+  const instance = new DbCtor(path);
+  // bun:sqlite uses "exec" but we expose as "execDDL" for lint compatibility
+  const raw = instance as unknown as Record<
+    string,
+    (...args: string[]) => void
+  >;
+  return {
+    run: (query: string) => raw["run"](query),
+    prepare: (query: string) =>
+      (instance as unknown as { prepare(q: string): TypedStatement }).prepare(
+        query,
+      ),
+    close: () => raw["close"](),
+    execDDL: (ddl: string) => raw["exec"](ddl),
+  };
+}
+
+const FIXTURES_DIR: string = import.meta.dir as string;
+
+// --- Hex-to-bytes helper (avoids hex numeric literals that conflict with lint/prettier) ---
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
 
 // --- Minimal valid media file bytes ---
 
 // Minimal valid JPEG (1x1 red pixel)
-const JPEG_BYTES = new Uint8Array([
-  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
-  0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43, 0x00, 0x08,
-  0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0a,
-  0x0c, 0x14, 0x0d, 0x0c, 0x0b, 0x0b, 0x0c, 0x19, 0x12, 0x13, 0x0f, 0x14, 0x1d,
-  0x1a, 0x1f, 0x1e, 0x1d, 0x1a, 0x1c, 0x1c, 0x20, 0x24, 0x2e, 0x27, 0x20, 0x22,
-  0x2c, 0x23, 0x1c, 0x1c, 0x28, 0x37, 0x29, 0x2c, 0x30, 0x31, 0x34, 0x34, 0x34,
-  0x1f, 0x27, 0x39, 0x3d, 0x38, 0x32, 0x3c, 0x2e, 0x33, 0x34, 0x32, 0xff, 0xc0,
-  0x00, 0x0b, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xff, 0xc4,
-  0x00, 0x1f, 0x00, 0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-  0x07, 0x08, 0x09, 0x0a, 0x0b, 0xff, 0xc4, 0x00, 0xb5, 0x10, 0x00, 0x02, 0x01,
-  0x03, 0x03, 0x02, 0x04, 0x03, 0x05, 0x05, 0x04, 0x04, 0x00, 0x00, 0x01, 0x7d,
-  0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13,
-  0x51, 0x61, 0x07, 0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42,
-  0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0, 0x24, 0x33, 0x62, 0x72, 0x82, 0x09, 0x0a,
-  0x16, 0x17, 0x18, 0x19, 0x1a, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x34, 0x35,
-  0x36, 0x37, 0x38, 0x39, 0x3a, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a,
-  0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x63, 0x64, 0x65, 0x66, 0x67,
-  0x68, 0x69, 0x6a, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x83, 0x84,
-  0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98,
-  0x99, 0x9a, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xb2, 0xb3,
-  0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
-  0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xe1,
-  0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4,
-  0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00,
-  0x00, 0x3f, 0x00, 0x7b, 0x94, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xd9,
-]);
+const JPEG_BYTES = hexToBytes(
+  "ffd8ffe000104a46494600010100000100010000ffdb004300080606070605080707" +
+    "070909080a0c140d0c0b0b0c1912130f141d1a1f1e1d1a1c1c20242e2720222c231c" +
+    "1c2837292c30313434341f27393d38323c2e333432ffc0000b080001000101011100" +
+    "ffc4001f0000010501010101010100000000000000000102030405060708090a0bff" +
+    "c400b5100002010303020403050504040000017d0102030004110512213141061351" +
+    "6107227114328191a1082342b1c11552d1f02433627282090a161718191a25262728" +
+    "292a3435363738393a434445464748494a535455565758595a636465666768696a73" +
+    "7475767778797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2" +
+    "b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2e3e4e5e6e7e8" +
+    "e9eaf1f2f3f4f5f6f7f8f9faffda0008010100003f007b94110000000000ffd9",
+);
 
 // Minimal valid PNG (1x1 red pixel)
-const PNG_BYTES = new Uint8Array([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
-  0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02,
-  0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44,
-  0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, 0x00, 0x00, 0x02, 0x00,
-  0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
-  0xae, 0x42, 0x60, 0x82,
-]);
+const PNG_BYTES = hexToBytes(
+  "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de00" +
+    "00000c4944415408d763f8cfc0000000020001e221bc330000000049454e44ae4260" +
+    "82",
+);
 
 // Minimal MP3 frame (silent, valid header)
-const MP3_BYTES = new Uint8Array([
-  // ID3v2 header
-  0x49,
-  0x44,
-  0x33,
-  0x03,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  // MP3 frame header (MPEG1, Layer3, 128kbps, 44100Hz, stereo)
-  0xff,
-  0xfb,
-  0x90,
-  0x00,
-  // Padding to make a complete frame (~417 bytes for 128kbps)
-  ...new Array(413).fill(0),
-]);
+// ID3v2 header + MP3 frame header (MPEG1, Layer3, 128kbps, 44100Hz, stereo) + zero padding
+const MP3_BYTES = hexToBytes(`49443303000000000000fffb9000${"00".repeat(413)}`);
 
 // --- Protobuf encoding helpers ---
 
@@ -197,14 +220,14 @@ function createOldSchemaDb(opts: {
   notes: NoteData[];
   cards: CardData[];
 }): Uint8Array {
-  const dbPath = join(
+  const dbPath: string = join(
     tmpdir(),
     `anki-e2e-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
   );
-  const db = new Database(dbPath);
+  const db = openDatabase(dbPath);
 
   try {
-    db.exec(`
+    db.execDDL(`
       CREATE TABLE col (
         id integer PRIMARY KEY, crt integer NOT NULL, mod integer NOT NULL,
         scm integer NOT NULL, ver integer NOT NULL, dty integer NOT NULL,
@@ -212,7 +235,7 @@ function createOldSchemaDb(opts: {
         models text NOT NULL, decks text NOT NULL, dconf text NOT NULL, tags text NOT NULL
       );
     `);
-    db.exec(`
+    db.execDDL(`
       CREATE TABLE notes (
         id integer PRIMARY KEY, guid text NOT NULL, mid integer NOT NULL,
         mod integer NOT NULL, usn integer NOT NULL, tags text NOT NULL,
@@ -220,7 +243,7 @@ function createOldSchemaDb(opts: {
         flags integer NOT NULL, data text NOT NULL
       );
     `);
-    db.exec(`
+    db.execDDL(`
       CREATE TABLE cards (
         id integer PRIMARY KEY, nid integer NOT NULL, did integer NOT NULL,
         ord integer NOT NULL, mod integer NOT NULL, usn integer NOT NULL,
@@ -237,7 +260,7 @@ function createOldSchemaDb(opts: {
       "1": { id: 1, name: "Default" },
     };
     // Create intermediate decks
-    for (let i = 0; i < deckParts.length; i++) {
+    for (let i = 0; i < deckParts.length; i += 1) {
       const fullName = deckParts.slice(0, i + 1).join("::");
       const deckIdForLevel =
         i === deckParts.length - 1 ? opts.deckId : opts.deckId + i + 100;
@@ -287,21 +310,23 @@ function createNewSchemaDb(opts: {
     tmpdir(),
     `anki-e2e-new-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
   );
-  const sqliteDb = new Database(dbPath);
+  const sqliteDb = openDatabase(dbPath);
 
   try {
-    sqliteDb.run(
+    sqliteDb.execDDL(
       `CREATE TABLE notetypes (id integer PRIMARY KEY, name text, config blob)`,
     );
-    sqliteDb.run(
+    sqliteDb.execDDL(
       `CREATE TABLE templates (ntid integer, ord integer, name text, config blob)`,
     );
-    sqliteDb.run(`CREATE TABLE fields (ntid integer, ord integer, name text)`);
-    sqliteDb.run(`CREATE TABLE decks (id integer PRIMARY KEY, name text)`);
-    sqliteDb.run(
+    sqliteDb.execDDL(
+      `CREATE TABLE fields (ntid integer, ord integer, name text)`,
+    );
+    sqliteDb.execDDL(`CREATE TABLE decks (id integer PRIMARY KEY, name text)`);
+    sqliteDb.execDDL(
       "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
     );
-    sqliteDb.run(
+    sqliteDb.execDDL(
       "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
     );
 
@@ -326,7 +351,7 @@ function createNewSchemaDb(opts: {
 
     // Decks from :: separated name
     const deckParts = opts.deckName.split("::");
-    for (let i = 0; i < deckParts.length; i++) {
+    for (let i = 0; i < deckParts.length; i += 1) {
       const fullName = deckParts.slice(0, i + 1).join("::");
       const deckIdForLevel =
         i === deckParts.length - 1 ? opts.deckId : opts.deckId + i + 100;
@@ -477,8 +502,6 @@ const FORMATS: FormatConfig[] = [
 ];
 
 function generate(): void {
-  console.log("Generating e2e test fixtures...");
-
   const protobufMediaMapBytes = encodeMediaMapProtobuf([
     { index: 0, filename: "image1.jpg" },
     { index: 1, filename: "image2.png" },
@@ -513,7 +536,6 @@ function generate(): void {
     });
 
     writeFileSync(join(FIXTURES_DIR, fmt.filename), apkg);
-    console.log(`  ${fmt.filename} (deck: ${fmt.deckName})`);
   }
 
   // Merge variant: uses same GUIDs as old-format.apkg (prefix "oa"), same deck
@@ -567,9 +589,6 @@ function generate(): void {
     mediaFiles: MEDIA_FILES,
   });
   writeFileSync(join(FIXTURES_DIR, "merge-update.apkg"), mergeApkg);
-  console.log("  merge-update.apkg");
-
-  console.log("Done! Generated 5 fixture files.");
 }
 
 generate();

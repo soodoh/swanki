@@ -222,7 +222,7 @@ describe("parseCrowdAnkiZip", () => {
     const deckJson = JSON.stringify(makeFixture({ media_files: ["pic.png"] }));
     const buf = makeZip({
       "MyDeck/deck.json": deckJson,
-      "MyDeck/pic.png": new Uint8Array([0x89, 0x50]),
+      "MyDeck/pic.png": new Uint8Array([137, 80]),
     });
 
     const result = parseCrowdAnkiZip(buf);
@@ -235,7 +235,7 @@ describe("parseCrowdAnkiZip", () => {
     const deckJson = JSON.stringify(makeFixture());
     const buf = makeZip({
       "deck.json": deckJson,
-      "media/image.jpg": new Uint8Array([0xff, 0xd8]),
+      "media/image.jpg": new Uint8Array([255, 216]),
     });
 
     const result = parseCrowdAnkiZip(buf);

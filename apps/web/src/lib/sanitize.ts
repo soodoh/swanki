@@ -19,12 +19,11 @@ export function sanitizeHtml(html: string): string {
  */
 export function sanitizeCss(css: string): string {
   // Escape closing style tag sequences to prevent style tag breakout
-  // oxlint-disable-next-line eslint-plugin-unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
-  let result = css.replace(/<\/style/gi, String.raw`<\/style`);
+  const escaped = css.split(/<\/style/gi).join(String.raw`<\/style`);
 
   // Strip `.card { ... }` rules entirely. Anki note types include a `.card`
   // rule with hardcoded colors/fonts that conflict with the app's Tailwind theme.
-  result = result.replace(/\.card\s*\{[^}]*\}/g, "");
+  const stripped = escaped.split(/\.card\s*\{[^}]*\}/g).join("");
 
-  return result;
+  return stripped;
 }

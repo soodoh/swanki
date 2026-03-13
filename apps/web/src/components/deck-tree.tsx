@@ -520,7 +520,9 @@ export function DeckTree({
   const allDecks = useMemo(() => flattenDecks(decks), [decks]);
   const updateDeck = useUpdateDeck();
 
-  const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
+  const [activeDeckId, setActiveDeckId] = useState<string | undefined>(
+    undefined,
+  );
   const [invalidDropIds, setInvalidDropIds] = useState<Set<string>>(new Set());
 
   const activeDeck = activeDeckId
@@ -541,7 +543,7 @@ export function DeckTree({
 
   function handleDragEnd(event: DragEndEvent): void {
     const { active, over } = event;
-    setActiveDeckId(null);
+    setActiveDeckId(undefined);
     setInvalidDropIds(new Set());
 
     if (!over) {
@@ -626,7 +628,7 @@ export function DeckTree({
             </div>
           </div>
 
-          {activeDeckId !== null && <RootDropZone />}
+          {activeDeckId !== undefined && <RootDropZone />}
 
           <DragOverlay>
             {activeDeck ? (
