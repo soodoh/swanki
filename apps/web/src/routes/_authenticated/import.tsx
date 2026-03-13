@@ -18,10 +18,25 @@ export const Route = createFileRoute("/_authenticated/import")({
 });
 
 const STEPS = [
-  { label: "Upload", description: "Select a file" },
-  { label: "Configure", description: "Adjust settings" },
-  { label: "Preview", description: "Review cards" },
-  { label: "Import", description: "Process file" },
+  {
+    label: "Upload",
+    description: "Select a file",
+    title: "Upload File",
+    subtitle: "Select an Anki package, CSV, or CrowdAnki file to import.",
+  },
+  {
+    label: "Configure",
+    description: "Adjust settings",
+    title: "Configure Import",
+    subtitle: "Adjust settings before importing.",
+  },
+  {
+    label: "Preview",
+    description: "Review cards",
+    title: "Preview Import",
+    subtitle: "Review the cards that will be imported.",
+  },
+  { label: "Import", description: "Process file", title: "", subtitle: "" },
 ] as const;
 
 function parseCsvLocal(
@@ -62,7 +77,7 @@ function stepperClass(index: number, currentStep: number): string {
 
 function Stepper({ currentStep }: { currentStep: number }): React.ReactElement {
   return (
-    <div className="mb-8">
+    <div className="mb-4">
       <div className="flex items-center justify-between">
         {STEPS.map((step, index) => (
           <div key={step.label} className="flex items-center">
@@ -425,6 +440,46 @@ function ImportPage(): React.ReactElement {
     <div className="mx-auto max-w-2xl py-6">
       <Stepper currentStep={currentStep} />
 
+      {/* Step title + navigation bar */}
+      {currentStep < 3 && (
+        <div className="mb-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">
+              {STEPS[currentStep]?.title}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {STEPS[currentStep]?.subtitle}
+            </p>
+          </div>
+          <div className="flex items-center justify-between border-b pb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBack}
+              disabled={currentStep === 0}
+              className="-ml-2"
+            >
+              <ChevronLeft className="size-4" data-icon="inline-start" />
+              Back
+            </Button>
+
+            <Button size="sm" onClick={handleNext} disabled={!canProceed}>
+              {currentStep === 2 ? (
+                <>
+                  <Upload className="size-4" data-icon="inline-start" />
+                  Import
+                </>
+              ) : (
+                <>
+                  Next
+                  <ChevronRight className="size-4" data-icon="inline-end" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Step content */}
       <div className="min-h-[300px]">
         {currentStep === 0 && (
@@ -464,35 +519,6 @@ function ImportPage(): React.ReactElement {
           <ProgressStep importProgress={importProgress} onRetry={handleRetry} />
         )}
       </div>
-
-      {/* Navigation buttons */}
-      {currentStep < 3 && (
-        <div className="mt-8 flex items-center justify-between border-t pt-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleBack}
-            disabled={currentStep === 0}
-          >
-            <ChevronLeft className="size-4" data-icon="inline-start" />
-            Back
-          </Button>
-
-          <Button size="sm" onClick={handleNext} disabled={!canProceed}>
-            {currentStep === 2 ? (
-              <>
-                <Upload className="size-4" data-icon="inline-start" />
-                Start Import
-              </>
-            ) : (
-              <>
-                Next
-                <ChevronRight className="size-4" data-icon="inline-end" />
-              </>
-            )}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

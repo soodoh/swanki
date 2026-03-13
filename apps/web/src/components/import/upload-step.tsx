@@ -109,13 +109,6 @@ export function UploadStep({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Upload File</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Select an Anki package, CSV, or CrowdAnki file to import.
-        </p>
-      </div>
-
       {/* Drop zone */}
       <div
         onDragOver={handleDragOver}
