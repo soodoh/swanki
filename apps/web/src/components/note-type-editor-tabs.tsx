@@ -643,8 +643,7 @@ export function PreviewTab({
               {css && <style>{sanitizeCss(css)}</style>}
               {/* oxlint-disable react/no-danger -- sanitized HTML */}
               <div
-                className="card prose prose-sm dark:prose-invert max-w-none"
-                style={{ backgroundColor: "transparent", color: "inherit" }}
+                className="prose prose-sm dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{
                   __html: expandMediaTags(sanitizeHtml(questionHtml)),
                 }}
@@ -661,8 +660,7 @@ export function PreviewTab({
               {css && <style>{sanitizeCss(css)}</style>}
               {/* oxlint-disable react/no-danger -- sanitized HTML */}
               <div
-                className="card prose prose-sm dark:prose-invert max-w-none"
-                style={{ backgroundColor: "transparent", color: "inherit" }}
+                className="prose prose-sm dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{
                   __html: expandMediaTags(sanitizeHtml(answerHtml)),
                 }}
