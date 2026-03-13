@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import type { ImportProgress } from "@/components/import/progress-step";
 import type { ApkgPreviewData } from "@/lib/import/apkg-parser-client";
 import { buildClientPreview } from "@/lib/import/apkg-parser-client";
 import { buildCrowdAnkiPreview } from "@/lib/import/crowdanki-parser";
+import { uploadWithProgress } from "@/lib/upload-with-progress";
+import type { ImportJobStatus } from "@/lib/import/import-job";
 
 export const Route = createFileRoute("/_authenticated/import")({
   component: ImportPage,
@@ -56,6 +58,7 @@ function parseCsvLocal(
 type WizardState = {
   currentStep: number;
   file: File | undefined;
+  fileId: string | undefined;
   detectedFormat: string | undefined;
   config: ImportConfig;
   csvData: { headers: string[]; rows: string[][] } | undefined;
@@ -138,9 +141,11 @@ let cachedState: WizardState | undefined;
 function ImportPage(): React.ReactElement {
   const [currentStep, setCurrentStep] = useState(cachedState?.currentStep ?? 0);
   const [file, setFile] = useState<File | undefined>(cachedState?.file);
+  const [fileId, setFileId] = useState<string | undefined>(cachedState?.fileId);
   const [detectedFormat, setDetectedFormat] = useState<string | undefined>(
     cachedState?.detectedFormat,
   );
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const [config, setConfig] = useState<ImportConfig>(cachedState?.config ?? {});
   const [csvData, setCsvData] = useState<
     | {
@@ -178,6 +183,7 @@ function ImportPage(): React.ReactElement {
     cachedState = {
       currentStep,
       file,
+      fileId,
       detectedFormat,
       config,
       csvData,
@@ -189,6 +195,7 @@ function ImportPage(): React.ReactElement {
   }, [
     currentStep,
     file,
+    fileId,
     detectedFormat,
     config,
     csvData,
@@ -197,6 +204,15 @@ function ImportPage(): React.ReactElement {
     previewLoading,
     previewError,
   ]);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+      }
+    };
+  }, []);
 
   // Parse CSV when file is selected and format is csv/txt
   useEffect(() => {
@@ -291,10 +307,15 @@ function ImportPage(): React.ReactElement {
   }, [currentStep]);
 
   const handleRetry = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = undefined;
+    }
     cachedState = undefined;
     setImportProgress({ status: "idle", progress: 0 });
     setCurrentStep(0);
     setFile(undefined);
+    setFileId(undefined);
     setDetectedFormat(undefined);
     setConfig({});
     setCsvData(undefined);
@@ -303,25 +324,40 @@ function ImportPage(): React.ReactElement {
     setPreviewError(undefined);
   }, []);
 
+  async function ensureUploaded(uploadFile: File): Promise<string> {
+    if (fileId) {
+      return fileId;
+    }
+    const result = await uploadWithProgress(uploadFile, () => {
+      // Upload progress during preview is not shown
+    });
+    setFileId(result.fileId);
+    return result.fileId;
+  }
+
   async function fetchApkgPreview(previewFile: File): Promise<void> {
     setPreviewLoading(true);
     setPreviewError(undefined);
     setApkgPreview(undefined);
 
     try {
+      // Upload file first (if not already uploaded)
+      const uploadedFileId = await ensureUploaded(previewFile);
+
       const buffer = await previewFile.arrayBuffer();
       const data = await buildClientPreview(buffer);
       setApkgPreview(data);
 
-      // Fetch merge stats from server (needs DB access to compare with existing notes)
+      // Fetch merge stats from server using fileId (no re-upload)
       const mergeMode = config.apkg?.mergeMode ?? "merge";
       if (mergeMode === "merge") {
-        const formData = new FormData();
-        formData.append("file", previewFile);
-        formData.append("mergeMode", mergeMode);
         const res = await fetch("/api/import/preview", {
           method: "POST",
-          body: formData,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileId: uploadedFileId,
+            mergeMode,
+          }),
         });
         if (res.ok) {
           const serverData = (await res.json()) as {
@@ -352,12 +388,14 @@ function ImportPage(): React.ReactElement {
       const data = buildCrowdAnkiPreview(buffer);
       setApkgPreview(data);
 
-      // Fetch merge stats from server (needs DB access to compare with existing notes)
-      const formData = new FormData();
-      formData.append("file", previewFile);
+      // Upload file for merge stats (if not already uploaded)
+      const uploadedFileId = await ensureUploaded(previewFile);
+
+      // Fetch merge stats from server using fileId (no re-upload)
       const res = await fetch("/api/import/preview", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId: uploadedFileId }),
       });
       if (res.ok) {
         const serverData = (await res.json()) as {
@@ -383,11 +421,169 @@ function ImportPage(): React.ReactElement {
     }
 
     setCurrentStep(3);
+    const isAsyncFormat =
+      detectedFormat === "apkg" || detectedFormat === "colpkg";
+
+    await (isAsyncFormat ? runAsyncImport(file) : runSyncImport(file));
+  }
+
+  async function runAsyncImport(importFile: File): Promise<void> {
+    try {
+      // Phase 1: Upload (0-40%) — with real byte-level progress
+      let uploadedFileId = fileId;
+      if (uploadedFileId) {
+        // Already uploaded during preview
+        setImportProgress({
+          status: "uploading",
+          progress: 40,
+          phase: "Uploading",
+          detail: "File already uploaded",
+        });
+      } else {
+        setImportProgress({
+          status: "uploading",
+          progress: 0,
+          phase: "Uploading",
+          detail: "Sending file to server...",
+        });
+
+        const result = await uploadWithProgress(importFile, (loaded, total) => {
+          const pct = Math.round((loaded / total) * 40);
+          setImportProgress({
+            status: "uploading",
+            progress: pct,
+            phase: "Uploading",
+            detail: `${Math.round(loaded / 1024 / 1024)}MB / ${Math.round(total / 1024 / 1024)}MB`,
+          });
+        });
+        uploadedFileId = result.fileId;
+        setFileId(result.fileId);
+      }
+
+      // Phase 2: Start async processing (40-95%)
+      setImportProgress({
+        status: "processing",
+        progress: 40,
+        phase: "Processing",
+        detail: "Starting import...",
+      });
+
+      const startRes = await fetch("/api/import/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileId: uploadedFileId,
+          mergeMode: config.apkg?.mergeMode ?? "merge",
+        }),
+      });
+
+      if (!startRes.ok) {
+        const errData = (await startRes.json()) as { error?: string };
+        throw new Error(errData.error ?? "Failed to start import");
+      }
+
+      const { jobId } = (await startRes.json()) as { jobId: string };
+
+      // Poll for progress
+      await pollJobStatus(jobId);
+    } catch (error) {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = undefined;
+      }
+      const message = error instanceof Error ? error.message : "Import failed";
+      setImportProgress({
+        status: "error",
+        progress: 0,
+        errorMessage: message,
+      });
+    }
+  }
+
+  async function pollJobStatus(jobId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const poll = () => {
+        void (async () => {
+          try {
+            const res = await fetch(`/api/import/status/${jobId}`);
+            if (!res.ok) {
+              throw new Error("Failed to fetch job status");
+            }
+
+            const job = (await res.json()) as ImportJobStatus;
+
+            if (job.status === "processing") {
+              // Map server progress (0-100 within phases) to overall progress (40-95)
+              let overallProgress = 40;
+              if (job.phase === "parsing") {
+                overallProgress = 42;
+              } else if (job.phase === "media") {
+                overallProgress = 45 + Math.round(job.progress * 0.1);
+              } else if (job.phase === "notes") {
+                overallProgress = 55 + Math.round(job.progress * 0.25);
+              } else if (job.phase === "cards") {
+                overallProgress = 80 + Math.round(job.progress * 0.15);
+              }
+
+              setImportProgress({
+                status: "processing",
+                progress: overallProgress,
+                phase: job.phase,
+                detail: job.detail,
+              });
+            } else if (job.status === "complete" && job.result) {
+              if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = undefined;
+              }
+              setImportProgress({
+                status: "complete",
+                progress: 100,
+                result: {
+                  cardCount: job.result.cardCount,
+                  noteCount: job.result.noteCount,
+                  deckCount: job.result.deckCount,
+                  duplicatesSkipped: job.result.duplicatesSkipped ?? 0,
+                  notesUpdated: job.result.notesUpdated,
+                  errors: job.result.mediaWarnings ?? [],
+                  mediaCount: job.result.mediaCount,
+                },
+              });
+              resolve();
+            } else if (job.status === "error") {
+              if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = undefined;
+              }
+              setImportProgress({
+                status: "error",
+                progress: 0,
+                errorMessage: job.error ?? "Import failed",
+              });
+              resolve();
+            }
+          } catch (error) {
+            if (pollRef.current) {
+              clearInterval(pollRef.current);
+              pollRef.current = undefined;
+            }
+            reject(error);
+          }
+        })();
+      };
+
+      // Poll immediately, then every 750ms
+      poll();
+      pollRef.current = setInterval(poll, 750);
+    });
+  }
+
+  async function runSyncImport(importFile: File): Promise<void> {
     setImportProgress({ status: "uploading", progress: 20 });
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", importFile);
       formData.append("mergeMode", config.apkg?.mergeMode ?? "merge");
 
       setImportProgress({ status: "processing", progress: 50 });

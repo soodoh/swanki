@@ -27,6 +27,8 @@ function getSubheading(status: string): string {
 export type ImportProgress = {
   status: "idle" | "uploading" | "processing" | "complete" | "error";
   progress: number;
+  phase?: string;
+  detail?: string;
   result?: {
     cardCount: number;
     noteCount: number;
@@ -48,7 +50,8 @@ export function ProgressStep({
   importProgress,
   onRetry,
 }: ProgressStepProps): React.ReactElement {
-  const { status, progress, result, errorMessage } = importProgress;
+  const { status, progress, phase, detail, result, errorMessage } =
+    importProgress;
 
   return (
     <div className="space-y-6">
@@ -64,9 +67,16 @@ export function ProgressStep({
         <div className="space-y-2">
           <Progress value={progress}>
             <span className="text-xs text-muted-foreground">
-              {status === "uploading" ? "Uploading..." : "Processing..."}
+              {status === "uploading"
+                ? "Uploading..."
+                : (phase ?? "Processing...")}
             </span>
           </Progress>
+          {detail && (
+            <p className="text-center text-xs text-muted-foreground">
+              {detail}
+            </p>
+          )}
           <p className="text-center text-xs text-muted-foreground">
             {Math.round(progress)}%
           </p>
