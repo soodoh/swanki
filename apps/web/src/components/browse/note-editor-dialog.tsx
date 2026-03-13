@@ -9,7 +9,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -152,6 +151,27 @@ export function NoteEditorDialog({
 
               <TabsContent value="note" className="mt-4 overflow-y-auto">
                 <div className="space-y-4">
+                  {/* Deck selector */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Deck</Label>
+                    <Select
+                      value={selectedDeckId}
+                      onValueChange={setSelectedDeckId}
+                    >
+                      <SelectTrigger className="w-full text-xs">
+                        {flatDecks.find((d) => String(d.id) === selectedDeckId)
+                          ?.name ?? "Select deck"}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {flatDecks.map((deck) => (
+                          <SelectItem key={deck.id} value={String(deck.id)}>
+                            {deck.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Note fields */}
                   <div className="space-y-3">
                     {noteTypeFields.map((field) => {
@@ -206,37 +226,6 @@ export function NoteEditorDialog({
                         );
                       })}
                   </div>
-
-                  {/* Deck selector */}
-                  <div className="space-y-1">
-                    <Label className="text-xs">Deck</Label>
-                    <Select
-                      value={selectedDeckId}
-                      onValueChange={setSelectedDeckId}
-                    >
-                      <SelectTrigger className="w-full text-xs">
-                        <SelectValue placeholder="Select deck" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {flatDecks.map((deck) => (
-                          <SelectItem key={deck.id} value={String(deck.id)}>
-                            {deck.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Save button */}
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => void handleSave()}
-                    disabled={updateNote.isPending}
-                  >
-                    <Save className="size-3.5" data-icon="inline-start" />
-                    {updateNote.isPending ? "Saving..." : "Save Changes"}
-                  </Button>
                 </div>
               </TabsContent>
 
@@ -297,8 +286,8 @@ export function NoteEditorDialog({
               </TabsContent>
             </Tabs>
 
-            {/* Footer with delete button */}
-            <div className="flex justify-end border-t pt-4">
+            {/* Footer with delete and save buttons */}
+            <div className="flex justify-end gap-2 border-t pt-4">
               <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <Button
                   variant="destructive"
@@ -333,6 +322,14 @@ export function NoteEditorDialog({
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              <Button
+                size="sm"
+                onClick={() => void handleSave()}
+                disabled={updateNote.isPending}
+              >
+                <Save className="size-3.5" data-icon="inline-start" />
+                {updateNote.isPending ? "Saving..." : "Save Changes"}
+              </Button>
             </div>
           </>
         )}
