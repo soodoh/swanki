@@ -255,23 +255,53 @@ function ApkgContentArea({
 function PreviewSkeleton(): React.ReactElement {
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium">Loading preview...</h3>
-      {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="animate-pulse overflow-hidden rounded-lg border"
-        >
-          <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2">
-            <div className="h-4 w-6 rounded bg-muted" />
-            <div className="h-5 w-20 rounded bg-muted" />
+      <div className="h-5 w-56 animate-pulse rounded bg-muted" />
+
+      <div className="relative mx-12">
+        {/* Single card skeleton matching ApkgCardPreview layout */}
+        <div className="animate-pulse overflow-hidden rounded-lg border">
+          {/* Header: index + badge + show back button */}
+          <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-5 rounded bg-muted" />
+              <div className="h-5 w-20 rounded-full bg-muted" />
+            </div>
+            <div className="h-7 w-20 rounded bg-muted" />
           </div>
-          <div className="space-y-2 p-4">
-            <div className="h-3 w-8 rounded bg-muted" />
-            <div className="h-4 w-3/4 rounded bg-muted" />
-            <div className="h-4 w-1/2 rounded bg-muted" />
+          {/* Body: "Front" label + content lines */}
+          <div className="p-4">
+            <div className="mb-2 h-3 w-10 rounded bg-muted" />
+            <div className="space-y-2">
+              <div className="h-4 w-5/6 rounded bg-muted" />
+              <div className="h-4 w-3/4 rounded bg-muted" />
+              <div className="h-4 w-1/2 rounded bg-muted" />
+            </div>
           </div>
         </div>
-      ))}
+
+        {/* Prev/next arrow placeholders */}
+        <div className="absolute -left-12 top-1/2 size-8 -translate-y-1/2 rounded-full border bg-background" />
+        <div className="absolute -right-12 top-1/2 size-8 -translate-y-1/2 rounded-full border bg-background" />
+      </div>
+
+      {/* Dot indicators */}
+      <div className="flex justify-center gap-1.5 pt-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={cn(
+              "size-2 rounded-full",
+              i === 0 ? "bg-primary" : "bg-muted-foreground/30",
+            )}
+          />
+        ))}
+      </div>
+
+      {/* Info box skeleton */}
+      <div className="flex items-start gap-2 rounded-lg border bg-muted/20 p-3">
+        <Info className="mt-0.5 size-4 text-muted-foreground" />
+        <div className="h-4 w-64 animate-pulse rounded bg-muted" />
+      </div>
     </div>
   );
 }
