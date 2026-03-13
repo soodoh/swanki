@@ -13,17 +13,9 @@ export function sanitizeHtml(html: string): string {
 }
 
 /**
- * Sanitize CSS to prevent style tag breakout attacks and strip Anki's
- * hardcoded `.card` colors so the app theme (via Tailwind prose classes)
- * controls card appearance in both light and dark mode.
+ * Sanitize CSS to prevent style tag breakout attacks.
  */
 export function sanitizeCss(css: string): string {
   // Escape closing style tag sequences to prevent style tag breakout
-  const escaped = css.split(/<\/style/gi).join(String.raw`<\/style`);
-
-  // Strip `.card { ... }` rules entirely. Anki note types include a `.card`
-  // rule with hardcoded colors/fonts that conflict with the app's Tailwind theme.
-  const stripped = escaped.split(/\.card\s*\{[^}]*\}/g).join("");
-
-  return stripped;
+  return css.split(/<\/style/gi).join(String.raw`<\/style`);
 }
