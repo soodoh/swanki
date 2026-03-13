@@ -13,12 +13,18 @@ export function sanitizeHtml(html: string): string {
 }
 
 /**
- * Sanitize CSS to prevent style tag breakout attacks.
- * A closing style tag sequence in CSS can terminate the style element
- * and allow injection of arbitrary HTML. This escapes such sequences.
+ * Sanitize CSS to prevent style tag breakout attacks and strip Anki's
+ * hardcoded `.card` colors so the app theme (via Tailwind prose classes)
+ * controls card appearance in both light and dark mode.
  */
 export function sanitizeCss(css: string): string {
   // Escape closing style tag sequences to prevent style tag breakout
   // oxlint-disable-next-line eslint-plugin-unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
-  return css.replace(/<\/style/gi, String.raw`<\/style`);
+  let result = css.replace(/<\/style/gi, String.raw`<\/style`);
+
+  // Strip `.card { ... }` rules entirely. Anki note types include a `.card`
+  // rule with hardcoded colors/fonts that conflict with the app's Tailwind theme.
+  result = result.replace(/\.card\s*\{[^}]*\}/g, "");
+
+  return result;
 }
