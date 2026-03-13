@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ReactElement } from "react";
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva } from "class-variance-authority";
 import type { VariantProps } from "class-variance-authority";
@@ -47,8 +47,7 @@ function Button({
   variant = "default",
   size = "default",
   ...props
-}: ButtonPrimitive.Props &
-  VariantProps<typeof buttonVariants>): React.ReactElement {
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>): ReactElement {
   return (
     <ButtonPrimitive
       data-slot="button"

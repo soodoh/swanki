@@ -3,7 +3,20 @@ import { defineConfig } from "@standard-config/oxlint";
 export default defineConfig({
   react: true,
   ignorePatterns: ["node_modules/**", ".output/**", "src/routeTree.gen.ts"],
-  rules: {},
+  rules: {
+    "eslint/no-restricted-imports": [
+      "error",
+      {
+        paths: [
+          {
+            name: "react",
+            importNames: ["default"],
+            message: "Use named imports from 'react' instead",
+          },
+        ],
+      },
+    ],
+  },
   overrides: [
     {
       files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],

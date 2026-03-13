@@ -1,11 +1,8 @@
-import * as React from "react";
+import type { ComponentProps, ReactElement } from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({
-  className,
-  ...props
-}: React.ComponentProps<"table">): React.ReactElement {
+function Table({ className, ...props }: ComponentProps<"table">): ReactElement {
   return (
     <div
       data-slot="table-container"
@@ -23,7 +20,7 @@ function Table({
 function TableHeader({
   className,
   ...props
-}: React.ComponentProps<"thead">): React.ReactElement {
+}: ComponentProps<"thead">): ReactElement {
   return (
     <thead
       data-slot="table-header"
@@ -36,7 +33,7 @@ function TableHeader({
 function TableBody({
   className,
   ...props
-}: React.ComponentProps<"tbody">): React.ReactElement {
+}: ComponentProps<"tbody">): ReactElement {
   return (
     <tbody
       data-slot="table-body"
@@ -49,7 +46,7 @@ function TableBody({
 function TableFooter({
   className,
   ...props
-}: React.ComponentProps<"tfoot">): React.ReactElement {
+}: ComponentProps<"tfoot">): ReactElement {
   return (
     <tfoot
       data-slot="table-footer"
@@ -62,10 +59,7 @@ function TableFooter({
   );
 }
 
-function TableRow({
-  className,
-  ...props
-}: React.ComponentProps<"tr">): React.ReactElement {
+function TableRow({ className, ...props }: ComponentProps<"tr">): ReactElement {
   return (
     <tr
       data-slot="table-row"
@@ -81,7 +75,7 @@ function TableRow({
 function TableHead({
   className,
   ...props
-}: React.ComponentProps<"th">): React.ReactElement {
+}: ComponentProps<"th">): ReactElement {
   return (
     <th
       data-slot="table-head"
@@ -97,7 +91,7 @@ function TableHead({
 function TableCell({
   className,
   ...props
-}: React.ComponentProps<"td">): React.ReactElement {
+}: ComponentProps<"td">): ReactElement {
   return (
     <td
       data-slot="table-cell"
@@ -113,7 +107,7 @@ function TableCell({
 function TableCaption({
   className,
   ...props
-}: React.ComponentProps<"caption">): React.ReactElement {
+}: ComponentProps<"caption">): ReactElement {
   return (
     <caption
       data-slot="table-caption"

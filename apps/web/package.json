@@ -32,6 +32,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "drizzle-orm": "^0.45.1",
+    "embla-carousel-react": "^8.6.0",
     "fflate": "^0.8.2",
     "fzstd": "^0.1.1",
     "isomorphic-dompurify": "^3.0.0",

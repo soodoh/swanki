@@ -1,11 +1,11 @@
-import * as React from "react";
+import type { ComponentProps, ReactElement } from "react";
 
 import { cn } from "@/lib/utils";
 
 function Skeleton({
   className,
   ...props
-}: React.ComponentProps<"div">): React.ReactElement {
+}: ComponentProps<"div">): ReactElement {
   return (
     <div
       data-slot="skeleton"

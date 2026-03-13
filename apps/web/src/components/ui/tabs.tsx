@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type { ReactElement } from "react";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { cva } from "class-variance-authority";
 import type { VariantProps } from "class-variance-authority";
@@ -11,7 +11,7 @@ function Tabs({
   className,
   orientation = "horizontal",
   ...props
-}: TabsPrimitive.Root.Props): React.ReactElement {
+}: TabsPrimitive.Root.Props): ReactElement {
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
@@ -45,7 +45,7 @@ function TabsList({
   variant = "default",
   ...props
 }: TabsPrimitive.List.Props &
-  VariantProps<typeof tabsListVariants>): React.ReactElement {
+  VariantProps<typeof tabsListVariants>): ReactElement {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
@@ -59,7 +59,7 @@ function TabsList({
 function TabsTrigger({
   className,
   ...props
-}: TabsPrimitive.Tab.Props): React.ReactElement {
+}: TabsPrimitive.Tab.Props): ReactElement {
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
@@ -78,7 +78,7 @@ function TabsTrigger({
 function TabsContent({
   className,
   ...props
-}: TabsPrimitive.Panel.Props): React.ReactElement {
+}: TabsPrimitive.Panel.Props): ReactElement {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-content"
