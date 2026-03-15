@@ -10,7 +10,7 @@ import {
   noteMedia,
   media,
 } from "../../db/schema";
-import { sqliteTyped } from "../../db";
+import { rawSqlite } from "../../db";
 import { parseCrowdAnki } from "../import/crowdanki-parser";
 import type { CrowdAnkiData } from "../import/crowdanki-parser";
 import type { ApkgData } from "../import/apkg-parser";
@@ -1173,7 +1173,7 @@ export class ImportService {
       `Importing ${toInsert.length} notes and ${cardInserts.length} cards...`,
     );
 
-    sqliteTyped.exec("BEGIN TRANSACTION"); // SQLite exec, not child_process
+    rawSqlite.exec("BEGIN TRANSACTION"); // SQLite exec, not child_process
     try {
       // Batch insert new notes
       for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
@@ -1290,9 +1290,9 @@ export class ImportService {
         });
       }
 
-      sqliteTyped.exec("COMMIT"); // SQLite exec, not child_process
+      rawSqlite.exec("COMMIT"); // SQLite exec, not child_process
     } catch (error) {
-      sqliteTyped.exec("ROLLBACK"); // SQLite exec, not child_process
+      rawSqlite.exec("ROLLBACK"); // SQLite exec, not child_process
       throw error;
     }
 
