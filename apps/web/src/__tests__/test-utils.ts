@@ -1,15 +1,11 @@
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { Database } from "bun:sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "../db/schema";
 
-export function createTestDb(): BunSQLiteDatabase<typeof schema> {
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment),typescript-eslint(no-unsafe-call) -- bun:sqlite Database types are inferred as any
+export function createTestDb() {
   const sqlite = new Database(":memory:");
-  const sqliteTyped = sqlite as unknown as { exec(sql: string): void };
-  sqliteTyped.exec("PRAGMA foreign_keys = ON;");
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-argument) -- sqlite typed as any from bun:sqlite
+  sqlite.pragma("foreign_keys = ON");
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder: "./drizzle" });
   return db;
