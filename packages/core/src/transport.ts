@@ -4,7 +4,7 @@ export interface AppTransport {
   query<T>(endpoint: string, params?: Record<string, string>): Promise<T>;
   mutate<T>(
     endpoint: string,
-    method: "POST" | "PUT" | "DELETE",
+    method: "POST" | "PUT" | "PATCH" | "DELETE",
     body?: unknown,
   ): Promise<T>;
 }

@@ -1,8 +1,12 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useMemo } from "react";
 
+import { TransportProvider } from "@swanki/core/transport";
+import { PlatformProvider } from "@swanki/core/platform";
 import { AppShell } from "@/components/app-shell";
 import { getSession } from "@/lib/auth-session";
-import { OfflineProvider } from "@/lib/offline/offline-provider";
+import { OfflineProvider, useOffline } from "@/lib/offline/offline-provider";
+import { WebTransport } from "@/lib/transport";
 
 type SessionData = {
   user: {
@@ -36,6 +40,20 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
 
+function WebTransportBridge({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.ReactElement {
+  const offline = useOffline();
+  const transport = useMemo(() => new WebTransport(offline), [offline]);
+  return (
+    <TransportProvider value={transport}>
+      <PlatformProvider value="web">{children}</PlatformProvider>
+    </TransportProvider>
+  );
+}
+
 function AuthenticatedLayout(): React.ReactElement {
   // oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via beforeLoad return
   const { session } = Route.useRouteContext();
@@ -44,9 +62,11 @@ function AuthenticatedLayout(): React.ReactElement {
 
   return (
     <OfflineProvider userId={user.id}>
-      <AppShell user={user}>
-        <Outlet />
-      </AppShell>
+      <WebTransportBridge>
+        <AppShell user={user}>
+          <Outlet />
+        </AppShell>
+      </WebTransportBridge>
     </OfflineProvider>
   );
 }
