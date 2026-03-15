@@ -797,7 +797,7 @@ git add packages/core/src/hooks/ apps/web/src/lib/hooks/
 git commit -m "refactor: move transport-agnostic hooks to packages/core"
 ```
 
-### Task 14: Export page components for desktop reuse
+### Task 14: Export page components for desktop reuse (Chunk 3 continued)
 
 **Files:**
 
@@ -837,7 +837,7 @@ git commit -m "refactor: export page components for desktop reuse"
 
 Create `apps/desktop` with Electron Forge + Vite. After this chunk, the desktop app launches, shows a frameless window with a placeholder, and connects to a local SQLite database.
 
-### Task 14: Initialize Electron Forge project
+### Task 15: Initialize Electron Forge project
 
 **Files:**
 
@@ -879,7 +879,7 @@ git add apps/desktop/
 git commit -m "chore: scaffold Electron Forge project with Vite"
 ```
 
-### Task 15: Main process (DB, window, lifecycle)
+### Task 16: Main process (DB, window, lifecycle)
 
 **Files:**
 
@@ -911,7 +911,7 @@ git add apps/desktop/electron/
 git commit -m "feat: implement Electron main process with DB, user, and window"
 ```
 
-### Task 16: Preload script and type declarations
+### Task 17: Preload script and type declarations
 
 **Files:**
 
@@ -933,7 +933,7 @@ git add apps/desktop/src/preload.ts apps/desktop/src/electron-api.d.ts
 git commit -m "feat: add Electron preload script with IPC bridge"
 ```
 
-### Task 17: IPC handlers
+### Task 18: IPC handlers
 
 **Files:**
 
@@ -950,7 +950,7 @@ git add apps/desktop/electron/ipc-handlers.ts
 git commit -m "feat: implement IPC handlers routing to core services"
 ```
 
-### Task 18: Minimal renderer (hello world)
+### Task 19: Minimal renderer (hello world)
 
 **Files:**
 
@@ -979,7 +979,7 @@ git commit -m "feat: minimal Electron renderer with hello world"
 
 Wire up the renderer with shared components, IPC transport, routing, and custom titlebar. After this chunk, the desktop app is functionally complete.
 
-### Task 19: IpcTransport and DesktopProvider
+### Task 20: IpcTransport and DesktopProvider
 
 **Files:**
 
@@ -1001,7 +1001,7 @@ git add apps/desktop/src/transport.ts apps/desktop/src/providers/
 git commit -m "feat: implement IpcTransport and DesktopProvider"
 ```
 
-### Task 20: Custom titlebar
+### Task 21: Custom titlebar
 
 **Files:**
 
@@ -1032,7 +1032,7 @@ git add apps/desktop/src/components/
 git commit -m "feat: add custom frameless titlebar with platform-specific controls"
 ```
 
-### Task 21: Desktop routing and full renderer
+### Task 22: Desktop routing and full renderer
 
 **Files:**
 
@@ -1076,7 +1076,7 @@ git commit -m "feat: wire desktop renderer with shared components and routing"
 
 Add optional sign-in and cloud sync. After this chunk, desktop users can log in and sync data with the cloud server.
 
-### Task 22: Auth window and token storage
+### Task 23: Auth window and token storage
 
 **Files:**
 
@@ -1101,7 +1101,7 @@ git add apps/desktop/electron/auth.ts
 git commit -m "feat: implement desktop auth via browser window with secure token storage"
 ```
 
-### Task 23: Cloud sync engine
+### Task 24: Cloud sync engine
 
 **Files:**
 
@@ -1126,7 +1126,7 @@ git add apps/desktop/electron/sync.ts
 git commit -m "feat: implement desktop cloud sync with delta pull/push"
 ```
 
-### Task 24: Auto-updater
+### Task 25: Auto-updater
 
 **Files:**
 
@@ -1147,7 +1147,7 @@ git commit -m "feat: add auto-updater with update-electron-app"
 
 ## Chunk 7: Polish and Verification
 
-### Task 25: Root monorepo scripts
+### Task 26: Root monorepo scripts
 
 **Files:**
 
@@ -1169,7 +1169,7 @@ git add package.json
 git commit -m "chore: add desktop scripts to root package.json"
 ```
 
-### Task 26: Final verification
+### Task 27: Final verification
 
 - [ ] **Step 1: Run all web tests**
 
