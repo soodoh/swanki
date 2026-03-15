@@ -11,6 +11,7 @@
     "dev:web": "turbo dev --filter=web",
     "dev:docs": "turbo dev --filter=docs",
     "dev:mobile": "turbo dev --filter=mobile",
+    "start:desktop": "cd apps/desktop && bun x electron-forge start",
     "dev:desktop": "turbo dev --filter=desktop",
     "build": "turbo build",
     "build:desktop": "turbo build --filter=desktop",
