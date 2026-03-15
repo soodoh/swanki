@@ -1,5 +1,6 @@
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { VitePlugin } from "@electron-forge/plugin-vite";
+import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
@@ -9,9 +10,7 @@ const config: ForgeConfig = {
     asar: true,
     extraResource: ["./drizzle"],
   },
-  rebuildConfig: {
-    onlyModules: [],
-  },
+  rebuildConfig: {},
   makers: [
     { name: "@electron-forge/maker-squirrel", config: {} },
     { name: "@electron-forge/maker-dmg", config: {} },
@@ -19,6 +18,7 @@ const config: ForgeConfig = {
     { name: "@electron-forge/maker-rpm", config: {} },
   ],
   plugins: [
+    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       build: [
         {
