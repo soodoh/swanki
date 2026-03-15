@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --bun vite dev",
-    "build": "bun --bun vite build",
-    "start": "bun run .output/server/index.mjs",
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
     "lint": "bun x oxlint -c oxlint.config.mjs . && prettier --check .",
     "lint:fix": "bun x oxlint -c oxlint.config.mjs --fix . && prettier --write .",
     "test": "vitest",

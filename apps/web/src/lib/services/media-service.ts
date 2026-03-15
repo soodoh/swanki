@@ -43,10 +43,11 @@ function guessMimeType(filename: string): string {
 }
 
 function ensureMediaDir(): void {
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-  if (!existsSync(MEDIA_DIR)) {
+  try {
     // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
     mkdirSync(MEDIA_DIR, { recursive: true });
+  } catch {
+    // Directory already exists or can't be created
   }
 }
 
@@ -96,6 +97,7 @@ export class MediaService {
     const filename = `${hash}${ext}`;
 
     // Write to disk
+    ensureMediaDir();
     // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
     const filePath: string = join(MEDIA_DIR, filename);
     // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
