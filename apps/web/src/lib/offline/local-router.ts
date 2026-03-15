@@ -7,6 +7,72 @@ import * as localQueries from "./local-queries";
 import * as localMutations from "./local-mutations";
 import { decks as decksTable } from "../../db/schema";
 
+type LocalQueryFn = (db: LocalDrizzleDb) => unknown;
+
+/** Resolve queries for /api/stats endpoints. */
+function resolveStatsQuery(
+  params?: Record<string, string>,
+): LocalQueryFn | undefined {
+  if (params?.type === "reviews" && params?.days) {
+    const days = Number(params.days);
+    return (db) => localQueries.getReviewsPerDay(db, days);
+  }
+  if (params?.type === "states") {
+    return (db) => localQueries.getCardStates(db);
+  }
+  if (params?.type === "streak") {
+    return (db) => localQueries.getStreak(db);
+  }
+  if (params?.type === "heatmap" && params?.year) {
+    const year = Number(params.year);
+    return (db) => localQueries.getHeatmap(db, year);
+  }
+  return undefined;
+}
+
+/** Resolve queries for /api/browse endpoints. */
+function resolveBrowseQuery(
+  params?: Record<string, string>,
+): LocalQueryFn | undefined {
+  if (params?.noteId) {
+    const noteId = Number(params.noteId);
+    return (db) => localQueries.getNoteDetail(db, noteId);
+  }
+  const query = params?.q ?? "";
+  const page = Number(params?.page ?? "1");
+  const limit = Number(params?.limit ?? "50");
+  return (db) => localQueries.browseSearch(db, query, page, limit);
+}
+
+/** Resolve queries for regex-matched endpoints (study, note-types). */
+function resolvePatternQuery(endpoint: string): LocalQueryFn | undefined {
+  const previewMatch = endpoint.match(/^\/api\/study\/preview\/(\d+)$/);
+  if (previewMatch) {
+    const cardId = Number(previewMatch[1]);
+    return (db) => localQueries.getIntervalPreviews(db, cardId);
+  }
+
+  const studyMatch = endpoint.match(/^\/api\/study\/(\d+)$/);
+  if (studyMatch) {
+    const deckId = Number(studyMatch[1]);
+    return (db) => localQueries.getStudySession(db, deckId);
+  }
+
+  const sampleMatch = endpoint.match(/^\/api\/note-types\/(\d+)\/sample-note$/);
+  if (sampleMatch) {
+    const noteTypeId = Number(sampleMatch[1]);
+    return (db) => localQueries.getFirstNoteFields(db, noteTypeId);
+  }
+
+  const noteTypeMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
+  if (noteTypeMatch) {
+    const id = Number(noteTypeMatch[1]);
+    return (db) => localQueries.getNoteType(db, id);
+  }
+
+  return undefined;
+}
+
 /**
  * Resolve an API endpoint + params to a local query function.
  * Returns undefined if the endpoint has no local implementation.
@@ -14,7 +80,7 @@ import { decks as decksTable } from "../../db/schema";
 export function resolveLocalQuery(
   endpoint: string,
   params?: Record<string, string>,
-): ((db: LocalDrizzleDb) => unknown) | undefined {
+): LocalQueryFn | undefined {
   // GET /api/decks
   if (endpoint === "/api/decks") {
     return (db) => localQueries.getDecksTree(db);
@@ -30,54 +96,14 @@ export function resolveLocalQuery(
     return (db) => localQueries.getDeckCounts(db, deckId);
   }
 
-  // GET /api/study/preview/X
-  const previewMatch = endpoint.match(/^\/api\/study\/preview\/(\d+)$/);
-  if (previewMatch) {
-    const cardId = Number(previewMatch[1]);
-    return (db) => localQueries.getIntervalPreviews(db, cardId);
-  }
-
-  // GET /api/study/X
-  const studyMatch = endpoint.match(/^\/api\/study\/(\d+)$/);
-  if (studyMatch) {
-    const deckId = Number(studyMatch[1]);
-    return (db) => localQueries.getStudySession(db, deckId);
-  }
-
-  // GET /api/browse?noteId=X (note detail)
-  if (endpoint === "/api/browse" && params?.noteId) {
-    const noteId = Number(params.noteId);
-    return (db) => localQueries.getNoteDetail(db, noteId);
-  }
-
-  // GET /api/browse?q=...&page=...&limit=...
+  // GET /api/browse
   if (endpoint === "/api/browse") {
-    const query = params?.q ?? "";
-    const page = Number(params?.page ?? "1");
-    const limit = Number(params?.limit ?? "50");
-    return (db) => localQueries.browseSearch(db, query, page, limit);
+    return resolveBrowseQuery(params);
   }
 
-  // GET /api/stats?type=reviews&days=X
-  if (endpoint === "/api/stats" && params?.type === "reviews" && params?.days) {
-    const days = Number(params.days);
-    return (db) => localQueries.getReviewsPerDay(db, days);
-  }
-
-  // GET /api/stats?type=states
-  if (endpoint === "/api/stats" && params?.type === "states") {
-    return (db) => localQueries.getCardStates(db);
-  }
-
-  // GET /api/stats?type=streak
-  if (endpoint === "/api/stats" && params?.type === "streak") {
-    return (db) => localQueries.getStreak(db);
-  }
-
-  // GET /api/stats?type=heatmap&year=X
-  if (endpoint === "/api/stats" && params?.type === "heatmap" && params?.year) {
-    const year = Number(params.year);
-    return (db) => localQueries.getHeatmap(db, year);
+  // GET /api/stats
+  if (endpoint === "/api/stats") {
+    return resolveStatsQuery(params);
   }
 
   // GET /api/note-types
@@ -85,21 +111,8 @@ export function resolveLocalQuery(
     return (db) => localQueries.getNoteTypes(db);
   }
 
-  // GET /api/note-types/X/sample-note
-  const sampleMatch = endpoint.match(/^\/api\/note-types\/(\d+)\/sample-note$/);
-  if (sampleMatch) {
-    const noteTypeId = Number(sampleMatch[1]);
-    return (db) => localQueries.getFirstNoteFields(db, noteTypeId);
-  }
-
-  // GET /api/note-types/X
-  const noteTypeMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
-  if (noteTypeMatch) {
-    const id = Number(noteTypeMatch[1]);
-    return (db) => localQueries.getNoteType(db, id);
-  }
-
-  return undefined;
+  // Pattern-matched endpoints (study, note-types with IDs)
+  return resolvePatternQuery(endpoint);
 }
 
 /**
@@ -111,7 +124,7 @@ export function resolveLocalQuery(
 export function resolveLocalMutation(
   endpoint: string,
   method: string,
-  body: unknown,
+  _body: unknown,
 ): ((db: LocalDrizzleDb, input: unknown) => void) | undefined {
   // POST /api/decks — create deck
   if (endpoint === "/api/decks" && method === "POST") {
