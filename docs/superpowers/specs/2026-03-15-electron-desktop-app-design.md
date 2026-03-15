@@ -160,7 +160,7 @@ export type AppDb = ReturnType<typeof createDb>;
 
 - One SQLite driver, one Drizzle adapter, one DB type — no generic abstraction needed
 - Tests use the same driver as production (eliminates `bun:sqlite` / `better-sqlite3` divergence)
-- `better-sqlite3` has proper TypeScript definitions — removes all `oxlint-disable` comments for `bun:sqlite` type issues
+- `better-sqlite3` has proper TypeScript definitions — removes `oxlint-disable` comments for `bun:sqlite` type issues (some comments for `node:fs`, `node:path`, and `process.env` typing remain)
 - Migration runner identical everywhere: `drizzle-orm/better-sqlite3/migrator`
 
 ## Transport Abstraction
@@ -291,7 +291,9 @@ Each app wraps the tree:
 
 ### Shared Hooks
 
-Hooks become transport-agnostic and can live in `packages/core`:
+Hooks become transport-agnostic and live in `packages/core/src/hooks/`. This means `@swanki/core` has a React peer dependency (for hooks, context, and the platform provider). This is acceptable since both consumers (web and desktop) are React apps. The package contains both pure business logic (services, FSRS, parsers) and React integration code (hooks, context providers). If the distinction becomes important later, hooks could be split into a separate `@swanki/react` package.
+
+Example shared hooks:
 
 ```typescript
 // packages/core/src/hooks/use-decks.ts
@@ -352,6 +354,8 @@ export function registerIpcHandlers(db: AppDb, userId: string) {
 ```
 
 Same endpoint strings as the web API — hooks don't need to know which environment they're in.
+
+**IPC routing duplication risk:** The IPC handler mirrors the web API route structure via string matching. When a new API endpoint is added, both the web route file and the IPC handler must be updated. To mitigate this, a shared route registry (a map of endpoint patterns to service method names) can be extracted into `@swanki/core`. Both the web API routes and IPC handlers would consume it, ensuring they stay in sync. This is a refinement for after the initial implementation.
 
 ## Custom Frameless Window
 
@@ -469,6 +473,10 @@ On first sign-in:
 
 Signing out keeps local data and reverts to offline mode.
 
+### Auth Tables in Desktop DB
+
+The desktop SQLite database includes the better-auth tables (`user`, `session`, `account`, `verification`) from `auth-schema.ts` since they're part of the shared Drizzle schema. In offline mode, only the `user` table is used (for the local user record). The `session`, `account`, and `verification` tables remain empty. When signed in for cloud sync, auth is handled by the remote server — the desktop app stores only the session token (via `safeStorage`), not a local session row.
+
 ## Renderer & Component Sharing
 
 ### Import Strategy
@@ -493,22 +501,40 @@ The desktop app defines its own TanStack Router route tree (client-only, no TanS
 
 ```typescript
 // apps/desktop/src/routes.tsx
-import { DeckListPage } from "@/routes/_authenticated/index";
+import { Dashboard } from "@/routes/_authenticated/index";
 import { StudyPage } from "@/routes/_authenticated/study.$deckId";
 import { BrowsePage } from "@/routes/_authenticated/browse";
+import { StatsPage } from "@/routes/_authenticated/stats";
+import { ImportPage } from "@/routes/_authenticated/import";
+import { SettingsPage } from "@/routes/_authenticated/settings";
+import { NoteTypesPage } from "@/routes/_authenticated/note-types/index";
 // ... etc
 
 const rootRoute = createRootRoute({ component: DesktopShell });
-const indexRoute = createRoute({ path: "/", component: DeckListPage });
-// ... etc
+const indexRoute = createRoute({ path: "/", component: Dashboard });
+const studyRoute = createRoute({
+  path: "/study/$deckId",
+  component: StudyPage,
+});
+const browseRoute = createRoute({ path: "/browse", component: BrowsePage });
+const statsRoute = createRoute({ path: "/stats", component: StatsPage });
+const importRoute = createRoute({ path: "/import", component: ImportPage });
+const settingsRoute = createRoute({
+  path: "/settings",
+  component: SettingsPage,
+});
+const noteTypesRoute = createRoute({
+  path: "/note-types",
+  component: NoteTypesPage,
+});
 ```
 
 ### Page Component Export Pattern
 
-Web page components need a named export so the desktop router can import them:
+Web page components are currently unexported local functions. Each needs an `export` keyword added so the desktop router can import them:
 
 ```typescript
-// Before (web)
+// Before (web) — all page components follow this pattern
 function BrowsePage() { ... }
 export const Route = createFileRoute(...)({ component: BrowsePage });
 
@@ -516,6 +542,8 @@ export const Route = createFileRoute(...)({ component: BrowsePage });
 export function BrowsePage() { ... }
 export const Route = createFileRoute(...)({ component: BrowsePage });
 ```
+
+Components needing this change: `Dashboard` (index), `StudyPage`, `BrowsePage`, `StatsPage`, `ImportPage`, `SettingsPage`, `NoteTypesPage`.
 
 ### Platform Detection
 
@@ -571,10 +599,47 @@ Web uses `/api/media/filename.jpg`. Desktop uses `swanki-media://filename.jpg`. 
 
 ### Service Abstraction
 
-`DeckService` (and other services that touch media files) receive `mediaDir` as a constructor parameter instead of hardcoding `process.cwd()`:
+Services that touch files currently hardcode paths at module scope:
 
-- Web: `join(process.cwd(), "data", "media")`
-- Desktop: `join(app.getPath('userData'), "media")`
+- `DeckService`: `const MEDIA_DIR = join(process.cwd(), "data", "media")`
+- `MediaService`: same hardcoded `MEDIA_DIR`
+- `UploadService`: hardcoded `UPLOAD_DIR`
+
+These must be refactored to accept `mediaDir` (and `uploadDir`) as constructor parameters:
+
+```typescript
+export class DeckService {
+  constructor(
+    private db: AppDb,
+    private mediaDir: string,
+  ) {}
+}
+```
+
+- Web: `new DeckService(db, join(process.cwd(), "data", "media"))`
+- Desktop: `new DeckService(db, join(app.getPath('userData'), "media"))`
+
+### ImportService Transaction Handling
+
+`ImportService` currently imports `sqliteTyped` directly from the DB singleton and calls raw SQL transaction statements (`BEGIN TRANSACTION` / `COMMIT` / `ROLLBACK`), bypassing the Drizzle layer. This must be refactored to accept a raw database handle alongside the Drizzle instance, or use `better-sqlite3`'s built-in transaction helper:
+
+```typescript
+export class ImportService {
+  constructor(
+    private db: AppDb,
+    private rawDb: Database,
+  ) {}
+
+  import(data: ApkgData) {
+    const runImport = this.rawDb.transaction(() => {
+      // ... all insert operations via this.db (Drizzle)
+    });
+    runImport();
+  }
+}
+```
+
+The `.transaction()` method is cleaner than manual transaction management and integrates naturally with the `createDb` factory.
 
 ## Build & Packaging
 
@@ -613,7 +678,13 @@ export default {
 
 ### Auto-Updates
 
-`electron-updater` with GitHub Releases as the update source. Checks on launch and every 4 hours. Downloads in the background. Prompts user to restart when ready.
+Using `update-electron-app` (Electron Forge's recommended updater) with `@electron-forge/publisher-github`. This integrates natively with Forge's publish pipeline:
+
+1. `electron-forge publish` builds and uploads to GitHub Releases
+2. `update-electron-app` checks for updates on launch and periodically
+3. Downloads in the background, prompts user to restart when ready
+
+If `update-electron-app` proves insufficient (e.g., needs differential updates or custom update UI), `electron-updater` from `electron-builder` can be used as a drop-in replacement with additional Forge configuration.
 
 ### Native Module Handling
 
@@ -644,24 +715,62 @@ export default {
 - Web: existing Playwright tests, unchanged
 - Desktop: Playwright with `_electron.launch()` for Electron-specific E2E
 
+### Desktop Migrations
+
+On app launch, the main process runs Drizzle migrations programmatically before opening the window:
+
+```typescript
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+
+// Migration files are bundled via Forge's extraResource config
+const migrationsFolder = path.join(process.resourcesPath, "drizzle");
+migrate(db, { migrationsFolder });
+```
+
+This runs on every launch — Drizzle's migrator is idempotent (skips already-applied migrations). New migrations ship with app updates.
+
 ### Turborepo Pipeline
 
 `bun run test` from root runs all tests in parallel. `packages/core` tests run first, then app tests.
+
+## Monorepo Configuration Changes
+
+### Root `package.json`
+
+Update workspaces to include packages:
+
+```json
+"workspaces": ["apps/*", "packages/*"]
+```
+
+### `turbo.json`
+
+The existing `"dependsOn": ["^build"]` configuration will automatically handle `packages/core` building before apps that depend on it. No changes needed if the topology is correct in `package.json` dependencies.
+
+### Web App's SQL.js Offline Layer
+
+The web app's client-side offline system (`apps/web/src/lib/offline/`) continues to use SQL.js (WASM SQLite in the browser). This is unaffected by the `bun:sqlite` → `better-sqlite3` consolidation, which only affects the server-side DB. The web app will have two SQLite implementations at runtime:
+
+- **Server:** `better-sqlite3` via `@swanki/core/db`
+- **Browser (offline):** `sql.js` via `local-drizzle.ts`
+
+The `WebTransport` handles this by delegating to the existing `offlineQuery`/`offlineMutation` system. The desktop app does not use SQL.js at all.
 
 ## Key Dependencies
 
 ### New (apps/desktop)
 
-| Package                          | Purpose                 |
-| -------------------------------- | ----------------------- |
-| `electron`                       | Desktop runtime         |
-| `@electron-forge/cli`            | Build, package, publish |
-| `@electron-forge/plugin-vite`    | Vite integration        |
-| `@electron-forge/maker-squirrel` | Windows installer       |
-| `@electron-forge/maker-dmg`      | macOS installer         |
-| `@electron-forge/maker-deb`      | Linux .deb              |
-| `@electron-forge/maker-rpm`      | Linux .rpm              |
-| `electron-updater`               | Auto-updates            |
+| Package                            | Purpose                    |
+| ---------------------------------- | -------------------------- |
+| `electron`                         | Desktop runtime            |
+| `@electron-forge/cli`              | Build, package, publish    |
+| `@electron-forge/plugin-vite`      | Vite integration           |
+| `@electron-forge/maker-squirrel`   | Windows installer          |
+| `@electron-forge/maker-dmg`        | macOS installer            |
+| `@electron-forge/maker-deb`        | Linux .deb                 |
+| `@electron-forge/maker-rpm`        | Linux .rpm                 |
+| `update-electron-app`              | Auto-updates               |
+| `@electron-forge/publisher-github` | Publish to GitHub Releases |
 
 ### Moved to packages/core
 
