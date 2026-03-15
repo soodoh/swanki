@@ -46,7 +46,7 @@ app.whenReady().then(() => {
   }
 
   // Register IPC handlers
-  registerIpcHandlers(db, rawSqlite, localUser.id, mediaDir);
+  registerIpcHandlers(db, rawSqlite, localUser.id, mediaDir, mainWindow);
 
   // Save window state on close
   mainWindow.on("close", () => {

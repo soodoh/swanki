@@ -10,4 +10,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onMaximizedChange: (cb: (maximized: boolean) => void) => {
     ipcRenderer.on("window:maximized-changed", (_e, val) => cb(val));
   },
+  // Auth
+  authSignIn: () => ipcRenderer.invoke("auth:sign-in"),
+  authSignOut: () => ipcRenderer.invoke("auth:sign-out"),
+  authStatus: () => ipcRenderer.invoke("auth:status"),
+  // Sync
+  syncNow: () => ipcRenderer.invoke("sync:now"),
+  syncStatus: () => ipcRenderer.invoke("sync:status"),
 });
