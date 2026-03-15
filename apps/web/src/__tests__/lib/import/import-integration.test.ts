@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { zipSync, strToU8 } from "fflate";
 import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
@@ -317,18 +317,18 @@ function createProtobufNewSchemaDb(options: {
   const sqliteDb = new Database(dbPath);
 
   try {
-    sqliteDb.run(
+    sqliteDb.exec(
       "CREATE TABLE notetypes (id integer PRIMARY KEY, name text, config blob)",
     );
-    sqliteDb.run(
+    sqliteDb.exec(
       "CREATE TABLE templates (ntid integer, ord integer, name text, config blob)",
     );
-    sqliteDb.run("CREATE TABLE fields (ntid integer, ord integer, name text)");
-    sqliteDb.run("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
-    sqliteDb.run(
+    sqliteDb.exec("CREATE TABLE fields (ntid integer, ord integer, name text)");
+    sqliteDb.exec("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
+    sqliteDb.exec(
       "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
     );
-    sqliteDb.run(
+    sqliteDb.exec(
       "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
     );
 
@@ -1069,35 +1069,35 @@ describe("Import Integration", () => {
       );
       const sqliteDb = new Database(dbPath);
       try {
-        sqliteDb.run(
+        sqliteDb.exec(
           "CREATE TABLE notetypes (id integer PRIMARY KEY, name text, css text DEFAULT '')",
         );
-        sqliteDb.run(
+        sqliteDb.exec(
           "CREATE TABLE fields (ntid integer, ord integer, name text)",
         );
-        sqliteDb.run(
+        sqliteDb.exec(
           "CREATE TABLE templates (ntid integer, ord integer, name text, qfmt text, afmt text)",
         );
-        sqliteDb.run("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
-        sqliteDb.run(
+        sqliteDb.exec("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
+        sqliteDb.exec(
           "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
         );
-        sqliteDb.run(
+        sqliteDb.exec(
           "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
         );
-        sqliteDb.run(
+        sqliteDb.exec(
           "INSERT INTO notetypes VALUES (1, 'Basic', '.card { color: red; }')",
         );
-        sqliteDb.run("INSERT INTO fields VALUES (1, 0, 'Front')");
-        sqliteDb.run("INSERT INTO fields VALUES (1, 1, 'Back')");
-        sqliteDb.run(
+        sqliteDb.exec("INSERT INTO fields VALUES (1, 0, 'Front')");
+        sqliteDb.exec("INSERT INTO fields VALUES (1, 1, 'Back')");
+        sqliteDb.exec(
           "INSERT INTO templates VALUES (1, 0, 'Card 1', '{{Front}}', '{{FrontSide}}<hr>{{Back}}')",
         );
-        sqliteDb.run("INSERT INTO decks VALUES (1, 'NewFormat Deck')");
-        sqliteDb.run(
+        sqliteDb.exec("INSERT INTO decks VALUES (1, 'NewFormat Deck')");
+        sqliteDb.exec(
           "INSERT INTO notes VALUES (100, 'g1', 1, 0, 0, 'tag1', 'hola\u001Fhello', 'hola', 0, 0, '')",
         );
-        sqliteDb.run(
+        sqliteDb.exec(
           "INSERT INTO cards VALUES (200, 100, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '')",
         );
         sqliteDb.close();

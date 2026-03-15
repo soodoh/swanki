@@ -1,5 +1,5 @@
 import { unzipSync } from "fflate";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import {
   writeFileSync as fsWriteFileSync,
   unlinkSync as fsUnlinkSync,
@@ -47,15 +47,16 @@ const existsSync = fsExistsSync as (path: string) => boolean;
 const join = pathJoin as (...paths: string[]) => string;
 const tmpdir = osTmpdir as () => string;
 
-/** Minimal typed wrapper for bun:sqlite query operations */
-type SqliteQuery<T> = {
-  get(): T | undefined;
-  all(): T[];
+/** Minimal typed wrapper for better-sqlite3 query operations */
+type SqliteStatement<T> = {
+  get(...params: unknown[]): T | undefined;
+  all(...params: unknown[]): T[];
+  run(...params: unknown[]): unknown;
 };
 
 type TypedDatabase = {
-  query<T>(sql: string): SqliteQuery<T>;
-  run(sql: string): void;
+  prepare<T>(sql: string): SqliteStatement<T>;
+  pragma(sql: string): void;
   close(): void;
 };
 
@@ -85,7 +86,7 @@ export function parseApkg(
 
   const dbBytes = prepareDbBytes(unzipped[dbFilename]);
 
-  // Write to temp file since bun:sqlite needs a file path
+  // Write to temp file since better-sqlite3 needs a file path
   const tempPath = join(
     tmpdir(),
     `swanki-import-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
@@ -93,12 +94,10 @@ export function parseApkg(
 
   try {
     writeFileSync(tempPath, dbBytes);
-    const db = new (Database as unknown as new (path: string) => TypedDatabase)(
-      tempPath,
-    );
+    const db = new Database(tempPath) as unknown as TypedDatabase;
 
     try {
-      db.run("PRAGMA journal_mode = DELETE");
+      db.pragma("journal_mode = DELETE");
 
       const useNewSchema = isNewSchema(db);
       const deckData = useNewSchema ? readDecksNew(db) : readDecks(db);
@@ -141,7 +140,7 @@ export function parseApkg(
 
 function isNewSchema(db: TypedDatabase): boolean {
   try {
-    db.query<{ cnt: number }>("SELECT count(*) as cnt FROM notetypes").get();
+    db.prepare<{ cnt: number }>("SELECT count(*) as cnt FROM notetypes").get();
     return true;
   } catch {
     return false;
@@ -149,7 +148,7 @@ function isNewSchema(db: TypedDatabase): boolean {
 }
 
 function readDecks(db: TypedDatabase): ApkgData["decks"] {
-  const row = db.query<ColRow>("SELECT decks FROM col").get();
+  const row = db.prepare<ColRow>("SELECT decks FROM col").get();
   if (!row) {
     return [];
   }
@@ -157,7 +156,7 @@ function readDecks(db: TypedDatabase): ApkgData["decks"] {
 }
 
 function readNoteTypes(db: TypedDatabase): ApkgNoteType[] {
-  const row = db.query<ColRow>("SELECT models FROM col").get();
+  const row = db.prepare<ColRow>("SELECT models FROM col").get();
   if (!row) {
     return [];
   }
@@ -171,7 +170,7 @@ type NewFieldRow = { ntid: number; ord: number; name: string };
 
 function hasColumn(db: TypedDatabase, table: string, column: string): boolean {
   try {
-    db.query(`SELECT ${column} FROM ${table} LIMIT 0`).all();
+    db.prepare(`SELECT ${column} FROM ${table} LIMIT 0`).all();
     return true;
   } catch {
     return false;
@@ -179,13 +178,13 @@ function hasColumn(db: TypedDatabase, table: string, column: string): boolean {
 }
 
 function readDecksNew(db: TypedDatabase): ApkgData["decks"] {
-  const rows = db.query<NewDeckRow>("SELECT id, name FROM decks").all();
+  const rows = db.prepare<NewDeckRow>("SELECT id, name FROM decks").all();
   return rows.map((d) => ({ id: d.id, name: d.name }));
 }
 
 function readNoteTypesNew(db: TypedDatabase): ApkgNoteType[] {
   const fieldRows = db
-    .query<NewFieldRow>("SELECT ntid, ord, name FROM fields ORDER BY ord")
+    .prepare<NewFieldRow>("SELECT ntid, ord, name FROM fields ORDER BY ord")
     .all();
 
   const hasConfigBlob = hasColumn(db, "notetypes", "config");
@@ -209,10 +208,10 @@ function readNoteTypesNewProtobuf(
   };
 
   const noteTypeRows = db
-    .query<NtRow>("SELECT id, name, config FROM notetypes")
+    .prepare<NtRow>("SELECT id, name, config FROM notetypes")
     .all();
   const templateRows = db
-    .query<TmplRow>(
+    .prepare<TmplRow>(
       "SELECT ntid, ord, name, config FROM templates ORDER BY ord",
     )
     .all();
@@ -254,17 +253,19 @@ function readNoteTypesNewPlainColumns(
   let noteTypeRows: NtRow[];
   try {
     noteTypeRows = db
-      .query<NtRow>("SELECT id, name, COALESCE(css, '') as css FROM notetypes")
+      .prepare<NtRow>(
+        "SELECT id, name, COALESCE(css, '') as css FROM notetypes",
+      )
       .all();
   } catch {
     noteTypeRows = db
-      .query<{ id: number; name: string }>("SELECT id, name FROM notetypes")
+      .prepare<{ id: number; name: string }>("SELECT id, name FROM notetypes")
       .all()
       .map((r) => ({ id: r.id, name: r.name, css: "" }));
   }
 
   const templateRows = db
-    .query<TmplRow>(
+    .prepare<TmplRow>(
       "SELECT ntid, ord, name, qfmt, afmt FROM templates ORDER BY ord",
     )
     .all();
@@ -289,14 +290,14 @@ function readNoteTypesNewPlainColumns(
 
 function readNotes(db: TypedDatabase): ApkgData["notes"] {
   const rows = db
-    .query<NoteRow>("SELECT id, guid, mid, flds, tags FROM notes")
+    .prepare<NoteRow>("SELECT id, guid, mid, flds, tags FROM notes")
     .all();
   return mapNoteRows(rows);
 }
 
 function readCards(db: TypedDatabase): ApkgData["cards"] {
   const rows = db
-    .query<CardRow>(
+    .prepare<CardRow>(
       "SELECT id, nid, did, ord, type, queue, due, ivl, factor, reps, lapses FROM cards",
     )
     .all();
