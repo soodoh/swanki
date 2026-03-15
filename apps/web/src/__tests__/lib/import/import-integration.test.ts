@@ -4,7 +4,7 @@ import { zipSync, strToU8 } from "fflate";
 import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createTestDb } from "../../test-utils";
+import { createTestDbWithRaw } from "../../test-utils";
 import {
   ImportService,
   detectFormat,
@@ -20,7 +20,7 @@ import {
   notes,
 } from "../../../db/schema";
 
-type TestDb = ReturnType<typeof createTestDb>;
+type TestDb = ReturnType<typeof createTestDbWithRaw>["db"];
 
 /**
  * Creates a minimal Anki SQLite database file, returns the bytes.
@@ -387,8 +387,9 @@ describe("Import Integration", () => {
   const userId = "test-user-1";
 
   beforeEach(() => {
-    db = createTestDb();
-    importService = new ImportService(db);
+    const testDb = createTestDbWithRaw();
+    db = testDb.db;
+    importService = new ImportService(testDb.db, testDb.rawDb);
   });
 
   describe("APKG template ID bug fix", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, expectTypeOf, beforeEach } from "vitest";
-import { createTestDb } from "../test-utils";
+import { createTestDb, testMediaDir } from "../test-utils";
 import { StudyService } from "../../lib/services/study-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { NoteService } from "../../lib/services/note-service";
@@ -23,7 +23,7 @@ describe("StudyService", () => {
   beforeEach(async () => {
     db = createTestDb();
     studyService = new StudyService(db);
-    deckService = new DeckService(db);
+    deckService = new DeckService(db, testMediaDir);
     noteService = new NoteService(db);
 
     // Create a deck
