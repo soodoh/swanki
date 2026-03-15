@@ -3,14 +3,19 @@
   "private": true,
   "packageManager": "bun@1.3.10",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=web",
     "dev:docs": "turbo dev --filter=docs",
     "dev:mobile": "turbo dev --filter=mobile",
+    "dev:desktop": "turbo dev --filter=desktop",
     "build": "turbo build",
+    "build:desktop": "turbo build --filter=desktop",
+    "package:desktop": "cd apps/desktop && bun x electron-forge package",
+    "make:desktop": "cd apps/desktop && bun x electron-forge make",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "test": "turbo test",

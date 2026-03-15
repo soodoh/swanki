@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import {
   getUploadPath,
@@ -11,7 +13,10 @@ import {
 import { MediaService } from "../../../lib/services/media-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { createJob, updateJob } from "../../../lib/import/import-job";
-import { db } from "../../../db";
+import { db, rawSqlite } from "../../../db";
+
+const mediaDir: string = join(process.cwd(), "data", "media");
+const uploadDir: string = join(process.cwd(), "data", "uploads");
 
 async function processImport(
   jobId: string,
@@ -27,10 +32,12 @@ async function processImport(
       detail: "Reading and parsing file...",
     });
 
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped
-    const bunFile: { arrayBuffer(): Promise<ArrayBuffer> } = Bun.file(filePath);
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun file is untyped
-    const buffer: ArrayBuffer = await bunFile.arrayBuffer();
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-assignment) -- node:fs is untyped in this project
+    const fileData: Buffer = readFileSync(filePath);
+    const buffer: ArrayBuffer = fileData.buffer.slice(
+      fileData.byteOffset,
+      fileData.byteOffset + fileData.byteLength,
+    );
     const apkgData = parseApkg(buffer);
 
     updateJob(jobId, {
@@ -39,7 +46,7 @@ async function processImport(
       detail: `Importing ${apkgData.media.length} media files...`,
     });
 
-    const mediaService = new MediaService(db);
+    const mediaService = new MediaService(db, mediaDir);
     const {
       mapping: mediaMapping,
       warnings: mediaWarnings,
@@ -52,7 +59,7 @@ async function processImport(
       detail: "Importing notes and cards...",
     });
 
-    const importService = new ImportService(db);
+    const importService = new ImportService(db, rawSqlite);
     const result = await importService.importFromApkgBatched(
       userId,
       apkgData,
@@ -81,7 +88,7 @@ async function processImport(
     });
 
     // Clean up uploaded file
-    deleteUpload(userId, fileId);
+    deleteUpload(uploadDir, userId, fileId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Import failed";
     updateJob(jobId, {
@@ -114,7 +121,7 @@ export const Route = createFileRoute("/api/import/start")({
             );
           }
 
-          const filePath = getUploadPath(userId, body.fileId);
+          const filePath = getUploadPath(uploadDir, userId, body.fileId);
           if (!filePath) {
             return Response.json(
               { error: "Upload not found or expired" },

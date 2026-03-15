@@ -23,7 +23,7 @@ const PERIODS: Period[] = [
   { label: "Year", days: 365 },
 ];
 
-function StatsPage(): React.ReactElement {
+export function StatsPage(): React.ReactElement {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(PERIODS[1]);
   const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear());
 

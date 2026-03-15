@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { DeckService } from "../../../lib/services/deck-service";
 import { db } from "../../../db";
 
-const deckService = new DeckService(db);
+const mediaDir: string = join(process.cwd(), "data", "media");
+const deckService = new DeckService(db, mediaDir);
 
 export const Route = createFileRoute("/api/decks/$deckId")({
   server: {

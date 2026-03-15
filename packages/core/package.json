@@ -1,0 +1,36 @@
+{
+  "name": "@swanki/core",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./db": "./src/db/index.ts",
+    "./db/schema": "./src/db/schema.ts",
+    "./db/auth-schema": "./src/db/auth-schema.ts",
+    "./services/*": "./src/services/*.ts",
+    "./lib/*": "./src/lib/*.ts",
+    "./import/*": "./src/import/*.ts",
+    "./transport": "./src/transport.ts",
+    "./platform": "./src/platform.ts",
+    "./hooks/*": "./src/hooks/*.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "drizzle-orm": "^0.45.1",
+    "ts-fsrs": "^5.2.3",
+    "fflate": "^0.8.2",
+    "fzstd": "^0.1.1",
+    "isomorphic-dompurify": "^3.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "typescript": "^5.8.3"
+  }
+}

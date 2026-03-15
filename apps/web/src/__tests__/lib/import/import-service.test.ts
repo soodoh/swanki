@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { createTestDb } from "../../test-utils";
+import { createTestDbWithRaw } from "../../test-utils";
 import {
   ImportService,
   detectFormat,
@@ -13,7 +13,7 @@ import {
 } from "../../../db/schema";
 import { eq } from "drizzle-orm";
 
-type TestDb = ReturnType<typeof createTestDb>;
+type TestDb = ReturnType<typeof createTestDbWithRaw>["db"];
 
 describe("detectFormat", () => {
   it('detects .apkg as "apkg"', () => {
@@ -53,8 +53,9 @@ describe("ImportService", () => {
   const userId = "user-1";
 
   beforeEach(() => {
-    db = createTestDb();
-    importService = new ImportService(db);
+    const testDb = createTestDbWithRaw();
+    db = testDb.db;
+    importService = new ImportService(testDb.db, testDb.rawDb);
   });
 
   describe("importFromCsv", () => {

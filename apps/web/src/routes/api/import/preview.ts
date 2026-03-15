@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { eq } from "drizzle-orm";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { detectFormat } from "../../../lib/services/import-service";
 import { getUploadPath } from "../../../lib/services/upload-service";
@@ -14,6 +16,8 @@ import type { CrowdAnkiData } from "../../../lib/import/crowdanki-parser";
 import { db } from "../../../db";
 import { notes } from "../../../db/schema";
 import { stripHtmlToPlainText } from "../../../lib/field-converter";
+
+const uploadDir: string = join(process.cwd(), "data", "uploads");
 
 export type ApkgPreviewData = {
   decks: Array<{ name: string }>;
@@ -263,7 +267,7 @@ export const Route = createFileRoute("/api/import/preview")({
             }
             mergeMode = body.mergeMode;
 
-            const filePath = getUploadPath(userId, body.fileId);
+            const filePath = getUploadPath(uploadDir, userId, body.fileId);
             if (!filePath) {
               return Response.json(
                 { error: "Upload not found or expired" },
@@ -273,11 +277,12 @@ export const Route = createFileRoute("/api/import/preview")({
 
             const ext = filePath.slice(filePath.lastIndexOf("."));
             format = detectFormat(`file${ext}`);
-            /* oxlint-disable typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped */
-            const bunFile: { arrayBuffer(): Promise<ArrayBuffer> } =
-              Bun.file(filePath);
-            buffer = await bunFile.arrayBuffer();
-            /* oxlint-enable typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) */
+            // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-assignment) -- node:fs is untyped in this project
+            const fileData: Buffer = readFileSync(filePath);
+            buffer = fileData.buffer.slice(
+              fileData.byteOffset,
+              fileData.byteOffset + fileData.byteLength,
+            );
           } else if (contentType.includes("multipart/form-data")) {
             // Legacy path: file uploaded directly
             const formData = await request.formData();

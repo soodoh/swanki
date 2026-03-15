@@ -37,7 +37,7 @@ type SessionData = {
   };
 };
 
-function SettingsPage(): React.ReactElement {
+export function SettingsPage(): React.ReactElement {
   // oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via beforeLoad return
   const { session } = Route.useRouteContext();
   // oxlint-disable-next-line typescript/no-unsafe-member-access -- typed via beforeLoad return
