@@ -4,6 +4,7 @@ import { db, rawSqlite, mediaDir } from "./db";
 import { getOrCreateLocalUser } from "./local-user";
 import { loadWindowState, saveWindowState } from "./window-state";
 import { registerIpcHandlers } from "./ipc-handlers";
+import { initAutoUpdater } from "./updater";
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -14,6 +15,9 @@ let mainWindow: BrowserWindow | null = null;
 const localUser = getOrCreateLocalUser(db);
 
 app.whenReady().then(() => {
+  // Initialise auto-updater (no-op in dev)
+  initAutoUpdater();
+
   // Register media protocol
   protocol.handle("swanki-media", (request) => {
     const filename = decodeURIComponent(
