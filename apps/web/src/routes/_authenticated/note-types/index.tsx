@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/note-types/")({
   component: NoteTypesPage,
 });
 
-function NoteTypesPage(): React.ReactElement {
+export function NoteTypesPage(): React.ReactElement {
   const { data: noteTypes, isLoading, error } = useNoteTypes();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");

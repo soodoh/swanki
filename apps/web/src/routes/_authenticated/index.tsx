@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated/")({
   component: Dashboard,
 });
 
-function Dashboard(): React.ReactElement {
+export function Dashboard(): React.ReactElement {
   const { data: decks, isLoading, error } = useDecks();
 
   return (
