@@ -40,7 +40,7 @@ app.whenReady().then(() => {
     webPreferences: {
       preload: join(
         __dirname,
-        `../renderer/${MAIN_WINDOW_VITE_NAME}/preload.js`,
+        `../renderer/${MAIN_WINDOW_VITE_NAME}/preload.cjs`,
       ),
     },
   });
