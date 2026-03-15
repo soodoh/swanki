@@ -1,5 +1,5 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { zipSync, strToU8 } from "fflate";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
@@ -349,31 +349,31 @@ function createNewSchemaAnkiDb(options: {
     const collation = options.useUnicaseCollation ? "COLLATE nocase" : "";
 
     if (options.useProtobufConfig) {
-      sqliteDb.run(
+      sqliteDb.exec(
         `CREATE TABLE notetypes (id integer PRIMARY KEY, name text ${collation}, config blob)`,
       );
-      sqliteDb.run(
+      sqliteDb.exec(
         `CREATE TABLE templates (ntid integer, ord integer, name text, config blob)`,
       );
     } else {
-      sqliteDb.run(
+      sqliteDb.exec(
         `CREATE TABLE notetypes (id integer PRIMARY KEY, name text ${collation}, css text DEFAULT '')`,
       );
-      sqliteDb.run(
+      sqliteDb.exec(
         `CREATE TABLE templates (ntid integer, ord integer, name text, qfmt text, afmt text)`,
       );
     }
 
-    sqliteDb.run(
+    sqliteDb.exec(
       `CREATE TABLE fields (ntid integer, ord integer, name text ${collation})`,
     );
-    sqliteDb.run(
+    sqliteDb.exec(
       `CREATE TABLE decks (id integer PRIMARY KEY, name text ${collation})`,
     );
-    sqliteDb.run(
+    sqliteDb.exec(
       "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
     );
-    sqliteDb.run(
+    sqliteDb.exec(
       "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
     );
 
