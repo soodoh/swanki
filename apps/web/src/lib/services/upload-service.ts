@@ -6,6 +6,7 @@ import {
   statSync,
   unlinkSync,
   rmdirSync,
+  writeFileSync,
 } from "node:fs";
 
 // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- node:path and process are untyped in this project
@@ -44,8 +45,8 @@ export async function saveUpload(
   const filePath: string = join(dir, `${fileId}${ext}`);
 
   const buffer = await file.arrayBuffer();
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped in this project
-  await Bun.write(filePath, buffer);
+  // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
+  writeFileSync(filePath, Buffer.from(buffer));
 
   // Clean up expired uploads for this user in the background
   cleanupExpired(userId);

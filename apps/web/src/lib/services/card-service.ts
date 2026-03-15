@@ -1,9 +1,9 @@
 import { eq, and, lte, gt, inArray, sql, gte } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 import { cards, notes, decks, reviewLogs } from "../../db/schema";
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 type Card = typeof cards.$inferSelect;
 

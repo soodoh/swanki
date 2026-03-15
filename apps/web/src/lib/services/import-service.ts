@@ -1,5 +1,5 @@
 import { eq, and, isNull } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 import {
   decks,
@@ -22,7 +22,7 @@ export type ImportProgressCallback = (
   detail: string,
 ) => void;
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 export type ImportFormat = "apkg" | "colpkg" | "csv" | "txt" | "crowdanki";
 

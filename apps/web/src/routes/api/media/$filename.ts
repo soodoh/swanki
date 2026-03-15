@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "../../../lib/auth-middleware";
 import { MediaService } from "../../../lib/services/media-service";
 import { db } from "../../../db";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const mediaService = new MediaService(db);
 
@@ -26,10 +26,9 @@ export const Route = createFileRoute("/api/media/$filename")({
           );
         }
 
-        // oxlint-disable-next-line typescript/no-unsafe-assignment, typescript/no-unsafe-call, typescript/no-unsafe-member-access -- Bun global is typed at runtime
-        const file = Bun.file(result.filePath);
-        // oxlint-disable-next-line typescript/no-unsafe-argument -- file is BunFile from Bun.file()
-        return new Response(file, {
+        // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
+        const fileBuffer = readFileSync(result.filePath);
+        return new Response(fileBuffer, {
           headers: {
             "Content-Type": result.record.mimeType,
             "Content-Length": String(result.record.size),

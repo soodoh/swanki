@@ -3,7 +3,7 @@
  * Provides full and delta pulls of user data for offline sync.
  */
 import { eq, and, gte, sql } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 import {
   decks,
@@ -16,7 +16,7 @@ import {
   noteMedia,
 } from "../../db/schema";
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 export type SyncPullResponse = {
   decks: Array<Record<string, unknown>>;
