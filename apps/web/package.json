@@ -16,6 +16,7 @@
     "postinstall": "cp node_modules/sql.js/dist/sql-wasm.wasm public/sql-wasm.wasm 2>/dev/null || true"
   },
   "dependencies": {
+    "@swanki/core": "workspace:*",
     "@base-ui/react": "^1.2.0",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
