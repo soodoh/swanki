@@ -140,17 +140,20 @@ Bun remains the package manager and script runner. Only the server runtime chang
 // packages/core/src/db/index.ts
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
 
 export function createDb(dbPath: string) {
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
-  return drizzle(sqlite, { schema });
+  return { drizzleDb: drizzle(sqlite, { schema }), rawDb: sqlite };
 }
 
-export type AppDb = ReturnType<typeof createDb>;
+export type AppDb = BetterSQLite3Database<typeof schema>;
 ```
+
+Returns both `drizzleDb` (Drizzle instance) and `rawDb` (raw `better-sqlite3` handle) so callers can pass the raw handle to `ImportService` for transaction control.
 
 - Web: `createDb("data/sqlite.db")`
 - Desktop: `createDb(join(app.getPath('userData'), 'swanki.db'))`
