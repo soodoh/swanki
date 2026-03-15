@@ -8,7 +8,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     name: "Swanki",
     asar: true,
-    extraResource: ["./drizzle"],
+    extraResource: ["../web/drizzle"],
   },
   rebuildConfig: {},
   makers: [
