@@ -1,5 +1,5 @@
 import { eq, desc, inArray, and, lte } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 import {
   cards,
@@ -15,7 +15,7 @@ import { scheduleFsrs, previewAll } from "../fsrs";
 import type { CardCounts, CardWithNote } from "./card-service";
 import type { Grade, FsrsResult, IntervalPreview } from "../fsrs";
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 function deriveCounts(dueCards: CardWithNote[]): CardCounts {
   const counts: CardCounts = { new: 0, learning: 0, review: 0 };

@@ -1,12 +1,12 @@
 import { eq, and, lte, like, sql, or, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 import { cards, notes, decks, noteTypes, cardTemplates } from "../../db/schema";
 import { parseSearchQuery } from "../search-parser";
 import type { SearchNode } from "../search-parser";
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 type Note = typeof notes.$inferSelect;
 type NoteType = typeof noteTypes.$inferSelect;

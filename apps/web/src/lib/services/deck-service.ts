@@ -1,5 +1,5 @@
 import { eq, and, inArray } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 import {
   decks,
@@ -17,7 +17,7 @@ import { join } from "node:path";
 // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- node:path and process are untyped in this project
 const MEDIA_DIR: string = join(process.cwd(), "data", "media");
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 type Deck = typeof decks.$inferSelect;
 

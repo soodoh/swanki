@@ -4,10 +4,10 @@ import { MediaService } from "@/lib/services/media-service";
 import { media, noteMedia } from "@/db/schema";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "@/db/schema";
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 const TEST_MEDIA_DIR = join(process.cwd(), "data", "media");
 

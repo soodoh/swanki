@@ -1,11 +1,11 @@
 import { eq, and } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "../../db/schema";
 import { media, noteMedia } from "../../db/schema";
-import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 type MediaRecord = typeof media.$inferSelect;
 
@@ -98,8 +98,8 @@ export class MediaService {
     // Write to disk
     // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
     const filePath: string = join(MEDIA_DIR, filename);
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped in this project
-    await Bun.write(filePath, bytes);
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
+    writeFileSync(filePath, bytes);
 
     // Record in DB
     const now = new Date();
@@ -219,14 +219,13 @@ export class MediaService {
     for (let i = 0; i < pendingWrites.length; i += BATCH_SIZE) {
       const batch = pendingWrites.slice(i, i + BATCH_SIZE);
 
-      await Promise.all(
-        batch.map(async ({ entry, filename }) => {
-          // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-          const filePath: string = join(MEDIA_DIR, filename);
-          // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped in this project
-          await Bun.write(filePath, entry.data);
-        }),
-      );
+      ensureMediaDir();
+      for (const { entry, filename } of batch) {
+        // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
+        const filePath: string = join(MEDIA_DIR, filename);
+        // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
+        writeFileSync(filePath, entry.data);
+      }
 
       for (const { entry, hash, filename, mimeType, fileOnly } of batch) {
         if (!fileOnly) {

@@ -1,10 +1,10 @@
 import { eq, and, like } from "drizzle-orm";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
 import type * as schema from "../../db/schema";
 import { notes, cards, cardTemplates } from "../../db/schema";
 
-type Db = BunSQLiteDatabase<typeof schema>;
+type Db = BetterSQLite3Database<typeof schema>;
 
 type Note = typeof notes.$inferSelect;
 type Card = typeof cards.$inferSelect;

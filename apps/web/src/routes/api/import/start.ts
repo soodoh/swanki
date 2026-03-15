@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { readFileSync } from "node:fs";
 import { requireSession } from "../../../lib/auth-middleware";
 import {
   getUploadPath,
@@ -27,10 +28,12 @@ async function processImport(
       detail: "Reading and parsing file...",
     });
 
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun global is untyped
-    const bunFile: { arrayBuffer(): Promise<ArrayBuffer> } = Bun.file(filePath);
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-member-access) -- Bun file is untyped
-    const buffer: ArrayBuffer = await bunFile.arrayBuffer();
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-assignment) -- node:fs is untyped in this project
+    const fileData: Buffer = readFileSync(filePath);
+    const buffer: ArrayBuffer = fileData.buffer.slice(
+      fileData.byteOffset,
+      fileData.byteOffset + fileData.byteLength,
+    );
     const apkgData = parseApkg(buffer);
 
     updateJob(jobId, {
