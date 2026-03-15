@@ -1,10 +1,19 @@
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { RouterProvider } from "@tanstack/react-router";
+import { DesktopProvider } from "./providers/desktop-provider";
+import { router } from "./routes";
 
-function App() {
+// Import web app's Tailwind CSS and theme variables
+import "@/styles/globals.css";
+
+function App(): React.ReactElement {
   return (
-    <div style={{ padding: 40, fontFamily: "system-ui" }}>
-      Hello Swanki Desktop
-    </div>
+    <StrictMode>
+      <DesktopProvider>
+        <RouterProvider router={router} />
+      </DesktopProvider>
+    </StrictMode>
   );
 }
 
