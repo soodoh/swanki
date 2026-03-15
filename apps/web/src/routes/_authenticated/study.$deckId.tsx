@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/study/$deckId")({
   component: StudyPage,
 });
 
-function StudyPage(): React.ReactElement {
+export function StudyPage(): React.ReactElement {
   // oxlint-disable-next-line typescript/no-unsafe-assignment -- TanStack Router params are typed via route tree generation
   const { deckId: deckIdParam } = Route.useParams();
   // oxlint-disable-next-line typescript/no-unsafe-argument -- TanStack Router params are typed via route tree generation
