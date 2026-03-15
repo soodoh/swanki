@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useMemo } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { html } from "@codemirror/lang-html";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Plus, Type, Braces, Hash } from "lucide-react";
@@ -50,7 +50,10 @@ export function TemplateCodeEditor({
   const { theme } = useTheme();
   const dark = isDark(theme);
   const extensions = useMemo(
-    () => (dark ? [html(), oneDark] : [html()]),
+    () =>
+      dark
+        ? [html(), oneDark, EditorView.lineWrapping]
+        : [html(), EditorView.lineWrapping],
     [dark],
   );
   const viewRef = useRef<CodeEditorView | undefined>(undefined);
