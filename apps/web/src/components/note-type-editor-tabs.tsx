@@ -375,7 +375,7 @@ export function CardsTab({
             </button>
           }
         />
-        <CollapsibleContent>
+        <CollapsibleContent className="h-[var(--collapsible-panel-height)] overflow-hidden transition-[height] duration-200 ease-out data-[starting-style]:h-0 data-[ending-style]:h-0">
           <div className="mt-2 grid gap-2">
             <CssCodeEditor value={localCss} onChange={setLocalCss} />
             <div className="flex justify-end">
@@ -586,7 +586,7 @@ function TemplateAccordionItem({
           </button>
         }
       />
-      <CollapsibleContent>
+      <CollapsibleContent className="h-[var(--collapsible-panel-height)] overflow-hidden transition-[height] duration-200 ease-out data-[starting-style]:h-0 data-[ending-style]:h-0">
         <div className="mt-2 rounded-lg border p-4">
           <Tabs defaultValue="edit">
             <TabsList>

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { css } from "@codemirror/lang-css";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "@/lib/theme";
@@ -24,7 +24,13 @@ export function CssCodeEditor({
 }: CssCodeEditorProps): React.ReactElement {
   const { theme } = useTheme();
   const dark = isDark(theme);
-  const extensions = useMemo(() => (dark ? [css(), oneDark] : [css()]), [dark]);
+  const extensions = useMemo(
+    () =>
+      dark
+        ? [css(), oneDark, EditorView.lineWrapping]
+        : [css(), EditorView.lineWrapping],
+    [dark],
+  );
 
   return (
     <div className={className}>
