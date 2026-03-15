@@ -1,10 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
-import { useOffline } from "@/lib/offline/offline-provider";
-import { offlineQuery, offlineMutation } from "@/lib/offline/offline-fetch";
-import * as localQueries from "@/lib/offline/local-queries";
-import * as localMutations from "@/lib/offline/local-mutations";
-import { decks as decksTable } from "@/db/schema";
+import { useTransport } from "@swanki/core/transport";
 
 export type DeckTreeNode = {
   id: number;
@@ -25,24 +21,11 @@ export type CardCounts = {
 };
 
 export function useDecks(): UseQueryResult<DeckTreeNode[]> {
-  const { db, isOnline, isLocalReady } = useOffline();
+  const transport = useTransport();
 
   return useQuery<DeckTreeNode[]>({
     queryKey: ["decks"],
-    queryFn: async () =>
-      offlineQuery({
-        serverFetch: async () => {
-          const res = await fetch("/api/decks");
-          if (!res.ok) {
-            throw new Error("Failed to fetch decks");
-          }
-          return res.json() as Promise<DeckTreeNode[]>;
-        },
-        localQuery: (localDb) => localQueries.getDecksTree(localDb),
-        db,
-        isOnline,
-        isLocalReady,
-      }),
+    queryFn: () => transport.query<DeckTreeNode[]>("/api/decks"),
   });
 }
 
@@ -51,51 +34,12 @@ export function useCreateDeck(): UseMutationResult<
   Error,
   { name: string; parentId?: number }
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
-  const { db, isOnline, queue, persist } = useOffline();
 
   return useMutation({
-    mutationFn: async (data: { name: string; parentId?: number }) =>
-      offlineMutation(
-        {
-          serverFetch: async (input) => {
-            const res = await fetch("/api/decks", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(input),
-            });
-            if (!res.ok) {
-              throw new Error("Failed to create deck");
-            }
-            return res.json() as Promise<DeckTreeNode>;
-          },
-          localMutation: (localDb, input) => {
-            const id = crypto.randomUUID();
-            const row = localDb
-              .select({ userId: decksTable.userId })
-              .from(decksTable)
-              .limit(1)
-              .get();
-            const userId = row?.userId ?? "";
-            localMutations.createDeck(localDb, {
-              id,
-              userId,
-              name: input.name,
-              parentId: input.parentId,
-            });
-          },
-          queueEntry: (input) => ({
-            endpoint: "/api/decks",
-            method: "POST",
-            body: input,
-          }),
-          db,
-          isOnline,
-          queue,
-          persist,
-        },
-        data,
-      ),
+    mutationFn: (data: { name: string; parentId?: number }) =>
+      transport.mutate<DeckTreeNode | undefined>("/api/decks", "POST", data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["decks"] });
     },
@@ -105,24 +49,14 @@ export function useCreateDeck(): UseMutationResult<
 export function useDeckCounts(
   deckId: number | undefined,
 ): UseQueryResult<CardCounts> {
-  const { db, isOnline, isLocalReady } = useOffline();
+  const transport = useTransport();
 
   return useQuery<CardCounts>({
     queryKey: ["deck-counts", deckId],
-    queryFn: async () =>
-      offlineQuery({
-        serverFetch: async () => {
-          const res = await fetch(`/api/cards?deckId=${deckId}&counts=true`);
-          if (!res.ok) {
-            throw new Error("Failed to fetch deck counts");
-          }
-          return res.json() as Promise<CardCounts>;
-        },
-        localQuery: (localDb) =>
-          deckId ? localQueries.getDeckCounts(localDb, deckId) : undefined,
-        db,
-        isOnline,
-        isLocalReady,
+    queryFn: () =>
+      transport.query<CardCounts>("/api/cards", {
+        deckId: String(deckId),
+        counts: "true",
       }),
     enabled: deckId !== undefined,
   });
@@ -141,38 +75,12 @@ export function useUpdateDeck(): UseMutationResult<
   Error,
   DeckUpdatePayload
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
-  const { db, isOnline, queue, persist } = useOffline();
 
   return useMutation({
-    mutationFn: async ({ deckId, ...data }: DeckUpdatePayload) =>
-      offlineMutation(
-        {
-          serverFetch: async () => {
-            const res = await fetch(`/api/decks/${deckId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            });
-            if (!res.ok) {
-              throw new Error("Failed to update deck");
-            }
-          },
-          localMutation: (localDb) => {
-            localMutations.updateDeck(localDb, deckId, data);
-          },
-          queueEntry: () => ({
-            endpoint: `/api/decks/${deckId}`,
-            method: "PUT",
-            body: data,
-          }),
-          db,
-          isOnline,
-          queue,
-          persist,
-        },
-        { deckId, ...data },
-      ),
+    mutationFn: ({ deckId, ...data }: DeckUpdatePayload) =>
+      transport.mutate<void>(`/api/decks/${deckId}`, "PUT", data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["decks"] });
     },
@@ -180,35 +88,12 @@ export function useUpdateDeck(): UseMutationResult<
 }
 
 export function useDeleteDeck(): UseMutationResult<void, Error, number> {
+  const transport = useTransport();
   const queryClient = useQueryClient();
-  const { db, isOnline, queue, persist } = useOffline();
 
   return useMutation({
-    mutationFn: async (deckId: number) =>
-      offlineMutation(
-        {
-          serverFetch: async () => {
-            const res = await fetch(`/api/decks/${deckId}`, {
-              method: "DELETE",
-            });
-            if (!res.ok) {
-              throw new Error("Failed to delete deck");
-            }
-          },
-          localMutation: (localDb) => {
-            localMutations.deleteDeck(localDb, deckId);
-          },
-          queueEntry: () => ({
-            endpoint: `/api/decks/${deckId}`,
-            method: "DELETE",
-          }),
-          db,
-          isOnline,
-          queue,
-          persist,
-        },
-        deckId,
-      ),
+    mutationFn: (deckId: number) =>
+      transport.mutate<void>(`/api/decks/${deckId}`, "DELETE"),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["decks"] });
       void queryClient.invalidateQueries({ queryKey: ["deck-counts"] });

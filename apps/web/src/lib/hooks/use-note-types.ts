@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
-import { useOffline } from "@/lib/offline/offline-provider";
-import { offlineQuery } from "@/lib/offline/offline-fetch";
-import * as localQueries from "@/lib/offline/local-queries";
+import { useTransport } from "@swanki/core/transport";
 
 export type NoteTypeField = {
   name: string;
@@ -34,49 +32,23 @@ export type NoteTypeWithTemplates = {
 };
 
 export function useNoteTypes(): UseQueryResult<NoteTypeWithTemplates[]> {
-  const { db, isOnline, isLocalReady } = useOffline();
+  const transport = useTransport();
 
   return useQuery<NoteTypeWithTemplates[]>({
     queryKey: ["note-types"],
-    queryFn: async () =>
-      offlineQuery({
-        serverFetch: async () => {
-          const res = await fetch("/api/note-types");
-          if (!res.ok) {
-            throw new Error("Failed to fetch note types");
-          }
-          return res.json() as Promise<NoteTypeWithTemplates[]>;
-        },
-        localQuery: (localDb) => localQueries.getNoteTypes(localDb),
-        db,
-        isOnline,
-        isLocalReady,
-      }),
+    queryFn: () => transport.query<NoteTypeWithTemplates[]>("/api/note-types"),
   });
 }
 
 export function useNoteType(
   id: number | undefined,
 ): UseQueryResult<NoteTypeWithTemplates> {
-  const { db, isOnline, isLocalReady } = useOffline();
+  const transport = useTransport();
 
   return useQuery<NoteTypeWithTemplates>({
     queryKey: ["note-types", id],
-    queryFn: async () =>
-      offlineQuery({
-        serverFetch: async () => {
-          const res = await fetch(`/api/note-types/${id}`);
-          if (!res.ok) {
-            throw new Error("Failed to fetch note type");
-          }
-          return res.json() as Promise<NoteTypeWithTemplates>;
-        },
-        localQuery: (localDb) =>
-          id ? localQueries.getNoteType(localDb, id) : undefined,
-        db,
-        isOnline,
-        isLocalReady,
-      }),
+    queryFn: () =>
+      transport.query<NoteTypeWithTemplates>(`/api/note-types/${id}`),
     enabled: id !== undefined,
   });
 }
@@ -84,30 +56,16 @@ export function useNoteType(
 export function useSampleNote(
   noteTypeId: number | undefined,
 ): UseQueryResult<Record<string, string> | undefined> {
-  const { db, isOnline, isLocalReady } = useOffline();
+  const transport = useTransport();
 
   return useQuery<Record<string, string> | undefined>({
     queryKey: ["note-types", noteTypeId, "sample-note"],
-    queryFn: async () =>
-      offlineQuery({
-        serverFetch: async () => {
-          const res = await fetch(`/api/note-types/${noteTypeId}/sample-note`);
-          if (!res.ok) {
-            throw new Error("Failed to fetch sample note");
-          }
-          const data = (await res.json()) as {
-            fields: Record<string, string> | undefined;
-          };
-          return data.fields;
-        },
-        localQuery: (localDb) =>
-          noteTypeId
-            ? localQueries.getFirstNoteFields(localDb, noteTypeId)
-            : undefined,
-        db,
-        isOnline,
-        isLocalReady,
-      }),
+    queryFn: async () => {
+      const data = await transport.query<{
+        fields: Record<string, string> | undefined;
+      }>(`/api/note-types/${noteTypeId}/sample-note`);
+      return data.fields;
+    },
     enabled: noteTypeId !== undefined,
   });
 }
@@ -121,24 +79,15 @@ export function useCreateNoteType(): UseMutationResult<
   Error,
   { name: string; fields: NoteTypeField[]; css?: string }
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: {
+    mutationFn: (data: {
       name: string;
       fields: NoteTypeField[];
       css?: string;
-    }) => {
-      const res = await fetch("/api/note-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to create note type");
-      }
-      return res.json() as Promise<NoteType>;
-    },
+    }) => transport.mutate<NoteType>("/api/note-types", "POST", data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["note-types"] });
     },
@@ -155,25 +104,18 @@ export function useUpdateNoteType(): UseMutationResult<
     css?: string;
   }
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: {
+    mutationFn: (data: {
       id: number;
       name?: string;
       fields?: NoteTypeField[];
       css?: string;
     }) => {
       const { id, ...body } = data;
-      const res = await fetch(`/api/note-types/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to update note type");
-      }
-      return res.json() as Promise<NoteType>;
+      return transport.mutate<NoteType>(`/api/note-types/${id}`, "PUT", body);
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["note-types"] });
@@ -185,18 +127,12 @@ export function useUpdateNoteType(): UseMutationResult<
 }
 
 export function useDeleteNoteType(): UseMutationResult<void, Error, number> {
+  const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/note-types/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        throw new Error(body.error ?? "Failed to delete note type");
-      }
-    },
+    mutationFn: (id: number) =>
+      transport.mutate<void>(`/api/note-types/${id}`, "DELETE"),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["note-types"] });
     },
@@ -213,25 +149,17 @@ export function useCreateTemplate(): UseMutationResult<
     answerTemplate: string;
   }
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: {
+    mutationFn: (data: {
       noteTypeId: number;
       name: string;
       questionTemplate: string;
       answerTemplate: string;
-    }) => {
-      const res = await fetch("/api/note-types/templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to create template");
-      }
-      return res.json() as Promise<CardTemplate>;
-    },
+    }) =>
+      transport.mutate<CardTemplate>("/api/note-types/templates", "POST", data),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["note-types"] });
       void queryClient.invalidateQueries({
@@ -251,25 +179,22 @@ export function useUpdateTemplate(): UseMutationResult<
     answerTemplate?: string;
   }
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: {
+    mutationFn: (data: {
       templateId: number;
       noteTypeId: number;
       questionTemplate?: string;
       answerTemplate?: string;
     }) => {
       const { templateId, noteTypeId: _, ...body } = data;
-      const res = await fetch(`/api/note-types/templates/${templateId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to update template");
-      }
-      return res.json() as Promise<CardTemplate>;
+      return transport.mutate<CardTemplate>(
+        `/api/note-types/templates/${templateId}`,
+        "PUT",
+        body,
+      );
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["note-types"] });
@@ -285,17 +210,15 @@ export function useDeleteTemplate(): UseMutationResult<
   Error,
   { templateId: number; noteTypeId: number }
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { templateId: number; noteTypeId: number }) => {
-      const res = await fetch(`/api/note-types/templates/${data.templateId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to delete template");
-      }
-    },
+    mutationFn: (data: { templateId: number; noteTypeId: number }) =>
+      transport.mutate<void>(
+        `/api/note-types/templates/${data.templateId}`,
+        "DELETE",
+      ),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["note-types"] });
       void queryClient.invalidateQueries({
