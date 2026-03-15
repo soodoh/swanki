@@ -23,7 +23,7 @@ import type { MutationQueueHandle } from "./mutation-queue";
 
 export type SyncStatus = "idle" | "syncing" | "error";
 
-type OfflineContextValue = {
+export type OfflineContextValue = {
   /** The Drizzle-wrapped local database instance (null if not initialized yet). */
   db: LocalDrizzleDb | null;
   /** Whether the server is reachable. */
