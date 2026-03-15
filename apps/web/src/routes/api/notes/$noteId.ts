@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { NoteService } from "../../../lib/services/note-service";
 import { MediaService } from "../../../lib/services/media-service";
 import { extractMediaFilenames } from "../../../lib/services/import-service";
 import { db } from "../../../db";
 
+const mediaDir: string = join(process.cwd(), "data", "media");
 const noteService = new NoteService(db);
 
 export const Route = createFileRoute("/api/notes/$noteId")({
@@ -37,7 +39,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         if (body.fields) {
-          const mediaService = new MediaService(db);
+          const mediaService = new MediaService(db, mediaDir);
           const filenames = extractMediaFilenames(body.fields);
           mediaService.reconcileNoteReferences(noteId, filenames);
         }
@@ -54,7 +56,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
         if (!existing) {
           return new Response(undefined, { status: 204 });
         }
-        const mediaService = new MediaService(db);
+        const mediaService = new MediaService(db, mediaDir);
         mediaService.reconcileNoteReferences(noteId, []);
         noteService.delete(noteId, session.user.id);
         return new Response(undefined, { status: 204 });

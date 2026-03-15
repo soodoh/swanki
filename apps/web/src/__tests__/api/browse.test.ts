@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { createTestDb } from "../test-utils";
+import { createTestDb, testMediaDir } from "../test-utils";
 import { BrowseService } from "../../lib/services/browse-service";
 import { NoteService } from "../../lib/services/note-service";
 import { DeckService } from "../../lib/services/deck-service";
@@ -23,7 +23,7 @@ describe("BrowseService", () => {
     db = createTestDb();
     browseService = new BrowseService(db);
     noteService = new NoteService(db);
-    deckService = new DeckService(db);
+    deckService = new DeckService(db, testMediaDir);
 
     // Create a deck
     const deck = await deckService.create(userId, { name: "Japanese" });

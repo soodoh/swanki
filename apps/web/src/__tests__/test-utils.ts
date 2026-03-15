@@ -1,16 +1,21 @@
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { Database } from "bun:sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import * as schema from "../db/schema";
+import { createDb } from "@swanki/core/db";
+import type { AppDb } from "@swanki/core/db";
+import type Database from "better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-export function createTestDb(): BunSQLiteDatabase<typeof schema> {
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment),typescript-eslint(no-unsafe-call) -- bun:sqlite Database types are inferred as any
-  const sqlite = new Database(":memory:");
-  const sqliteTyped = sqlite as unknown as { exec(sql: string): void };
-  sqliteTyped.exec("PRAGMA foreign_keys = ON;");
-  // oxlint-disable-next-line typescript-eslint(no-unsafe-argument) -- sqlite typed as any from bun:sqlite
-  const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: "./drizzle" });
-  return db;
+export function createTestDb(): AppDb {
+  const { drizzleDb } = createDb(":memory:");
+  migrate(drizzleDb, { migrationsFolder: "./drizzle" });
+  return drizzleDb;
 }
+
+export function createTestDbWithRaw(): { db: AppDb; rawDb: Database.Database } {
+  const { drizzleDb, rawDb } = createDb(":memory:");
+  migrate(drizzleDb, { migrationsFolder: "./drizzle" });
+  return { db: drizzleDb, rawDb };
+}
+
+export const testMediaDir: string = join(tmpdir(), "swanki-test-media");
+export const testUploadDir: string = join(tmpdir(), "swanki-test-uploads");

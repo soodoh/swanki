@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import {
   ImportService,
@@ -8,9 +9,10 @@ import { MediaService } from "../../../lib/services/media-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { parseCsv } from "../../../lib/import/csv-parser";
 import { parseCrowdAnkiZip } from "../../../lib/import/crowdanki-parser";
-import { db } from "../../../db";
+import { db, rawSqlite } from "../../../db";
 
-const importService = new ImportService(db);
+const mediaDir: string = join(process.cwd(), "data", "media");
+const importService = new ImportService(db, rawSqlite);
 
 export const Route = createFileRoute("/api/import/")({
   server: {
@@ -50,7 +52,7 @@ export const Route = createFileRoute("/api/import/")({
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
             const mergeMode = formData.get("mergeMode") as string | undefined;
-            const mediaService = new MediaService(db);
+            const mediaService = new MediaService(db, mediaDir);
             const {
               mapping: mediaMapping,
               warnings: mediaWarnings,
@@ -88,7 +90,7 @@ export const Route = createFileRoute("/api/import/")({
           // format === "crowdanki" (ZIP with deck.json + media)
           const buffer = await file.arrayBuffer();
           const { json, mediaEntries } = parseCrowdAnkiZip(buffer);
-          const mediaService = new MediaService(db);
+          const mediaService = new MediaService(db, mediaDir);
           const {
             mapping: mediaMapping,
             warnings: mediaWarnings,

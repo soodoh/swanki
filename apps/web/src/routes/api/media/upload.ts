@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { MediaService } from "../../../lib/services/media-service";
 import { db } from "../../../db";
 
-const mediaService = new MediaService(db);
+const mediaDir: string = join(process.cwd(), "data", "media");
+const mediaService = new MediaService(db, mediaDir);
 
 export const Route = createFileRoute("/api/media/upload")({
   server: {

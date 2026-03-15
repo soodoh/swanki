@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createTestDb } from "../test-utils";
+import { createTestDb, testMediaDir } from "../test-utils";
 import { DeckService } from "../../lib/services/deck-service";
 import { MediaService } from "../../lib/services/media-service";
 import {
@@ -14,23 +14,23 @@ import {
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-const TEST_MEDIA_DIR = join(process.cwd(), "data", "media");
-
 type TestDb = ReturnType<typeof createTestDb>;
 
 describe("DeckService", () => {
   let db: TestDb;
   let deckService: DeckService;
+  let testDir: string;
   const userId = "user-1";
 
   beforeEach(() => {
+    testDir = join(testMediaDir, crypto.randomUUID());
     db = createTestDb();
-    deckService = new DeckService(db);
+    deckService = new DeckService(db, testDir);
   });
 
   afterEach(() => {
-    if (existsSync(TEST_MEDIA_DIR)) {
-      rmSync(TEST_MEDIA_DIR, { recursive: true, force: true });
+    if (existsSync(testDir)) {
+      rmSync(testDir, { recursive: true, force: true });
     }
   });
 
@@ -330,7 +330,7 @@ describe("DeckService", () => {
 
     it("deletes orphaned media files when deck is deleted", async () => {
       const deck = deckService.create(userId, { name: "Media Test" });
-      const mediaService = new MediaService(db);
+      const mediaService = new MediaService(db, testDir);
 
       // Import a media file
       const { mapping } = await mediaService.importBatch(userId, [
@@ -396,7 +396,7 @@ describe("DeckService", () => {
         .run();
 
       // Verify media file exists before delete
-      const filePath = join(TEST_MEDIA_DIR, mediaFilename);
+      const filePath = join(testDir, mediaFilename);
       expect(existsSync(filePath)).toBe(true);
 
       // Delete the deck
