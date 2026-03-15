@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createTestDb } from "../../test-utils";
+import { createTestDb, testMediaDir } from "../../test-utils";
 import { MediaService } from "@/lib/services/media-service";
 import { media, noteMedia } from "@/db/schema";
 import { existsSync, rmSync } from "node:fs";
@@ -9,20 +9,20 @@ import type * as schema from "@/db/schema";
 
 type Db = BetterSQLite3Database<typeof schema>;
 
-const TEST_MEDIA_DIR = join(process.cwd(), "data", "media");
-
 describe("MediaService.importBatch", () => {
   let db: Db;
   let service: MediaService;
+  let testDir: string;
 
   beforeEach(() => {
+    testDir = join(testMediaDir, crypto.randomUUID());
     db = createTestDb();
-    service = new MediaService(db);
+    service = new MediaService(db, testDir);
   });
 
   afterEach(() => {
-    if (existsSync(TEST_MEDIA_DIR)) {
-      rmSync(TEST_MEDIA_DIR, { recursive: true, force: true });
+    if (existsSync(testDir)) {
+      rmSync(testDir, { recursive: true, force: true });
     }
   });
 
@@ -99,15 +99,17 @@ describe("MediaService.importBatch", () => {
 describe("MediaService.reconcileNoteReferences", () => {
   let db: Db;
   let service: MediaService;
+  let testDir: string;
 
   beforeEach(() => {
+    testDir = join(testMediaDir, crypto.randomUUID());
     db = createTestDb();
-    service = new MediaService(db);
+    service = new MediaService(db, testDir);
   });
 
   afterEach(() => {
-    if (existsSync(TEST_MEDIA_DIR)) {
-      rmSync(TEST_MEDIA_DIR, { recursive: true, force: true });
+    if (existsSync(testDir)) {
+      rmSync(testDir, { recursive: true, force: true });
     }
   });
 
@@ -135,7 +137,7 @@ describe("MediaService.reconcileNoteReferences", () => {
     const records = db.select().from(media).all();
     expect(records).toHaveLength(0);
 
-    const filePath = join(TEST_MEDIA_DIR, filename);
+    const filePath = join(testDir, filename);
     expect(existsSync(filePath)).toBe(false);
   });
 

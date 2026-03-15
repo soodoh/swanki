@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createTestDb } from "../../test-utils";
+import { createTestDbWithRaw } from "../../test-utils";
 import {
   rewriteMediaUrls,
   extractMediaFilenames,
@@ -122,8 +122,8 @@ describe("extractMediaFilenames", () => {
 
 describe("importFromApkg noteMedia population", () => {
   it("should create noteMedia records for notes with media references", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
 
     // Insert a mock media record
     db.insert(media)
@@ -257,8 +257,8 @@ function makeApkgData(overrides?: {
 
 describe("importFromApkg merge mode", () => {
   it("should skip unchanged notes on second import with merge=true", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
     const data = makeApkgData();
 
     const first = service.importFromApkg("user-1", data, undefined, true);
@@ -287,8 +287,8 @@ describe("importFromApkg merge mode", () => {
   });
 
   it("should skip duplicate notes on second import with merge=false", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
     const data = makeApkgData();
 
     service.importFromApkg("user-1", data, undefined, false);
@@ -309,8 +309,8 @@ describe("importFromApkg merge mode", () => {
   });
 
   it("should import only new notes when some already exist", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
 
     // First import with 2 notes
     const data1 = makeApkgData({ noteGuids: ["guid-1", "guid-2"] });
@@ -332,8 +332,8 @@ describe("importFromApkg merge mode", () => {
 
 describe("importFromApkg merge update-on-change", () => {
   it("should update notes when fields have changed", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
 
     const data1 = makeApkgData({
       noteGuids: ["guid-1"],
@@ -360,8 +360,8 @@ describe("importFromApkg merge update-on-change", () => {
   });
 
   it("should skip notes when fields are unchanged", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
 
     const data = makeApkgData({
       noteGuids: ["guid-1"],
@@ -375,8 +375,8 @@ describe("importFromApkg merge update-on-change", () => {
   });
 
   it("should handle mix of new, updated, and unchanged notes", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
 
     // Import 2 notes
     const data1 = makeApkgData({
@@ -408,8 +408,8 @@ describe("importFromApkg merge update-on-change", () => {
   });
 
   it("should rewrite media URLs in updated fields", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
 
     const data1 = makeApkgData({
       noteGuids: ["guid-1"],
@@ -435,8 +435,8 @@ describe("importFromApkg merge update-on-change", () => {
   });
 
   it("should overwrite locally-edited notes on re-import", () => {
-    const db = createTestDb();
-    const importService = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const importService = new ImportService(db, rawDb);
     const noteService = new NoteService(db);
 
     // Step 1: Import an APKG with merge mode
@@ -490,8 +490,8 @@ describe("importFromApkg merge update-on-change", () => {
 
 describe("importFromApkg nested deck hierarchy", () => {
   it("should create nested decks from :: separated names", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "A::B::C" }],
@@ -516,8 +516,8 @@ describe("importFromApkg nested deck hierarchy", () => {
   });
 
   it("should deduplicate shared prefixes across decks", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
     const data = makeApkgData({
       noteGuids: ["guid-1", "guid-2"],
       decks: [
@@ -545,8 +545,8 @@ describe("importFromApkg nested deck hierarchy", () => {
   });
 
   it("should create flat deck with no parentId for simple names", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "Simple Deck" }],
@@ -561,8 +561,8 @@ describe("importFromApkg nested deck hierarchy", () => {
   });
 
   it("should handle Anki unit separator U+001F in deck names", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "Music\u001FTheory\u001FChords" }],
@@ -583,8 +583,8 @@ describe("importFromApkg nested deck hierarchy", () => {
   });
 
   it("should not duplicate decks on merge re-import with hierarchy", () => {
-    const db = createTestDb();
-    const service = new ImportService(db);
+    const { db, rawDb } = createTestDbWithRaw();
+    const service = new ImportService(db, rawDb);
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "A::B::C" }],

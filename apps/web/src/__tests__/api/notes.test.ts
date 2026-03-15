@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { createTestDb } from "../test-utils";
+import { createTestDb, testMediaDir } from "../test-utils";
 import { NoteService } from "../../lib/services/note-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { noteTypes, cardTemplates, cards } from "../../db/schema";
@@ -21,7 +21,7 @@ describe("NoteService", () => {
   beforeEach(async () => {
     db = createTestDb();
     noteService = new NoteService(db);
-    deckService = new DeckService(db);
+    deckService = new DeckService(db, testMediaDir);
 
     // Create a deck
     const deck = await deckService.create(userId, { name: "Test Deck" });

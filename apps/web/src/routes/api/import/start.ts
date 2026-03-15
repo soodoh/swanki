@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import {
   getUploadPath,
@@ -12,7 +13,10 @@ import {
 import { MediaService } from "../../../lib/services/media-service";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { createJob, updateJob } from "../../../lib/import/import-job";
-import { db } from "../../../db";
+import { db, rawSqlite } from "../../../db";
+
+const mediaDir: string = join(process.cwd(), "data", "media");
+const uploadDir: string = join(process.cwd(), "data", "uploads");
 
 async function processImport(
   jobId: string,
@@ -42,7 +46,7 @@ async function processImport(
       detail: `Importing ${apkgData.media.length} media files...`,
     });
 
-    const mediaService = new MediaService(db);
+    const mediaService = new MediaService(db, mediaDir);
     const {
       mapping: mediaMapping,
       warnings: mediaWarnings,
@@ -55,7 +59,7 @@ async function processImport(
       detail: "Importing notes and cards...",
     });
 
-    const importService = new ImportService(db);
+    const importService = new ImportService(db, rawSqlite);
     const result = await importService.importFromApkgBatched(
       userId,
       apkgData,
@@ -84,7 +88,7 @@ async function processImport(
     });
 
     // Clean up uploaded file
-    deleteUpload(userId, fileId);
+    deleteUpload(uploadDir, userId, fileId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Import failed";
     updateJob(jobId, {
@@ -117,7 +121,7 @@ export const Route = createFileRoute("/api/import/start")({
             );
           }
 
-          const filePath = getUploadPath(userId, body.fileId);
+          const filePath = getUploadPath(uploadDir, userId, body.fileId);
           if (!filePath) {
             return Response.json(
               { error: "Upload not found or expired" },
