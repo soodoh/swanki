@@ -11,7 +11,11 @@ import {
 } from "./offline/local-router";
 
 export class WebTransport implements AppTransport {
-  constructor(private offline: OfflineContextValue) {}
+  private offline: OfflineContextValue;
+
+  constructor(offline: OfflineContextValue) {
+    this.offline = offline;
+  }
 
   async query<T>(
     endpoint: string,
@@ -31,12 +35,15 @@ export class WebTransport implements AppTransport {
         return res.json() as Promise<T>;
       },
       localQuery: localQuery as
-        | ((db: Parameters<typeof offlineQuery>[0]["db"] & object) => T)
+        | ((
+            db: Parameters<typeof offlineQuery>[0]["db"] &
+              Record<string, unknown>,
+          ) => T)
         | undefined,
       db: this.offline.db,
       isOnline: this.offline.isOnline,
       isLocalReady: this.offline.isLocalReady,
-    }) as Promise<T>;
+    });
   }
 
   async mutate<T>(
