@@ -10,12 +10,25 @@ import { BrowseService } from "@swanki/core/services/browse-service";
 import { StatsService } from "@swanki/core/services/stats-service";
 import { ImportService } from "@swanki/core/services/import-service";
 import { MediaService } from "@swanki/core/services/media-service";
+import {
+  openAuthWindow,
+  clearToken,
+  isSignedIn,
+  getCloudServerUrl,
+} from "./auth";
+import {
+  syncPull,
+  getSyncStatus,
+  startPeriodicSync,
+  stopPeriodicSync,
+} from "./sync";
 
 export function registerIpcHandlers(
   db: AppDb,
   rawDb: Database.Database,
   userId: string,
   mediaDir: string,
+  mainWindow: BrowserWindow,
 ): void {
   const deckService = new DeckService(db, mediaDir);
   const studyService = new StudyService(db);
@@ -266,4 +279,45 @@ export function registerIpcHandlers(
   ipcMain.handle("window:isMaximized", () => {
     return BrowserWindow.getFocusedWindow()?.isMaximized() ?? false;
   });
+
+  // Auth handlers
+  ipcMain.handle("auth:sign-in", async () => {
+    const token = await openAuthWindow(mainWindow);
+    if (token) {
+      // Trigger initial full sync after sign-in
+      void syncPull(db, rawDb).then(() => {
+        startPeriodicSync(db, rawDb);
+      });
+      return { signedIn: true };
+    }
+    return { signedIn: false };
+  });
+
+  ipcMain.handle("auth:sign-out", () => {
+    stopPeriodicSync();
+    clearToken();
+    return { signedIn: false };
+  });
+
+  ipcMain.handle("auth:status", () => {
+    return {
+      signedIn: isSignedIn(),
+      cloudUrl: getCloudServerUrl(),
+    };
+  });
+
+  // Sync handlers
+  ipcMain.handle("sync:now", async () => {
+    await syncPull(db, rawDb);
+    return { status: getSyncStatus() };
+  });
+
+  ipcMain.handle("sync:status", () => {
+    return { status: getSyncStatus() };
+  });
+
+  // If already signed in, start periodic sync on launch
+  if (isSignedIn()) {
+    startPeriodicSync(db, rawDb);
+  }
 }
