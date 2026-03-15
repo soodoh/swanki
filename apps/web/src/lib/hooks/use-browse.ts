@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
-import { useOffline } from "@/lib/offline/offline-provider";
-import { offlineQuery, offlineMutation } from "@/lib/offline/offline-fetch";
-import * as localQueries from "@/lib/offline/local-queries";
-import * as localMutations from "@/lib/offline/local-mutations";
+import { useTransport } from "@swanki/core/transport";
 
 export type BrowseNote = {
   noteId: number;
@@ -68,60 +65,36 @@ export function useBrowse(
   const limit = options?.limit ?? 50;
   const sortBy = options?.sortBy;
   const sortDir = options?.sortDir;
-  const { db, isOnline, isLocalReady } = useOffline();
+  const transport = useTransport();
+
+  const params: Record<string, string> = {
+    q: query,
+    page: String(page),
+    limit: String(limit),
+  };
+  if (sortBy) {
+    params.sortBy = sortBy;
+  }
+  if (sortDir) {
+    params.sortDir = sortDir;
+  }
 
   return useQuery<BrowseSearchResult>({
     queryKey: ["browse", query, page, limit, sortBy, sortDir],
-    queryFn: async () =>
-      offlineQuery({
-        serverFetch: async () => {
-          const params = new URLSearchParams();
-          params.set("q", query);
-          params.set("page", String(page));
-          params.set("limit", String(limit));
-          if (sortBy) {
-            params.set("sortBy", sortBy);
-          }
-          if (sortDir) {
-            params.set("sortDir", sortDir);
-          }
-
-          const res = await fetch(`/api/browse?${params.toString()}`);
-          if (!res.ok) {
-            throw new Error("Failed to fetch browse results");
-          }
-          return res.json() as Promise<BrowseSearchResult>;
-        },
-        localQuery: (localDb) =>
-          localQueries.browseSearch(localDb, query, page, limit),
-        db,
-        isOnline,
-        isLocalReady,
-      }),
+    queryFn: () => transport.query<BrowseSearchResult>("/api/browse", params),
   });
 }
 
 export function useNoteDetail(
   noteId: number | undefined,
 ): UseQueryResult<NoteDetail> {
-  const { db, isOnline, isLocalReady } = useOffline();
+  const transport = useTransport();
 
   return useQuery<NoteDetail>({
     queryKey: ["note-detail", noteId],
-    queryFn: async () =>
-      offlineQuery({
-        serverFetch: async () => {
-          const res = await fetch(`/api/browse?noteId=${noteId}`);
-          if (!res.ok) {
-            throw new Error("Failed to fetch note detail");
-          }
-          return res.json() as Promise<NoteDetail>;
-        },
-        localQuery: (localDb) =>
-          noteId ? localQueries.getNoteDetail(localDb, noteId) : undefined,
-        db,
-        isOnline,
-        isLocalReady,
+    queryFn: () =>
+      transport.query<NoteDetail>("/api/browse", {
+        noteId: String(noteId),
       }),
     enabled: noteId !== undefined,
   });
@@ -132,46 +105,15 @@ export function useUpdateNote(): UseMutationResult<
   Error,
   { noteId: number; fields?: Record<string, string>; deckId?: number }
 > {
+  const transport = useTransport();
   const queryClient = useQueryClient();
-  const { db, isOnline, queue, persist } = useOffline();
 
   return useMutation({
-    mutationFn: async (data: {
+    mutationFn: (data: {
       noteId: number;
       fields?: Record<string, string>;
       deckId?: number;
-    }) =>
-      offlineMutation(
-        {
-          serverFetch: async (input) => {
-            const res = await fetch("/api/browse", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(input),
-            });
-            if (!res.ok) {
-              throw new Error("Failed to update note");
-            }
-            return res.json() as Promise<unknown>;
-          },
-          localMutation: (localDb, input) => {
-            localMutations.updateNote(localDb, input.noteId, {
-              fields: input.fields,
-              deckId: input.deckId,
-            });
-          },
-          queueEntry: (input) => ({
-            endpoint: "/api/browse",
-            method: "PATCH",
-            body: input,
-          }),
-          db,
-          isOnline,
-          queue,
-          persist,
-        },
-        data,
-      ),
+    }) => transport.mutate<unknown>("/api/browse", "PATCH", data),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["browse"] });
       void queryClient.invalidateQueries({
@@ -182,39 +124,12 @@ export function useUpdateNote(): UseMutationResult<
 }
 
 export function useDeleteNote(): UseMutationResult<unknown, Error, number> {
+  const transport = useTransport();
   const queryClient = useQueryClient();
-  const { db, isOnline, queue, persist } = useOffline();
 
   return useMutation({
-    mutationFn: async (noteId: number) =>
-      offlineMutation(
-        {
-          serverFetch: async () => {
-            const res = await fetch("/api/browse", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ noteId }),
-            });
-            if (!res.ok) {
-              throw new Error("Failed to delete note");
-            }
-            return res.json() as Promise<unknown>;
-          },
-          localMutation: (localDb) => {
-            localMutations.deleteNote(localDb, noteId);
-          },
-          queueEntry: () => ({
-            endpoint: "/api/browse",
-            method: "DELETE",
-            body: { noteId },
-          }),
-          db,
-          isOnline,
-          queue,
-          persist,
-        },
-        noteId,
-      ),
+    mutationFn: (noteId: number) =>
+      transport.mutate<unknown>("/api/browse", "DELETE", { noteId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["browse"] });
     },
