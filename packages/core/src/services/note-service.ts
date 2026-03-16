@@ -18,7 +18,7 @@ export class NoteService {
     this.db = db;
   }
 
-  create(
+  async create(
     userId: string,
     data: {
       noteTypeId: number;
@@ -26,10 +26,10 @@ export class NoteService {
       fields: Record<string, string>;
       tags?: string;
     },
-  ): Note {
+  ): Promise<Note> {
     const now = new Date();
 
-    const note = this.db
+    const note = await this.db
       .insert(notes)
       .values({
         userId,
@@ -43,14 +43,14 @@ export class NoteService {
       .get();
 
     // Auto-generate cards: one per template in the note type
-    const templates = this.db
+    const templates = await this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, data.noteTypeId))
       .all();
 
     for (const template of templates) {
-      this.db
+      await this.db
         .insert(cards)
         .values({
           noteId: note.id,
@@ -68,8 +68,11 @@ export class NoteService {
     return note;
   }
 
-  getById(id: number, userId: string): NoteWithCards | undefined {
-    const note = this.db
+  async getById(
+    id: number,
+    userId: string,
+  ): Promise<NoteWithCards | undefined> {
+    const note = await this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
@@ -79,7 +82,7 @@ export class NoteService {
       return undefined;
     }
 
-    const noteCards = this.db
+    const noteCards = await this.db
       .select()
       .from(cards)
       .where(eq(cards.noteId, id))
@@ -88,12 +91,12 @@ export class NoteService {
     return { note, cards: noteCards };
   }
 
-  update(
+  async update(
     id: number,
     userId: string,
     data: { fields?: Record<string, string>; tags?: string },
-  ): Note | undefined {
-    const existing = this.db
+  ): Promise<Note | undefined> {
+    const existing = await this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
@@ -113,21 +116,21 @@ export class NoteService {
       updateData.tags = data.tags;
     }
 
-    this.db
+    await this.db
       .update(notes)
       .set(updateData)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
       .run();
 
-    return this.db
+    return await this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
       .get();
   }
 
-  delete(id: number, userId: string): void {
-    const existing = this.db
+  async delete(id: number, userId: string): Promise<void> {
+    const existing = await this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
@@ -138,18 +141,18 @@ export class NoteService {
     }
 
     // Delete all cards for this note first
-    this.db.delete(cards).where(eq(cards.noteId, id)).run();
+    await this.db.delete(cards).where(eq(cards.noteId, id)).run();
 
     // Delete the note
-    this.db
+    await this.db
       .delete(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
       .run();
   }
 
-  listByDeck(deckId: number, userId: string): Note[] {
+  async listByDeck(deckId: number, userId: string): Promise<Note[]> {
     // Find notes that have cards in the given deck
-    const deckCards = this.db
+    const deckCards = await this.db
       .select({ noteId: cards.noteId })
       .from(cards)
       .where(eq(cards.deckId, deckId))
@@ -161,7 +164,7 @@ export class NoteService {
       return [];
     }
 
-    const allNotes = this.db
+    const allNotes = await this.db
       .select()
       .from(notes)
       .where(eq(notes.userId, userId))
@@ -170,9 +173,9 @@ export class NoteService {
     return allNotes.filter((n) => noteIds.includes(n.id));
   }
 
-  search(userId: string, query: string): Note[] {
+  async search(userId: string, query: string): Promise<Note[]> {
     // Basic text search across note fields using SQL LIKE
-    const userNotes = this.db
+    const userNotes = await this.db
       .select()
       .from(notes)
       .where(and(eq(notes.userId, userId), like(notes.fields, `%${query}%`)))

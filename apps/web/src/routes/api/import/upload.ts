@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { saveUpload } from "../../../lib/services/upload-service";
 import { detectFormat } from "../../../lib/services/import-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 
 const uploadDir: string = join(process.cwd(), "data", "uploads");
 
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/api/import/upload")({
             );
           }
 
-          const result = await saveUpload(uploadDir, userId, file);
+          const result = await saveUpload(nodeFs, uploadDir, userId, file);
 
           return Response.json({
             fileId: result.fileId,

@@ -21,11 +21,11 @@ export const Route = createFileRoute("/api/sync/pull")({
               { status: 400 },
             );
           }
-          const data = syncService.pullDelta(session.user.id, sinceMs);
+          const data = await syncService.pullDelta(session.user.id, sinceMs);
           return Response.json(data);
         }
 
-        const data = syncService.pullFull(session.user.id);
+        const data = await syncService.pullFull(session.user.id);
         return Response.json(data);
       },
     },

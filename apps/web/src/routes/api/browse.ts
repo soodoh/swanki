@@ -6,6 +6,7 @@ import { NoteService } from "../../lib/services/note-service";
 import { CardService } from "../../lib/services/card-service";
 import { MediaService } from "../../lib/services/media-service";
 import { extractMediaFilenames } from "../../lib/services/import-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import { db } from "../../db";
 import type { SearchOptions } from "../../lib/services/browse-service";
 
@@ -29,7 +30,10 @@ export const Route = createFileRoute("/api/browse")({
           if (Number.isNaN(noteId)) {
             return Response.json({ error: "Invalid noteId" }, { status: 400 });
           }
-          const detail = browseService.getNoteDetail(session.user.id, noteId);
+          const detail = await browseService.getNoteDetail(
+            session.user.id,
+            noteId,
+          );
           if (!detail) {
             return Response.json({ error: "Note not found" }, { status: 404 });
           }
@@ -60,7 +64,7 @@ export const Route = createFileRoute("/api/browse")({
           );
         }
 
-        const result = browseService.search(session.user.id, q, {
+        const result = await browseService.search(session.user.id, q, {
           page,
           limit,
           sortBy,
@@ -86,22 +90,22 @@ export const Route = createFileRoute("/api/browse")({
         }
 
         // Verify ownership using NoteService.getById
-        const noteData = noteService.getById(noteId, session.user.id);
+        const noteData = await noteService.getById(noteId, session.user.id);
         if (!noteData) {
           return Response.json({ error: "Note not found" }, { status: 404 });
         }
 
         if (fields) {
-          noteService.update(noteId, session.user.id, { fields });
-          const mediaService = new MediaService(db, mediaDir);
+          await noteService.update(noteId, session.user.id, { fields });
+          const mediaService = new MediaService(db, mediaDir, nodeFs);
           const filenames = extractMediaFilenames(fields);
-          mediaService.reconcileNoteReferences(noteId, filenames);
+          await mediaService.reconcileNoteReferences(noteId, filenames);
         }
 
         if (deckId) {
           // Move ALL cards of this note to the new deck
           const cardIds = noteData.cards.map((c) => c.id);
-          cardService.moveToDeck(cardIds, deckId, session.user.id);
+          await cardService.moveToDeck(cardIds, deckId, session.user.id);
         }
 
         return Response.json({ success: true });
@@ -115,7 +119,7 @@ export const Route = createFileRoute("/api/browse")({
             { status: 400 },
           );
         }
-        noteService.delete(body.noteId, session.user.id);
+        await noteService.delete(body.noteId, session.user.id);
         return Response.json({ success: true });
       },
     },

@@ -18,17 +18,17 @@ export class NoteTypeService {
     this.db = db;
   }
 
-  create(
+  async create(
     userId: string,
     data: {
       name: string;
       fields: Array<{ name: string; ordinal: number }>;
       css?: string;
     },
-  ): NoteType {
+  ): Promise<NoteType> {
     const now = new Date();
 
-    const noteType = this.db
+    const noteType = await this.db
       .insert(noteTypes)
       .values({
         userId,
@@ -44,7 +44,7 @@ export class NoteTypeService {
     return noteType;
   }
 
-  addTemplate(
+  async addTemplate(
     noteTypeId: number,
     userId: string,
     data: {
@@ -52,9 +52,9 @@ export class NoteTypeService {
       questionTemplate: string;
       answerTemplate: string;
     },
-  ): CardTemplate | undefined {
+  ): Promise<CardTemplate | undefined> {
     // Verify ownership of the note type
-    const noteType = this.db
+    const noteType = await this.db
       .select()
       .from(noteTypes)
       .where(and(eq(noteTypes.id, noteTypeId), eq(noteTypes.userId, userId)))
@@ -65,7 +65,7 @@ export class NoteTypeService {
     }
 
     // Determine the next ordinal
-    const existing = this.db
+    const existing = await this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, noteTypeId))
@@ -74,7 +74,7 @@ export class NoteTypeService {
     const ordinal =
       existing.length > 0 ? Math.max(...existing.map((t) => t.ordinal)) + 1 : 0;
 
-    const template = this.db
+    const template = await this.db
       .insert(cardTemplates)
       .values({
         noteTypeId,
@@ -89,11 +89,11 @@ export class NoteTypeService {
     return template;
   }
 
-  getFirstNoteFields(
+  async getFirstNoteFields(
     noteTypeId: number,
     userId: string,
-  ): Record<string, string> | undefined {
-    const row = this.db
+  ): Promise<Record<string, string> | undefined> {
+    const row = await this.db
       .select({ fields: notes.fields })
       .from(notes)
       .where(and(eq(notes.noteTypeId, noteTypeId), eq(notes.userId, userId)))
@@ -102,8 +102,11 @@ export class NoteTypeService {
     return row?.fields;
   }
 
-  getById(id: number, userId: string): NoteTypeWithTemplates | undefined {
-    const noteType = this.db
+  async getById(
+    id: number,
+    userId: string,
+  ): Promise<NoteTypeWithTemplates | undefined> {
+    const noteType = await this.db
       .select()
       .from(noteTypes)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
@@ -113,7 +116,7 @@ export class NoteTypeService {
       return undefined;
     }
 
-    const templates = this.db
+    const templates = await this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, id))
@@ -122,8 +125,8 @@ export class NoteTypeService {
     return { noteType, templates };
   }
 
-  listByUser(userId: string): NoteTypeWithTemplates[] {
-    const allNoteTypes = this.db
+  async listByUser(userId: string): Promise<NoteTypeWithTemplates[]> {
+    const allNoteTypes = await this.db
       .select()
       .from(noteTypes)
       .where(eq(noteTypes.userId, userId))
@@ -132,7 +135,7 @@ export class NoteTypeService {
     const results: NoteTypeWithTemplates[] = [];
 
     for (const noteType of allNoteTypes) {
-      const templates = this.db
+      const templates = await this.db
         .select()
         .from(cardTemplates)
         .where(eq(cardTemplates.noteTypeId, noteType.id))
@@ -144,13 +147,13 @@ export class NoteTypeService {
     return results;
   }
 
-  updateTemplate(
+  async updateTemplate(
     templateId: number,
     userId: string,
     data: { questionTemplate?: string; answerTemplate?: string },
-  ): CardTemplate | undefined {
+  ): Promise<CardTemplate | undefined> {
     // Verify ownership: template -> noteType -> user
-    const existing = this.db
+    const existing = await this.db
       .select()
       .from(cardTemplates)
       .innerJoin(noteTypes, eq(cardTemplates.noteTypeId, noteTypes.id))
@@ -171,22 +174,22 @@ export class NoteTypeService {
       updateData.answerTemplate = data.answerTemplate;
     }
 
-    this.db
+    await this.db
       .update(cardTemplates)
       .set(updateData)
       .where(eq(cardTemplates.id, templateId))
       .run();
 
-    return this.db
+    return await this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.id, templateId))
       .get();
   }
 
-  deleteTemplate(templateId: number, userId: string): void {
+  async deleteTemplate(templateId: number, userId: string): Promise<void> {
     // Verify ownership: template -> noteType -> user
-    const existing = this.db
+    const existing = await this.db
       .select()
       .from(cardTemplates)
       .innerJoin(noteTypes, eq(cardTemplates.noteTypeId, noteTypes.id))
@@ -199,10 +202,13 @@ export class NoteTypeService {
       return;
     }
 
-    this.db.delete(cardTemplates).where(eq(cardTemplates.id, templateId)).run();
+    await this.db
+      .delete(cardTemplates)
+      .where(eq(cardTemplates.id, templateId))
+      .run();
   }
 
-  update(
+  async update(
     id: number,
     userId: string,
     data: {
@@ -210,8 +216,8 @@ export class NoteTypeService {
       fields?: Array<{ name: string; ordinal: number }>;
       css?: string;
     },
-  ): NoteType | undefined {
-    const existing = this.db
+  ): Promise<NoteType | undefined> {
+    const existing = await this.db
       .select()
       .from(noteTypes)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
@@ -234,21 +240,21 @@ export class NoteTypeService {
       updateData.css = data.css;
     }
 
-    this.db
+    await this.db
       .update(noteTypes)
       .set(updateData)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
       .run();
 
-    return this.db
+    return await this.db
       .select()
       .from(noteTypes)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
       .get();
   }
 
-  delete(id: number, userId: string): void {
-    const existing = this.db
+  async delete(id: number, userId: string): Promise<void> {
+    const existing = await this.db
       .select()
       .from(noteTypes)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
@@ -259,7 +265,7 @@ export class NoteTypeService {
     }
 
     // Check if any notes reference this note type
-    const referencingNotes = this.db
+    const referencingNotes = await this.db
       .select()
       .from(notes)
       .where(eq(notes.noteTypeId, id))
@@ -272,10 +278,13 @@ export class NoteTypeService {
     }
 
     // Delete all templates first
-    this.db.delete(cardTemplates).where(eq(cardTemplates.noteTypeId, id)).run();
+    await this.db
+      .delete(cardTemplates)
+      .where(eq(cardTemplates.noteTypeId, id))
+      .run();
 
     // Delete the note type
-    this.db
+    await this.db
       .delete(noteTypes)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
       .run();

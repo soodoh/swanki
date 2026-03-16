@@ -1,14 +1,32 @@
 {
   "name": "mobile",
   "version": "0.0.0",
+  "type": "module",
   "private": true,
   "scripts": {
-    "dev": "echo 'mobile dev placeholder'",
-    "build": "mkdir -p dist && echo 'mobile build placeholder' > dist/.keep",
-    "start": "echo 'mobile start placeholder'",
+    "dev": "echo 'Run: bun run dev:web first, then use Capacitor CLI'",
+    "build": "echo 'Build the web SPA first, then: cap sync'",
+    "start": "echo 'Use: cap run ios / cap run android'",
     "lint": "echo 'mobile lint placeholder'",
     "lint:fix": "echo 'mobile lint fix placeholder'",
     "test": "echo 'mobile test placeholder'",
-    "test:run": "echo 'mobile test:run placeholder'"
+    "test:run": "echo 'mobile test:run placeholder'",
+    "cap:sync": "cap sync",
+    "cap:ios": "cap run ios",
+    "cap:android": "cap run android",
+    "cap:open:ios": "cap open ios",
+    "cap:open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor-community/sqlite": "^7.0.0",
+    "@swanki/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/android": "^7.0.0",
+    "typescript": "^5.8.3"
   }
 }

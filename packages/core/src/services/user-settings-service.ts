@@ -11,8 +11,8 @@ export class UserSettingsService {
     this.db = db;
   }
 
-  getTheme(userId: string): Theme {
-    const row = this.db
+  async getTheme(userId: string): Promise<Theme> {
+    const row = await this.db
       .select({ theme: user.theme })
       .from(user)
       .where(eq(user.id, userId))
@@ -20,7 +20,7 @@ export class UserSettingsService {
     return (row?.theme as Theme) ?? "system";
   }
 
-  setTheme(userId: string, theme: Theme): void {
-    this.db.update(user).set({ theme }).where(eq(user.id, userId)).run();
+  async setTheme(userId: string, theme: Theme): Promise<void> {
+    await this.db.update(user).set({ theme }).where(eq(user.id, userId)).run();
   }
 }

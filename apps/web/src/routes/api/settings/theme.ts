@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/settings/theme")({
     handlers: {
       GET: async ({ request }) => {
         const session = await requireSession(request);
-        const theme = settingsService.getTheme(session.user.id);
+        const theme = await settingsService.getTheme(session.user.id);
         return Response.json({ theme });
       },
       PUT: async ({ request }) => {
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/settings/theme")({
             { status: 400 },
           );
         }
-        settingsService.setTheme(session.user.id, theme);
+        await settingsService.setTheme(session.user.id, theme);
         return Response.json({ theme });
       },
     },

@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/stats")({
                 { status: 400 },
               );
             }
-            const reviews = statsService.getReviewsPerDay(
+            const reviews = await statsService.getReviewsPerDay(
               session.user.id,
               days,
             );
@@ -38,12 +38,12 @@ export const Route = createFileRoute("/api/stats")({
           }
 
           case "states": {
-            const states = statsService.getCardStates(session.user.id);
+            const states = await statsService.getCardStates(session.user.id);
             return Response.json(states);
           }
 
           case "streak": {
-            const streak = statsService.getStreak(session.user.id);
+            const streak = await statsService.getStreak(session.user.id);
             return Response.json(streak);
           }
 
@@ -57,7 +57,10 @@ export const Route = createFileRoute("/api/stats")({
                 { status: 400 },
               );
             }
-            const heatmap = statsService.getHeatmap(session.user.id, year);
+            const heatmap = await statsService.getHeatmap(
+              session.user.id,
+              year,
+            );
             return Response.json(heatmap);
           }
 

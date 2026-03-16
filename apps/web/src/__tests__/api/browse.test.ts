@@ -5,6 +5,7 @@ import { NoteService } from "../../lib/services/note-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { noteTypes, cardTemplates, cards } from "../../db/schema";
 import { eq } from "drizzle-orm";
+import { nodeFs } from "@swanki/core/node-filesystem";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -23,7 +24,7 @@ describe("BrowseService", () => {
     db = createTestDb();
     browseService = new BrowseService(db);
     noteService = new NoteService(db);
-    deckService = new DeckService(db, testMediaDir);
+    deckService = new DeckService(db, testMediaDir, nodeFs);
 
     // Create a deck
     const deck = await deckService.create(userId, { name: "Japanese" });
@@ -59,74 +60,74 @@ describe("BrowseService", () => {
   });
 
   describe("search", () => {
-    it("returns all notes when query is empty", () => {
-      noteService.create(userId, {
+    it("returns all notes when query is empty", async () => {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Hello", Back: "World" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Foo", Back: "Bar" },
       });
 
-      const result = browseService.search(userId, "");
+      const result = await browseService.search(userId, "");
 
       expect(result.notes).toHaveLength(2);
       expect(result.total).toBe(2);
     });
 
-    it("filters by deck name", () => {
-      const deck2 = deckService.create(userId, { name: "French" });
+    it("filters by deck name", async () => {
+      const deck2 = await deckService.create(userId, { name: "French" });
 
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Konnichiwa", Back: "Hello" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId: deck2.id,
         fields: { Front: "Bonjour", Back: "Hello" },
       });
 
-      const result = browseService.search(userId, "deck:Japanese");
+      const result = await browseService.search(userId, "deck:Japanese");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].fields.Front).toBe("Konnichiwa");
     });
 
-    it("filters by tag", () => {
-      noteService.create(userId, {
+    it("filters by tag", async () => {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Taberu", Back: "To eat" },
         tags: "verb japanese",
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Neko", Back: "Cat" },
         tags: "noun japanese",
       });
 
-      const result = browseService.search(userId, "tag:verb");
+      const result = await browseService.search(userId, "tag:verb");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].fields.Front).toBe("Taberu");
     });
 
-    it("filters by is:new state", () => {
+    it("filters by is:new state", async () => {
       const now = new Date();
       const pastDate = new Date(now.getTime() - 86_400_000);
 
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "New card", Back: "A" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Review card", Back: "B" },
@@ -139,53 +140,53 @@ describe("BrowseService", () => {
         .where(eq(cards.id, allCards[1].id))
         .run();
 
-      const result = browseService.search(userId, "is:new");
+      const result = await browseService.search(userId, "is:new");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].fields.Front).toBe("New card");
     });
 
-    it("text search in note fields", () => {
-      noteService.create(userId, {
+    it("text search in note fields", async () => {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Hello world", Back: "Greeting" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Goodbye", Back: "Farewell" },
       });
 
-      const result = browseService.search(userId, "hello");
+      const result = await browseService.search(userId, "hello");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].fields.Front).toBe("Hello world");
     });
 
-    it("paginates: page 1 and page 2 return different results", () => {
+    it("paginates: page 1 and page 2 return different results", async () => {
       // Create 3 notes
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Card 1", Back: "A" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Card 2", Back: "B" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Card 3", Back: "C" },
       });
 
-      const page1 = browseService.search(userId, "", {
+      const page1 = await browseService.search(userId, "", {
         page: 1,
         limit: 2,
       });
-      const page2 = browseService.search(userId, "", {
+      const page2 = await browseService.search(userId, "", {
         page: 2,
         limit: 2,
       });
@@ -203,30 +204,30 @@ describe("BrowseService", () => {
       }
     });
 
-    it("does not return notes for other users", () => {
-      noteService.create(userId, {
+    it("does not return notes for other users", async () => {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "My card", Back: "A" },
       });
 
-      const result = browseService.search("other-user", "");
+      const result = await browseService.search("other-user", "");
 
       expect(result.notes).toHaveLength(0);
       expect(result.total).toBe(0);
     });
 
-    it("handles is:due filter", () => {
+    it("handles is:due filter", async () => {
       const now = new Date();
       const pastDate = new Date(now.getTime() - 86_400_000);
       const futureDate = new Date(now.getTime() + 86_400_000);
 
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Due card", Back: "A" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Not due", Back: "B" },
@@ -242,19 +243,19 @@ describe("BrowseService", () => {
         .where(eq(cards.id, allCards[1].id))
         .run();
 
-      const result = browseService.search(userId, "is:due");
+      const result = await browseService.search(userId, "is:due");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].fields.Front).toBe("Due card");
     });
 
-    it("handles is:review filter", () => {
-      noteService.create(userId, {
+    it("handles is:review filter", async () => {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Review card", Back: "A" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "New card", Back: "B" },
@@ -266,21 +267,21 @@ describe("BrowseService", () => {
         .where(eq(cards.id, allCards[0].id))
         .run();
 
-      const result = browseService.search(userId, "is:review");
+      const result = await browseService.search(userId, "is:review");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].fields.Front).toBe("Review card");
     });
 
-    it("returns correct note shape with aggregated card data", () => {
-      noteService.create(userId, {
+    it("returns correct note shape with aggregated card data", async () => {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Hello", Back: "World" },
         tags: "greeting",
       });
 
-      const result = browseService.search(userId, "");
+      const result = await browseService.search(userId, "");
 
       expect(result.notes).toHaveLength(1);
       const note = result.notes[0];
@@ -297,7 +298,7 @@ describe("BrowseService", () => {
       expect(note.updatedAt).toBeDefined();
     });
 
-    it("filters by note type name", () => {
+    it("filters by note type name", async () => {
       // Create a second note type
       const noteType2 = db
         .insert(noteTypes)
@@ -320,24 +321,24 @@ describe("BrowseService", () => {
         })
         .run();
 
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Basic note", Back: "Answer" },
       });
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId: noteType2.id,
         deckId,
         fields: { Text: "Cloze note" },
       });
 
-      const result = browseService.search(userId, "notetype:Basic");
+      const result = await browseService.search(userId, "notetype:Basic");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].noteTypeName).toBe("Basic");
     });
 
-    it("aggregates multiple cards per note (multi-template note type)", () => {
+    it("aggregates multiple cards per note (multi-template note type)", async () => {
       // Create a note type with 2 templates
       const now = new Date();
       const multiNoteType = db
@@ -375,13 +376,13 @@ describe("BrowseService", () => {
         .run();
 
       // Create a note using this 2-template note type
-      noteService.create(userId, {
+      await noteService.create(userId, {
         noteTypeId: multiNoteType.id,
         deckId,
         fields: { Front: "Apple", Back: "Ringo" },
       });
 
-      const result = browseService.search(userId, "");
+      const result = await browseService.search(userId, "");
 
       expect(result.notes).toHaveLength(1);
       expect(result.notes[0].cardCount).toBe(2);
@@ -390,15 +391,15 @@ describe("BrowseService", () => {
   });
 
   describe("getNoteDetail", () => {
-    it("returns note with note type, templates, and deck", () => {
-      const note = noteService.create(userId, {
+    it("returns note with note type, templates, and deck", async () => {
+      const note = await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Hello", Back: "World" },
         tags: "greeting",
       });
 
-      const detail = browseService.getNoteDetail(userId, note.id);
+      const detail = await browseService.getNoteDetail(userId, note.id);
 
       expect(detail).toBeDefined();
       expect(detail!.note.id).toBe(note.id);
@@ -413,19 +414,19 @@ describe("BrowseService", () => {
       expect(detail!.deckId).toBe(deckId);
     });
 
-    it("returns undefined for wrong user", () => {
-      const note = noteService.create(userId, {
+    it("returns undefined for wrong user", async () => {
+      const note = await noteService.create(userId, {
         noteTypeId,
         deckId,
         fields: { Front: "Hello", Back: "World" },
       });
 
-      const detail = browseService.getNoteDetail("wrong-user", note.id);
+      const detail = await browseService.getNoteDetail("wrong-user", note.id);
       expect(detail).toBeUndefined();
     });
 
-    it("returns undefined for non-existent note", () => {
-      const detail = browseService.getNoteDetail(userId, 999999);
+    it("returns undefined for non-existent note", async () => {
+      const detail = await browseService.getNoteDetail(userId, 999999);
       expect(detail).toBeUndefined();
     });
   });

@@ -25,6 +25,6 @@ export const getUserTheme = createServerFn({ method: "GET" }).handler(
     if (!session) {
       return "system";
     }
-    return settingsService.getTheme(session.user.id);
+    return await settingsService.getTheme(session.user.id);
   },
 );

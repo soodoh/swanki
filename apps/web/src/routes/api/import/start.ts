@@ -11,6 +11,7 @@ import {
   ImportService,
 } from "../../../lib/services/import-service";
 import { MediaService } from "../../../lib/services/media-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { createJob, updateJob } from "../../../lib/import/import-job";
 import { db, rawSqlite } from "../../../db";
@@ -46,7 +47,7 @@ async function processImport(
       detail: `Importing ${apkgData.media.length} media files...`,
     });
 
-    const mediaService = new MediaService(db, mediaDir);
+    const mediaService = new MediaService(db, mediaDir, nodeFs);
     const {
       mapping: mediaMapping,
       warnings: mediaWarnings,
@@ -59,7 +60,9 @@ async function processImport(
       detail: "Importing notes and cards...",
     });
 
-    const importService = new ImportService(db, rawSqlite);
+    const importService = new ImportService(db, {
+      execSQL: (sql) => rawSqlite.exec(sql),
+    });
     const result = await importService.importFromApkgBatched(
       userId,
       apkgData,
@@ -88,7 +91,7 @@ async function processImport(
     });
 
     // Clean up uploaded file
-    deleteUpload(uploadDir, userId, fileId);
+    await deleteUpload(nodeFs, uploadDir, userId, fileId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Import failed";
     updateJob(jobId, {
@@ -121,7 +124,12 @@ export const Route = createFileRoute("/api/import/start")({
             );
           }
 
-          const filePath = getUploadPath(uploadDir, userId, body.fileId);
+          const filePath = await getUploadPath(
+            nodeFs,
+            uploadDir,
+            userId,
+            body.fileId,
+          );
           if (!filePath) {
             return Response.json(
               { error: "Upload not found or expired" },

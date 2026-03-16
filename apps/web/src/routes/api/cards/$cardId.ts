@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/cards/$cardId")({
         if (Number.isNaN(cardId)) {
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
-        const result = cardService.getById(cardId, session.user.id);
+        const result = await cardService.getById(cardId, session.user.id);
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }

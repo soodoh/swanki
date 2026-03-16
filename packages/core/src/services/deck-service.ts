@@ -10,8 +10,7 @@ import {
   noteMedia,
   media,
 } from "../db/schema";
-import { existsSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import type { AppFileSystem } from "../filesystem";
 
 type Db = AppDb;
 
@@ -26,14 +25,18 @@ export class DeckService {
   constructor(
     db: Db,
     private mediaDir: string,
+    private fs: AppFileSystem,
   ) {
     this.db = db;
   }
 
-  create(userId: string, data: { name: string; parentId?: number }): Deck {
+  async create(
+    userId: string,
+    data: { name: string; parentId?: number },
+  ): Promise<Deck> {
     const now = new Date();
 
-    const deck = this.db
+    const deck = await this.db
       .insert(decks)
       .values({
         userId,
@@ -47,24 +50,28 @@ export class DeckService {
     return deck;
   }
 
-  listByUser(userId: string): Deck[] {
-    return this.db.select().from(decks).where(eq(decks.userId, userId)).all();
+  async listByUser(userId: string): Promise<Deck[]> {
+    return await this.db
+      .select()
+      .from(decks)
+      .where(eq(decks.userId, userId))
+      .all();
   }
 
-  getTree(userId: string): DeckTreeNode[] {
-    const allDecks = this.listByUser(userId);
+  async getTree(userId: string): Promise<DeckTreeNode[]> {
+    const allDecks = await this.listByUser(userId);
     return buildTree(allDecks);
   }
 
-  getById(id: number, userId: string): Deck | undefined {
-    return this.db
+  async getById(id: number, userId: string): Promise<Deck | undefined> {
+    return await this.db
       .select()
       .from(decks)
       .where(and(eq(decks.id, id), eq(decks.userId, userId)))
       .get();
   }
 
-  update(
+  async update(
     id: number,
     userId: string,
     data: {
@@ -73,13 +80,13 @@ export class DeckService {
       parentId?: number | undefined;
       settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
     },
-  ): Deck | undefined {
-    const existing = this.getById(id, userId);
+  ): Promise<Deck | undefined> {
+    const existing = await this.getById(id, userId);
     if (!existing) {
       return undefined;
     }
 
-    this.db
+    await this.db
       .update(decks)
       .set({
         ...data,
@@ -88,17 +95,17 @@ export class DeckService {
       .where(and(eq(decks.id, id), eq(decks.userId, userId)))
       .run();
 
-    return this.getById(id, userId);
+    return await this.getById(id, userId);
   }
 
-  delete(id: number, userId: string): void {
-    const existing = this.getById(id, userId);
+  async delete(id: number, userId: string): Promise<void> {
+    const existing = await this.getById(id, userId);
     if (!existing) {
       return;
     }
 
     // Collect cards in this deck
-    const deckCards = this.db
+    const deckCards = await this.db
       .select({ id: cards.id, noteId: cards.noteId })
       .from(cards)
       .where(eq(cards.deckId, id))
@@ -109,27 +116,30 @@ export class DeckService {
       const noteIds = [...new Set(deckCards.map((c) => c.noteId))];
 
       // Delete review logs for these cards
-      this.db
+      await this.db
         .delete(reviewLogs)
         .where(inArray(reviewLogs.cardId, cardIds))
         .run();
 
       // Delete the cards
-      this.db.delete(cards).where(inArray(cards.id, cardIds)).run();
+      await this.db.delete(cards).where(inArray(cards.id, cardIds)).run();
 
       // Find orphaned notes (notes with no remaining cards)
-      const orphanedNoteIds = noteIds.filter((noteId) => {
-        const remaining = this.db
+      const orphanedNoteIds: number[] = [];
+      for (const noteId of noteIds) {
+        const remaining = await this.db
           .select({ id: cards.id })
           .from(cards)
           .where(eq(cards.noteId, noteId))
           .get();
-        return !remaining;
-      });
+        if (!remaining) {
+          orphanedNoteIds.push(noteId);
+        }
+      }
 
       if (orphanedNoteIds.length > 0) {
         // Collect media IDs referenced by orphaned notes
-        const orphanedRefs = this.db
+        const orphanedRefs = await this.db
           .select({ mediaId: noteMedia.mediaId })
           .from(noteMedia)
           .where(inArray(noteMedia.noteId, orphanedNoteIds))
@@ -137,7 +147,7 @@ export class DeckService {
         const mediaIds = [...new Set(orphanedRefs.map((r) => r.mediaId))];
 
         // Delete noteMedia entries for orphaned notes
-        this.db
+        await this.db
           .delete(noteMedia)
           .where(inArray(noteMedia.noteId, orphanedNoteIds))
           .run();
@@ -145,66 +155,70 @@ export class DeckService {
         // Collect note type IDs from orphaned notes before deleting them
         const orphanedNoteTypeIds = [
           ...new Set(
-            this.db
-              .select({ noteTypeId: notes.noteTypeId })
-              .from(notes)
-              .where(inArray(notes.id, orphanedNoteIds))
-              .all()
-              .map((n) => n.noteTypeId),
+            (
+              await this.db
+                .select({ noteTypeId: notes.noteTypeId })
+                .from(notes)
+                .where(inArray(notes.id, orphanedNoteIds))
+                .all()
+            ).map((n) => n.noteTypeId),
           ),
         ];
 
         // Delete orphaned notes
-        this.db.delete(notes).where(inArray(notes.id, orphanedNoteIds)).run();
+        await this.db
+          .delete(notes)
+          .where(inArray(notes.id, orphanedNoteIds))
+          .run();
 
         // Clean up note types that no longer have any notes
         for (const noteTypeId of orphanedNoteTypeIds) {
-          const stillUsed = this.db
+          const stillUsed = await this.db
             .select({ id: notes.id })
             .from(notes)
             .where(eq(notes.noteTypeId, noteTypeId))
             .get();
 
           if (!stillUsed) {
-            this.db
+            await this.db
               .delete(cardTemplates)
               .where(eq(cardTemplates.noteTypeId, noteTypeId))
               .run();
-            this.db.delete(noteTypes).where(eq(noteTypes.id, noteTypeId)).run();
+            await this.db
+              .delete(noteTypes)
+              .where(eq(noteTypes.id, noteTypeId))
+              .run();
           }
         }
 
         // Clean up media that are now unreferenced
         for (const mediaId of mediaIds) {
-          const stillReferenced = this.db
+          const stillReferenced = await this.db
             .select({ id: noteMedia.id })
             .from(noteMedia)
             .where(eq(noteMedia.mediaId, mediaId))
             .get();
 
           if (!stillReferenced) {
-            const mediaRecord = this.db
+            const mediaRecord = await this.db
               .select()
               .from(media)
               .where(eq(media.id, mediaId))
               .get();
 
             if (mediaRecord) {
-              // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-              const filePath: string = join(
+              const filePath = this.fs.join(
                 this.mediaDir,
                 mediaRecord.filename,
               );
               try {
-                // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-                if (existsSync(filePath)) {
-                  // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-                  unlinkSync(filePath);
+                if (await this.fs.exists(filePath)) {
+                  await this.fs.unlink(filePath);
                 }
               } catch {
                 // File may already be gone
               }
-              this.db.delete(media).where(eq(media.id, mediaId)).run();
+              await this.db.delete(media).where(eq(media.id, mediaId)).run();
             }
           }
         }
@@ -212,14 +226,14 @@ export class DeckService {
     }
 
     // Re-parent children to the deleted deck's parent
-    this.db
+    await this.db
       .update(decks)
       .set({ parentId: existing.parentId })
       .where(and(eq(decks.parentId, id), eq(decks.userId, userId)))
       .run();
 
     // Delete the deck
-    this.db
+    await this.db
       .delete(decks)
       .where(and(eq(decks.id, id), eq(decks.userId, userId)))
       .run();

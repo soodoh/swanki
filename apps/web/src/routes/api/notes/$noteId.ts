@@ -4,6 +4,7 @@ import { requireSession } from "../../../lib/auth-middleware";
 import { NoteService } from "../../../lib/services/note-service";
 import { MediaService } from "../../../lib/services/media-service";
 import { extractMediaFilenames } from "../../../lib/services/import-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import { db } from "../../../db";
 
 const mediaDir: string = join(process.cwd(), "data", "media");
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
         if (Number.isNaN(noteId)) {
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
-        const result = noteService.getById(noteId, session.user.id);
+        const result = await noteService.getById(noteId, session.user.id);
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -34,14 +35,14 @@ export const Route = createFileRoute("/api/notes/$noteId")({
           fields?: Record<string, string>;
           tags?: string;
         };
-        const note = noteService.update(noteId, session.user.id, body);
+        const note = await noteService.update(noteId, session.user.id, body);
         if (!note) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         if (body.fields) {
-          const mediaService = new MediaService(db, mediaDir);
+          const mediaService = new MediaService(db, mediaDir, nodeFs);
           const filenames = extractMediaFilenames(body.fields);
-          mediaService.reconcileNoteReferences(noteId, filenames);
+          await mediaService.reconcileNoteReferences(noteId, filenames);
         }
         return Response.json(note);
       },
@@ -52,13 +53,13 @@ export const Route = createFileRoute("/api/notes/$noteId")({
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
         // Verify ownership before cleaning up media references
-        const existing = noteService.getById(noteId, session.user.id);
+        const existing = await noteService.getById(noteId, session.user.id);
         if (!existing) {
           return new Response(undefined, { status: 204 });
         }
-        const mediaService = new MediaService(db, mediaDir);
-        mediaService.reconcileNoteReferences(noteId, []);
-        noteService.delete(noteId, session.user.id);
+        const mediaService = new MediaService(db, mediaDir, nodeFs);
+        await mediaService.reconcileNoteReferences(noteId, []);
+        await noteService.delete(noteId, session.user.id);
         return new Response(undefined, { status: 204 });
       },
     },

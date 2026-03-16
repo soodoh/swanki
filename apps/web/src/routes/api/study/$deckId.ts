@@ -15,7 +15,10 @@ export const Route = createFileRoute("/api/study/$deckId")({
           return Response.json({ error: "Invalid deck ID" }, { status: 400 });
         }
 
-        const result = studyService.getStudySession(session.user.id, deckId);
+        const result = await studyService.getStudySession(
+          session.user.id,
+          deckId,
+        );
         return Response.json(result);
       },
     },

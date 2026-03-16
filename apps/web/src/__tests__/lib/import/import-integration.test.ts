@@ -389,14 +389,16 @@ describe("Import Integration", () => {
   beforeEach(() => {
     const testDb = createTestDbWithRaw();
     db = testDb.db;
-    importService = new ImportService(testDb.db, testDb.rawDb);
+    importService = new ImportService(testDb.db, {
+      execSQL: (sql: string) => testDb.rawDb.exec(sql),
+    });
   });
 
   describe("APKG template ID bug fix", () => {
-    it("cards reference valid template IDs that exist in card_templates", () => {
+    it("cards reference valid template IDs that exist in card_templates", async () => {
       const buffer = createApkgBuffer();
       const apkgData = parseApkg(buffer);
-      importService.importFromApkg(userId, apkgData);
+      await importService.importFromApkg(userId, apkgData);
 
       const allCards = db.select().from(cards).all();
       const allTemplates = db.select().from(cardTemplates).all();
@@ -410,10 +412,10 @@ describe("Import Integration", () => {
   });
 
   describe("CSV import", () => {
-    it("imports comma-separated file with headers end-to-end", () => {
+    it("imports comma-separated file with headers end-to-end", async () => {
       const csvText = "Front,Back\nhello,world\nfoo,bar\n";
       const parsed = parseCsv(csvText, { delimiter: ",", hasHeader: true });
-      const result = importService.importFromCsv(userId, {
+      const result = await importService.importFromCsv(userId, {
         headers: parsed.headers,
         rows: parsed.rows,
         deckName: "My CSV Deck",
@@ -455,11 +457,11 @@ describe("Import Integration", () => {
   });
 
   describe("TXT (tab-separated) import", () => {
-    it("imports tab-separated file with headers end-to-end", () => {
+    it("imports tab-separated file with headers end-to-end", async () => {
       const txtText =
         "Question\tAnswer\nWhat is 2+2?\t4\nCapital of France?\tParis\n";
       const parsed = parseCsv(txtText, { delimiter: "\t", hasHeader: true });
-      const result = importService.importFromCsv(userId, {
+      const result = await importService.importFromCsv(userId, {
         headers: parsed.headers,
         rows: parsed.rows,
         deckName: "My TXT Deck",
@@ -483,7 +485,7 @@ describe("Import Integration", () => {
   });
 
   describe("CrowdAnki JSON import", () => {
-    it("imports deck with notes, cards, and note type CSS", () => {
+    it("imports deck with notes, cards, and note type CSS", async () => {
       const json = {
         name: "Geography",
         children: [],
@@ -523,7 +525,7 @@ describe("Import Integration", () => {
         media_files: [],
       };
 
-      const result = importService.importFromCrowdAnki(userId, json);
+      const result = await importService.importFromCrowdAnki(userId, json);
 
       expect(result.deckCount).toBe(1);
       expect(result.noteCount).toBe(2);
@@ -573,7 +575,7 @@ describe("Import Integration", () => {
   });
 
   describe("APKG import", () => {
-    it("imports deck with scheduling data preserved", () => {
+    it("imports deck with scheduling data preserved", async () => {
       const modelId = 111;
       const ankiDeckId = 555;
 
@@ -641,7 +643,7 @@ describe("Import Integration", () => {
 
       const buffer = createApkgBuffer({ dbBytes });
       const apkgData = parseApkg(buffer);
-      const result = importService.importFromApkg(userId, apkgData);
+      const result = await importService.importFromApkg(userId, apkgData);
 
       expect(result.deckCount).toBe(1);
       expect(result.noteCount).toBe(2);
@@ -691,10 +693,10 @@ describe("Import Integration", () => {
   });
 
   describe("COLPKG import", () => {
-    it("imports a collection package with correct counts", () => {
+    it("imports a collection package with correct counts", async () => {
       const buffer = createApkgBuffer();
       const apkgData = parseApkg(buffer);
-      const result = importService.importFromApkg(userId, apkgData);
+      const result = await importService.importFromApkg(userId, apkgData);
 
       expect(result.deckCount).toBeGreaterThan(0);
       expect(result.noteCount).toBeGreaterThan(0);
@@ -722,10 +724,10 @@ describe("Import Integration", () => {
   // --- CSV Edge Cases ---
 
   describe("CSV edge cases", () => {
-    it("auto-generates field names when no header row is present", () => {
+    it("auto-generates field names when no header row is present", async () => {
       const csvText = "apple,red\nbanana,yellow\n";
       const parsed = parseCsv(csvText, { hasHeader: false });
-      const result = importService.importFromCsv(userId, {
+      const result = await importService.importFromCsv(userId, {
         rows: parsed.rows,
         deckName: "No Header Deck",
       });
@@ -762,10 +764,10 @@ describe("Import Integration", () => {
       ]);
     });
 
-    it("handles single-column CSV with header", () => {
+    it("handles single-column CSV with header", async () => {
       const csvText = "Term\napple\nbanana\ncherry\n";
       const parsed = parseCsv(csvText, { hasHeader: true });
-      const result = importService.importFromCsv(userId, {
+      const result = await importService.importFromCsv(userId, {
         headers: parsed.headers,
         rows: parsed.rows,
         deckName: "Single Column Deck",
@@ -792,10 +794,10 @@ describe("Import Integration", () => {
       expect(allTemplates[0].answerTemplate).toContain("{{Term}}");
     });
 
-    it("preserves quoted fields with embedded commas and newlines", () => {
+    it("preserves quoted fields with embedded commas and newlines", async () => {
       const csvText = 'Front,Back\n"hello, world","line1\nline2"\n';
       const parsed = parseCsv(csvText, { hasHeader: true });
-      const result = importService.importFromCsv(userId, {
+      const result = await importService.importFromCsv(userId, {
         headers: parsed.headers,
         rows: parsed.rows,
         deckName: "Quoted Fields Deck",
@@ -816,8 +818,8 @@ describe("Import Integration", () => {
       });
     });
 
-    it("creates deck with 0 cards for empty CSV", () => {
-      const result = importService.importFromCsv(userId, {
+    it("creates deck with 0 cards for empty CSV", async () => {
+      const result = await importService.importFromCsv(userId, {
         rows: [],
         headers: ["Front", "Back"],
         deckName: "Empty Deck",
@@ -847,7 +849,7 @@ describe("Import Integration", () => {
   // --- CrowdAnki Edge Cases ---
 
   describe("CrowdAnki edge cases", () => {
-    it("preserves nested deck hierarchy with parent-child relationships", () => {
+    it("preserves nested deck hierarchy with parent-child relationships", async () => {
       const json = {
         name: "Languages",
         children: [
@@ -897,7 +899,7 @@ describe("Import Integration", () => {
         media_files: [],
       };
 
-      const result = importService.importFromCrowdAnki(userId, json);
+      const result = await importService.importFromCrowdAnki(userId, json);
       expect(result.deckCount).toBe(4);
       expect(result.noteCount).toBe(0);
       expect(result.cardCount).toBe(0);
@@ -920,7 +922,7 @@ describe("Import Integration", () => {
       expect(french.parentId).toBe(root.id);
     });
 
-    it("handles empty notes array", () => {
+    it("handles empty notes array", async () => {
       const json = {
         name: "Empty Deck",
         children: [],
@@ -947,7 +949,7 @@ describe("Import Integration", () => {
         media_files: [],
       };
 
-      const result = importService.importFromCrowdAnki(userId, json);
+      const result = await importService.importFromCrowdAnki(userId, json);
       expect(result.deckCount).toBe(1);
       expect(result.noteCount).toBe(0);
       expect(result.cardCount).toBe(0);
@@ -965,7 +967,7 @@ describe("Import Integration", () => {
   // --- APKG Edge Cases ---
 
   describe("APKG with multiple note types", () => {
-    it("imports Basic and Cloze note types with correct template references", () => {
+    it("imports Basic and Cloze note types with correct template references", async () => {
       const dbBytes = createAnkiDb({
         decks: { "1": { id: 1, name: "Mixed" } },
         models: {
@@ -1036,7 +1038,7 @@ describe("Import Integration", () => {
 
       const buffer = createApkgBuffer({ dbBytes });
       const apkgData = parseApkg(buffer);
-      const result = importService.importFromApkg(userId, apkgData);
+      const result = await importService.importFromApkg(userId, apkgData);
 
       expect(result.noteCount).toBe(2);
       expect(result.cardCount).toBe(2);
@@ -1062,7 +1064,7 @@ describe("Import Integration", () => {
   // --- APKG New Schema (Anki 2.1.50+) ---
 
   describe("APKG new schema (anki21b)", () => {
-    it("imports deck from new-schema database with separate tables", () => {
+    it("imports deck from new-schema database with separate tables", async () => {
       // Create a new-schema Anki database with notetypes/fields/templates tables
       const dbPath = join(
         tmpdir(),
@@ -1109,7 +1111,7 @@ describe("Import Integration", () => {
           dbFilename: "collection.anki21b",
         });
         const apkgData = parseApkg(buffer);
-        const result = importService.importFromApkg(userId, apkgData);
+        const result = await importService.importFromApkg(userId, apkgData);
 
         expect(result.deckCount).toBe(1);
         expect(result.noteCount).toBe(1);
@@ -1162,7 +1164,7 @@ describe("Import Integration", () => {
       }
     });
 
-    it("imports deck from protobuf config database end-to-end", () => {
+    it("imports deck from protobuf config database end-to-end", async () => {
       const dbBytes = createProtobufNewSchemaDb({
         noteTypes: [
           {
@@ -1208,7 +1210,7 @@ describe("Import Integration", () => {
         dbFilename: "collection.anki21b",
       });
       const apkgData = parseApkg(buffer);
-      const result = importService.importFromApkg(userId, apkgData);
+      const result = await importService.importFromApkg(userId, apkgData);
 
       expect(result.deckCount).toBe(1);
       expect(result.noteCount).toBe(2);

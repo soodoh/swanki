@@ -6,13 +6,16 @@ import {
   detectFormat,
 } from "../../../lib/services/import-service";
 import { MediaService } from "../../../lib/services/media-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { parseCsv } from "../../../lib/import/csv-parser";
 import { parseCrowdAnkiZip } from "../../../lib/import/crowdanki-parser";
 import { db, rawSqlite } from "../../../db";
 
 const mediaDir: string = join(process.cwd(), "data", "media");
-const importService = new ImportService(db, rawSqlite);
+const importService = new ImportService(db, {
+  execSQL: (sql) => rawSqlite.exec(sql),
+});
 
 export const Route = createFileRoute("/api/import/")({
   server: {
@@ -52,13 +55,13 @@ export const Route = createFileRoute("/api/import/")({
             const buffer = await file.arrayBuffer();
             const apkgData = parseApkg(buffer);
             const mergeMode = formData.get("mergeMode") as string | undefined;
-            const mediaService = new MediaService(db, mediaDir);
+            const mediaService = new MediaService(db, mediaDir, nodeFs);
             const {
               mapping: mediaMapping,
               warnings: mediaWarnings,
               mediaCount,
             } = await mediaService.importBatch(userId, apkgData.media);
-            const result = importService.importFromApkg(
+            const result = await importService.importFromApkg(
               userId,
               apkgData,
               mediaMapping,
@@ -79,7 +82,7 @@ export const Route = createFileRoute("/api/import/")({
               hasHeader: true,
             });
             const deckName = file.name.replace(/\.(csv|txt)$/i, "") || "Import";
-            const result = importService.importFromCsv(userId, {
+            const result = await importService.importFromCsv(userId, {
               headers: parsed.headers,
               rows: parsed.rows,
               deckName,
@@ -90,7 +93,7 @@ export const Route = createFileRoute("/api/import/")({
           // format === "crowdanki" (ZIP with deck.json + media)
           const buffer = await file.arrayBuffer();
           const { json, mediaEntries } = parseCrowdAnkiZip(buffer);
-          const mediaService = new MediaService(db, mediaDir);
+          const mediaService = new MediaService(db, mediaDir, nodeFs);
           const {
             mapping: mediaMapping,
             warnings: mediaWarnings,
@@ -103,7 +106,7 @@ export const Route = createFileRoute("/api/import/")({
               data: e.data,
             })),
           );
-          const result = importService.importFromCrowdAnki(
+          const result = await importService.importFromCrowdAnki(
             userId,
             json,
             mediaMapping,

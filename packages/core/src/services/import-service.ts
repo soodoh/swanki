@@ -1,6 +1,5 @@
 import { eq, and, isNull } from "drizzle-orm";
-import type { AppDb } from "../db/index";
-import type Database from "better-sqlite3";
+import type { AppDb, RawSqliteDb } from "../db/index";
 import {
   decks,
   noteTypes,
@@ -126,7 +125,7 @@ export function rewriteMediaUrls(
   text: string,
   mapping: Map<string, string>,
 ): string {
-  // Rewrite <img src="filename"> → [image:hash.ext]
+  // Rewrite <img src="filename"> -> [image:hash.ext]
   // Supports double quotes, single quotes, and unquoted src values
   let result = replaceGlobal(
     text,
@@ -141,13 +140,13 @@ export function rewriteMediaUrls(
     },
   );
 
-  // Rewrite [sound:filename] → [audio:hash.ext]
+  // Rewrite [sound:filename] -> [audio:hash.ext]
   result = replaceGlobal(result, /\[sound:([^\]]+)\]/g, (match, filename) => {
     const newFilename = mapping.get(filename);
     return newFilename ? `[audio:${newFilename}]` : match;
   });
 
-  // Rewrite <video src="filename"...>...</video> → [video:hash.ext]
+  // Rewrite <video src="filename"...>...</video> -> [video:hash.ext]
   // Supports double quotes, single quotes, and unquoted src values
   result = replaceGlobal(
     result,
@@ -198,19 +197,22 @@ export class ImportService {
   private db: Db;
   constructor(
     db: Db,
-    private rawDb: Database,
+    private rawDb: RawSqliteDb,
   ) {
     this.db = db;
   }
 
-  importFromCsv(userId: string, options: CsvImportOptions): ImportResult {
+  async importFromCsv(
+    userId: string,
+    options: CsvImportOptions,
+  ): Promise<ImportResult> {
     const deckName = options.deckName ?? "CSV Import";
     const { rows } = options;
 
     if (rows.length === 0) {
       // Still create the deck, but no notes/cards
       const now = new Date();
-      const deck = this.db
+      const deck = await this.db
         .insert(decks)
         .values({
           userId,
@@ -232,7 +234,7 @@ export class ImportService {
 
     // Create deck
     const now = new Date();
-    const deck = this.db
+    const deck = await this.db
       .insert(decks)
       .values({
         userId,
@@ -245,7 +247,7 @@ export class ImportService {
 
     // Create note type
     const fields = fieldNames.map((name, i) => ({ name, ordinal: i }));
-    const noteType = this.db
+    const noteType = await this.db
       .insert(noteTypes)
       .values({
         userId,
@@ -265,7 +267,7 @@ export class ImportService {
         ? remainingFields.map((f) => `{{${f}}}`).join("<br>")
         : `{{${firstField}}}`;
 
-    const template = this.db
+    const template = await this.db
       .insert(cardTemplates)
       .values({
         noteTypeId: noteType.id,
@@ -287,7 +289,7 @@ export class ImportService {
         noteFields[fieldNames[i]] = row[i] ?? "";
       }
 
-      const note = this.db
+      const note = await this.db
         .insert(notes)
         .values({
           userId,
@@ -301,7 +303,7 @@ export class ImportService {
         .get();
       noteCount += 1;
 
-      this.db
+      await this.db
         .insert(cards)
         .values({
           noteId: note.id,
@@ -320,11 +322,11 @@ export class ImportService {
     return { deckId: deck.id, noteCount, cardCount };
   }
 
-  importFromCrowdAnki(
+  async importFromCrowdAnki(
     userId: string,
     json: unknown,
     mediaMapping?: Map<string, string>,
-  ): ImportResult {
+  ): Promise<ImportResult> {
     const data = parseCrowdAnki(json);
 
     let deckCount = 0;
@@ -342,7 +344,7 @@ export class ImportService {
         ordinal: f.ordinal,
       }));
 
-      const noteType = this.db
+      const noteType = await this.db
         .insert(noteTypes)
         .values({
           userId,
@@ -356,9 +358,9 @@ export class ImportService {
         .get();
       modelMap.set(model.uuid, noteType.id);
 
-      // Create templates — convert HTML to WYSIWYG JSON
+      // Create templates -- convert HTML to WYSIWYG JSON
       for (const tmpl of model.templates) {
-        this.db
+        await this.db
           .insert(cardTemplates)
           .values({
             noteTypeId: noteType.id,
@@ -372,7 +374,7 @@ export class ImportService {
     }
 
     // Recursively create decks and notes
-    const importResult = this.importCrowdAnkiDeck(
+    const importResult = await this.importCrowdAnkiDeck(
       userId,
       data,
       modelMap,
@@ -388,20 +390,20 @@ export class ImportService {
     return { deckCount, noteCount, cardCount };
   }
 
-  private importCrowdAnkiDeck(
+  private async importCrowdAnkiDeck(
     userId: string,
     data: CrowdAnkiData,
     modelMap: Map<string, number>,
     parentId: number | undefined,
     now: Date,
     mediaMapping?: Map<string, string>,
-  ): { deckCount: number; noteCount: number; cardCount: number } {
+  ): Promise<{ deckCount: number; noteCount: number; cardCount: number }> {
     let deckCount = 0;
     let noteCount = 0;
     let cardCount = 0;
 
     // Create deck
-    const deck = this.db
+    const deck = await this.db
       .insert(decks)
       .values({
         userId,
@@ -422,7 +424,7 @@ export class ImportService {
       }
 
       // Get the note type to map field indices to field names
-      const noteType = this.db
+      const noteType = await this.db
         .select()
         .from(noteTypes)
         .where(eq(noteTypes.id, noteTypeId))
@@ -455,7 +457,7 @@ export class ImportService {
 
       // Skip notes with duplicate ankiGuid (unique constraint)
       if (crowdAnkiNote.guid) {
-        const existing = this.db
+        const existing = await this.db
           .select({ id: notes.id })
           .from(notes)
           .where(
@@ -470,7 +472,7 @@ export class ImportService {
         }
       }
 
-      const note = this.db
+      const note = await this.db
         .insert(notes)
         .values({
           userId,
@@ -487,18 +489,18 @@ export class ImportService {
 
       // Track media references
       if (mediaMapping) {
-        this.linkNoteMedia(note.id, noteFields);
+        await this.linkNoteMedia(note.id, noteFields);
       }
 
       // Get templates for this note type and create cards
-      const templates = this.db
+      const templates = await this.db
         .select()
         .from(cardTemplates)
         .where(eq(cardTemplates.noteTypeId, noteTypeId))
         .all();
 
       for (const tmpl of templates) {
-        this.db
+        await this.db
           .insert(cards)
           .values({
             noteId: note.id,
@@ -517,7 +519,7 @@ export class ImportService {
 
     // Recursively handle children
     for (const child of data.children) {
-      const childResult = this.importCrowdAnkiDeck(
+      const childResult = await this.importCrowdAnkiDeck(
         userId,
         child,
         modelMap,
@@ -534,12 +536,12 @@ export class ImportService {
   }
 
   // oxlint-disable-next-line eslint(complexity) -- merge logic adds necessary branching
-  importFromApkg(
+  async importFromApkg(
     userId: string,
     data: ApkgData,
     mediaMapping?: Map<string, string>,
     merge?: boolean,
-  ): ImportResult {
+  ): Promise<ImportResult> {
     const now = new Date();
     let noteCount = 0;
     let cardCount = 0;
@@ -557,7 +559,7 @@ export class ImportService {
       if (!usedDeckIds.has(ankiDeck.id)) {
         continue;
       }
-      const leafDeckId = this.resolveOrCreateDeckHierarchy(
+      const leafDeckId = await this.resolveOrCreateDeckHierarchy(
         userId,
         ankiDeck.name,
         merge ?? false,
@@ -572,7 +574,7 @@ export class ImportService {
     const templateMap = new Map<string, number>();
     for (const ankiNoteType of data.noteTypes) {
       if (merge) {
-        const existing = this.db
+        const existing = await this.db
           .select()
           .from(noteTypes)
           .where(
@@ -585,7 +587,7 @@ export class ImportService {
         if (existing) {
           noteTypeMap.set(ankiNoteType.id, existing.id);
           // Load existing templates for this note type
-          const existingTemplates = this.db
+          const existingTemplates = await this.db
             .select()
             .from(cardTemplates)
             .where(eq(cardTemplates.noteTypeId, existing.id))
@@ -602,7 +604,7 @@ export class ImportService {
         ordinal: f.ordinal,
       }));
 
-      const noteType = this.db
+      const noteType = await this.db
         .insert(noteTypes)
         .values({
           userId,
@@ -616,9 +618,9 @@ export class ImportService {
         .get();
       noteTypeMap.set(ankiNoteType.id, noteType.id);
 
-      // Create templates — convert HTML to WYSIWYG JSON
+      // Create templates -- convert HTML to WYSIWYG JSON
       for (const tmpl of ankiNoteType.templates) {
-        const tmplRow = this.db
+        const tmplRow = await this.db
           .insert(cardTemplates)
           .values({
             noteTypeId: noteType.id,
@@ -644,7 +646,7 @@ export class ImportService {
 
       // Check for existing note by ankiGuid (unique constraint prevents duplicates)
       if (ankiNote.guid) {
-        const existing = this.db
+        const existing = await this.db
           .select()
           .from(notes)
           .where(
@@ -677,19 +679,19 @@ export class ImportService {
               );
             }
           }
-          // Strip HTML from fields — fields store plain text + media refs
+          // Strip HTML from fields -- fields store plain text + media refs
           const plainFields = convertFieldsToPlainText(incomingFields);
 
           // Compare rewritten+stripped fields against stored fields
           if (fieldsEqual(existing.fields, plainFields)) {
-            // Unchanged — skip
+            // Unchanged -- skip
             skippedNoteIds.add(ankiNote.id);
             duplicatesSkipped += 1;
             continue;
           }
 
-          // Changed — update existing note with plain text fields
-          this.db
+          // Changed -- update existing note with plain text fields
+          await this.db
             .update(notes)
             .set({
               fields: plainFields,
@@ -701,11 +703,11 @@ export class ImportService {
 
           // Re-link media
           if (mediaMapping) {
-            this.db
+            await this.db
               .delete(noteMedia)
               .where(eq(noteMedia.noteId, existing.id))
               .run();
-            this.linkNoteMedia(existing.id, plainFields);
+            await this.linkNoteMedia(existing.id, plainFields);
           }
 
           // Map anki note ID to existing DB note ID (cards already exist)
@@ -737,10 +739,10 @@ export class ImportService {
         }
       }
 
-      // Strip HTML from fields — fields store plain text + media refs
+      // Strip HTML from fields -- fields store plain text + media refs
       const plainNoteFields = convertFieldsToPlainText(noteFields);
 
-      const note = this.db
+      const note = await this.db
         .insert(notes)
         .values({
           userId,
@@ -757,7 +759,7 @@ export class ImportService {
 
       // Track media references
       if (mediaMapping) {
-        this.linkNoteMedia(note.id, plainNoteFields);
+        await this.linkNoteMedia(note.id, plainNoteFields);
       }
 
       noteCount += 1;
@@ -792,7 +794,7 @@ export class ImportService {
         continue;
       }
 
-      this.db
+      await this.db
         .insert(cards)
         .values({
           noteId,
@@ -819,13 +821,13 @@ export class ImportService {
     };
   }
 
-  private resolveOrCreateDeckHierarchy(
+  private async resolveOrCreateDeckHierarchy(
     userId: string,
     fullName: string,
     merge: boolean,
     now: Date,
     hierarchyCache: Map<string, number>,
-  ): number {
+  ): Promise<number> {
     // Anki uses "::" in older format and U+001F (unit separator) in newer format
     // oxlint-disable-next-line eslint(no-control-regex), unicorn(prefer-string-replace-all) -- intentionally matching Anki's U+001F separator
     const normalized = fullName.replace(/\u001F/g, "::");
@@ -850,7 +852,7 @@ export class ImportService {
       }
 
       if (merge) {
-        const existing = this.db
+        const existing = await this.db
           .select()
           .from(decks)
           .where(
@@ -870,7 +872,7 @@ export class ImportService {
         }
       }
 
-      const deck = this.db
+      const deck = await this.db
         .insert(decks)
         .values({
           userId,
@@ -889,19 +891,19 @@ export class ImportService {
     return currentParentId!;
   }
 
-  private linkNoteMedia(
+  private async linkNoteMedia(
     noteId: number,
     noteFields: Record<string, string>,
-  ): void {
+  ): Promise<void> {
     const mediaFilenames = extractMediaFilenames(noteFields);
     for (const filename of mediaFilenames) {
-      const mediaRecord = this.db
+      const mediaRecord = await this.db
         .select()
         .from(media)
         .where(eq(media.filename, filename))
         .get();
       if (mediaRecord) {
-        this.db
+        await this.db
           .insert(noteMedia)
           .values({
             noteId,
@@ -934,7 +936,7 @@ export class ImportService {
       if (!usedDeckIds.has(ankiDeck.id)) {
         continue;
       }
-      const leafDeckId = this.resolveOrCreateDeckHierarchy(
+      const leafDeckId = await this.resolveOrCreateDeckHierarchy(
         userId,
         ankiDeck.name,
         merge,
@@ -949,7 +951,7 @@ export class ImportService {
     const templateMap = new Map<string, number>();
     for (const ankiNoteType of data.noteTypes) {
       if (merge) {
-        const existing = this.db
+        const existing = await this.db
           .select()
           .from(noteTypes)
           .where(
@@ -961,7 +963,7 @@ export class ImportService {
           .get();
         if (existing) {
           noteTypeMap.set(ankiNoteType.id, existing.id);
-          const existingTemplates = this.db
+          const existingTemplates = await this.db
             .select()
             .from(cardTemplates)
             .where(eq(cardTemplates.noteTypeId, existing.id))
@@ -978,7 +980,7 @@ export class ImportService {
         ordinal: f.ordinal,
       }));
 
-      const noteType = this.db
+      const noteType = await this.db
         .insert(noteTypes)
         .values({
           userId,
@@ -993,7 +995,7 @@ export class ImportService {
       noteTypeMap.set(ankiNoteType.id, noteType.id);
 
       for (const tmpl of ankiNoteType.templates) {
-        const tmplRow = this.db
+        const tmplRow = await this.db
           .insert(cardTemplates)
           .values({
             noteTypeId: noteType.id,
@@ -1014,7 +1016,7 @@ export class ImportService {
       string,
       { id: number; fields: Record<string, string> }
     >();
-    const allExisting = this.db
+    const allExisting = await this.db
       .select({
         id: notes.id,
         ankiGuid: notes.ankiGuid,
@@ -1175,12 +1177,12 @@ export class ImportService {
       `Importing ${toInsert.length} notes and ${cardInserts.length} cards...`,
     );
 
-    this.rawDb.exec("BEGIN TRANSACTION"); // SQLite exec, not child_process
+    await this.rawDb.execSQL("BEGIN TRANSACTION");
     try {
       // Batch insert new notes
       for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
         const batch = toInsert.slice(i, i + BATCH_SIZE);
-        const inserted = this.db
+        const inserted = await this.db
           .insert(notes)
           .values(batch.map((item) => item.values))
           .returning()
@@ -1204,7 +1206,7 @@ export class ImportService {
 
       // Batch update existing notes (merge mode)
       for (const upd of toUpdate) {
-        this.db
+        await this.db
           .update(notes)
           .set({ fields: upd.fields, tags: upd.tags, updatedAt: now })
           .where(eq(notes.id, upd.existingId))
@@ -1213,14 +1215,14 @@ export class ImportService {
 
       // Batch link media references
       if (mediaMapping) {
-        const allMediaRecords = this.db.select().from(media).all();
+        const allMediaRecords = await this.db.select().from(media).all();
         const mediaByFilename = new Map(
           allMediaRecords.map((m) => [m.filename, m.id]),
         );
 
         // Delete existing media links for updated notes
         for (const upd of toUpdate) {
-          this.db
+          await this.db
             .delete(noteMedia)
             .where(eq(noteMedia.noteId, upd.existingId))
             .run();
@@ -1254,7 +1256,11 @@ export class ImportService {
         // Batch insert noteMedia
         for (let i = 0; i < noteMediaValues.length; i += BATCH_SIZE) {
           const batch = noteMediaValues.slice(i, i + BATCH_SIZE);
-          this.db.insert(noteMedia).values(batch).onConflictDoNothing().run();
+          await this.db
+            .insert(noteMedia)
+            .values(batch)
+            .onConflictDoNothing()
+            .run();
         }
       }
 
@@ -1262,7 +1268,7 @@ export class ImportService {
       onProgress?.("cards", 0, `Creating ${cardInserts.length} cards...`);
       for (let i = 0; i < cardInserts.length; i += BATCH_SIZE) {
         const batch = cardInserts.slice(i, i + BATCH_SIZE);
-        this.db
+        await this.db
           .insert(cards)
           .values(
             batch.map((cv) => ({
@@ -1292,9 +1298,9 @@ export class ImportService {
         });
       }
 
-      this.rawDb.exec("COMMIT"); // SQLite exec, not child_process
+      await this.rawDb.execSQL("COMMIT");
     } catch (error) {
-      this.rawDb.exec("ROLLBACK"); // SQLite exec, not child_process
+      await this.rawDb.execSQL("ROLLBACK");
       throw error;
     }
 

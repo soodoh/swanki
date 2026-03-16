@@ -13,6 +13,7 @@ import {
 } from "../../db/schema";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { nodeFs } from "@swanki/core/node-filesystem";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -25,7 +26,7 @@ describe("DeckService", () => {
   beforeEach(() => {
     testDir = join(testMediaDir, crypto.randomUUID());
     db = createTestDb();
-    deckService = new DeckService(db, testDir);
+    deckService = new DeckService(db, testDir, nodeFs);
   });
 
   afterEach(() => {
@@ -255,8 +256,8 @@ describe("DeckService", () => {
       expect(updatedChild!.parentId).toBeNull();
     });
 
-    it("cascades delete to cards and review logs", () => {
-      const deck = deckService.create(userId, { name: "Cascade Test" });
+    it("cascades delete to cards and review logs", async () => {
+      const deck = await deckService.create(userId, { name: "Cascade Test" });
 
       // Create a note type, template, note, and card
       const noteType = db
@@ -321,7 +322,7 @@ describe("DeckService", () => {
         })
         .run();
 
-      deckService.delete(deck.id, userId);
+      await deckService.delete(deck.id, userId);
 
       expect(db.select().from(cards).all()).toHaveLength(0);
       expect(db.select().from(reviewLogs).all()).toHaveLength(0);
@@ -329,8 +330,8 @@ describe("DeckService", () => {
     });
 
     it("deletes orphaned media files when deck is deleted", async () => {
-      const deck = deckService.create(userId, { name: "Media Test" });
-      const mediaService = new MediaService(db, testDir);
+      const deck = await deckService.create(userId, { name: "Media Test" });
+      const mediaService = new MediaService(db, testDir, nodeFs);
 
       // Import a media file
       const { mapping } = await mediaService.importBatch(userId, [
@@ -400,7 +401,7 @@ describe("DeckService", () => {
       expect(existsSync(filePath)).toBe(true);
 
       // Delete the deck
-      deckService.delete(deck.id, userId);
+      await deckService.delete(deck.id, userId);
 
       // Everything should be cleaned up
       expect(db.select().from(cards).all()).toHaveLength(0);

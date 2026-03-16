@@ -29,7 +29,10 @@ export class StatsService {
     this.db = db;
   }
 
-  getReviewsPerDay(userId: string, days: number): ReviewsPerDay[] {
+  async getReviewsPerDay(
+    userId: string,
+    days: number,
+  ): Promise<ReviewsPerDay[]> {
     const now = new Date();
     now.setUTCHours(0, 0, 0, 0);
 
@@ -38,7 +41,7 @@ export class StatsService {
     startDate.setUTCDate(startDate.getUTCDate() - (days - 1));
 
     // Query review counts grouped by date, filtered by user
-    const rows = this.db
+    const rows = await this.db
       .select({
         date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
         count: sql<number>`count(*)`,
@@ -73,8 +76,8 @@ export class StatsService {
     return result;
   }
 
-  getCardStates(userId: string): CardStates {
-    const rows = this.db
+  async getCardStates(userId: string): Promise<CardStates> {
+    const rows = await this.db
       .select({
         state: cards.state,
         count: sql<number>`count(*)`,
@@ -108,9 +111,9 @@ export class StatsService {
     return states;
   }
 
-  getStreak(userId: string): Streak {
+  async getStreak(userId: string): Promise<Streak> {
     // Get all distinct dates (UTC) with reviews for this user, ordered desc
-    const rows = this.db
+    const rows = await this.db
       .select({
         date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
       })
@@ -179,11 +182,11 @@ export class StatsService {
     return { current, longest };
   }
 
-  getHeatmap(userId: string, year: number): Heatmap {
+  async getHeatmap(userId: string, year: number): Promise<Heatmap> {
     const startDate = new Date(`${year}-01-01T00:00:00Z`);
     const endDate = new Date(`${year + 1}-01-01T00:00:00Z`);
 
-    const rows = this.db
+    const rows = await this.db
       .select({
         date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
         count: sql<number>`count(*)`,

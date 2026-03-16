@@ -6,6 +6,7 @@ import { NoteService } from "../../lib/services/note-service";
 import { noteTypes, cardTemplates, cards, reviewLogs } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { Rating, State } from "../../lib/fsrs";
+import { nodeFs } from "@swanki/core/node-filesystem";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -23,7 +24,7 @@ describe("StudyService", () => {
   beforeEach(async () => {
     db = createTestDb();
     studyService = new StudyService(db);
-    deckService = new DeckService(db, testMediaDir);
+    deckService = new DeckService(db, testMediaDir, nodeFs);
     noteService = new NoteService(db);
 
     // Create a deck
@@ -224,10 +225,10 @@ describe("StudyService", () => {
       expect(dbCard!.reps).toBe(1);
     });
 
-    it("throws error for non-existent card", () => {
-      expect(() =>
+    it("throws error for non-existent card", async () => {
+      await expect(
         studyService.submitReview(userId, 999999, Rating.Good, 1000),
-      ).toThrow("Card not found");
+      ).rejects.toThrow("Card not found");
     });
   });
 
@@ -346,14 +347,19 @@ describe("StudyService", () => {
       }
 
       // Before review: both cards should appear
-      const session1 = studyService.getStudySession(userId, deckId);
+      const session1 = await studyService.getStudySession(userId, deckId);
       expect(session1.cards).toHaveLength(2);
 
       // Review the first card
-      studyService.submitReview(userId, noteCards[0].id, Rating.Good, 3000);
+      await studyService.submitReview(
+        userId,
+        noteCards[0].id,
+        Rating.Good,
+        3000,
+      );
 
       // After review: sibling should be buried
-      const session2 = studyService.getStudySession(userId, deckId);
+      const session2 = await studyService.getStudySession(userId, deckId);
       // The reviewed card may come back (learning) but the sibling should not
       const siblingInSession = session2.cards.find(
         (c) => c.id === noteCards[1].id,
@@ -386,17 +392,17 @@ describe("StudyService", () => {
         .where(eq(cards.id, cardId));
 
       // Before review: 1 new card
-      const session1 = studyService.getStudySession(userId, deckId);
+      const session1 = await studyService.getStudySession(userId, deckId);
       expect(session1.counts.new).toBe(1);
       expect(session1.counts.learning).toBe(0);
 
       // Review with Good → card transitions to Learning with future due
-      studyService.submitReview(userId, cardId, Rating.Good, 5000);
+      await studyService.submitReview(userId, cardId, Rating.Good, 5000);
 
       // After review: card is now Learning state with future due date
       // It should NOT appear in the cards array (since due > now)
       // but SHOULD be counted in counts.learning
-      const session2 = studyService.getStudySession(userId, deckId);
+      const session2 = await studyService.getStudySession(userId, deckId);
       expect(session2.counts.new).toBe(0);
       expect(session2.counts.learning).toBeGreaterThanOrEqual(1);
     });
@@ -435,17 +441,23 @@ describe("StudyService", () => {
         .run();
 
       // First fetch: should get 2 new cards (limit)
-      const session1 = studyService.getStudySession(userId, limitedDeck.id);
+      const session1 = await studyService.getStudySession(
+        userId,
+        limitedDeck.id,
+      );
       expect(session1.cards).toHaveLength(2);
       expect(session1.counts.new).toBe(2);
 
       // Review both cards
       for (const card of session1.cards) {
-        studyService.submitReview(userId, card.id, Rating.Good, 3000);
+        await studyService.submitReview(userId, card.id, Rating.Good, 3000);
       }
 
       // Second fetch: should get 0 new cards (daily limit exhausted)
-      const session2 = studyService.getStudySession(userId, limitedDeck.id);
+      const session2 = await studyService.getStudySession(
+        userId,
+        limitedDeck.id,
+      );
       // May have learning cards from reviewed cards, but no more new ones
       expect(session2.counts.new).toBe(0);
     });
@@ -492,7 +504,7 @@ describe("StudyService", () => {
         .set({ state: 2, due: pastDate })
         .where(eq(cards.id, allCards[2].id));
 
-      const session = studyService.getStudySession(userId, deckId);
+      const session = await studyService.getStudySession(userId, deckId);
 
       expect(session.cards).toHaveLength(3);
       // Learning first, then review, then new
@@ -555,7 +567,10 @@ describe("StudyService", () => {
         .set({ state: 2, due: pastDate })
         .where(eq(cards.id, allCards[2].id));
 
-      const session = studyService.getStudySession(userId, limitedDeck.id);
+      const session = await studyService.getStudySession(
+        userId,
+        limitedDeck.id,
+      );
 
       // Should have learning card + 1 review (limit) = 2 cards
       // Learning card bypasses limits

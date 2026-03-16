@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/note-types/")({
     handlers: {
       GET: async ({ request }) => {
         const session = await requireSession(request);
-        const noteTypes = noteTypeService.listByUser(session.user.id);
+        const noteTypes = await noteTypeService.listByUser(session.user.id);
         return Response.json(noteTypes);
       },
       POST: async ({ request }) => {
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/note-types/")({
           fields: Array<{ name: string; ordinal: number }>;
           css?: string;
         };
-        const noteType = noteTypeService.create(session.user.id, body);
+        const noteType = await noteTypeService.create(session.user.id, body);
         return Response.json(noteType, { status: 201 });
       },
     },

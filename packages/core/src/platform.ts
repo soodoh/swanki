@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-export type Platform = "web" | "desktop";
+export type Platform = "web" | "desktop" | "mobile";
 
 const PlatformContext = createContext<Platform>("web");
 

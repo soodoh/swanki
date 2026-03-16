@@ -40,16 +40,16 @@ export class SyncService {
    * Full pull: returns all data for a user.
    * Used on first sync when the client has no local data.
    */
-  pullFull(userId: string): SyncPullResponse {
+  async pullFull(userId: string): Promise<SyncPullResponse> {
     const now = Date.now();
 
-    const userDecks = this.db
+    const userDecks = await this.db
       .select()
       .from(decks)
       .where(eq(decks.userId, userId))
       .all();
 
-    const userNoteTypes = this.db
+    const userNoteTypes = await this.db
       .select()
       .from(noteTypes)
       .where(eq(noteTypes.userId, userId))
@@ -59,7 +59,7 @@ export class SyncService {
     const noteTypeIds = userNoteTypes.map((nt) => nt.id);
     let userCardTemplates: Array<Record<string, unknown>> = [];
     if (noteTypeIds.length > 0) {
-      userCardTemplates = this.db
+      userCardTemplates = (await this.db
         .select()
         .from(cardTemplates)
         .where(
@@ -68,10 +68,10 @@ export class SyncService {
             sql`, `,
           )})`,
         )
-        .all() as Array<Record<string, unknown>>;
+        .all()) as Array<Record<string, unknown>>;
     }
 
-    const userNotes = this.db
+    const userNotes = await this.db
       .select()
       .from(notes)
       .where(eq(notes.userId, userId))
@@ -81,7 +81,7 @@ export class SyncService {
     const noteIds = userNotes.map((n) => n.id);
     let userCards: Array<Record<string, unknown>> = [];
     if (noteIds.length > 0) {
-      userCards = this.db
+      userCards = (await this.db
         .select()
         .from(cards)
         .where(
@@ -90,14 +90,14 @@ export class SyncService {
             sql`, `,
           )})`,
         )
-        .all() as Array<Record<string, unknown>>;
+        .all()) as Array<Record<string, unknown>>;
     }
 
     // Review logs for user's cards
     const cardIds = (userCards as Array<{ id: number }>).map((c) => c.id);
     let userReviewLogs: Array<Record<string, unknown>> = [];
     if (cardIds.length > 0) {
-      userReviewLogs = this.db
+      userReviewLogs = (await this.db
         .select()
         .from(reviewLogs)
         .where(
@@ -106,10 +106,10 @@ export class SyncService {
             sql`, `,
           )})`,
         )
-        .all() as Array<Record<string, unknown>>;
+        .all()) as Array<Record<string, unknown>>;
     }
 
-    const userMedia = this.db
+    const userMedia = await this.db
       .select()
       .from(media)
       .where(eq(media.userId, userId))
@@ -118,7 +118,7 @@ export class SyncService {
     // Note-media junctions for user's notes
     let userNoteMedia: Array<Record<string, unknown>> = [];
     if (noteIds.length > 0) {
-      userNoteMedia = this.db
+      userNoteMedia = (await this.db
         .select()
         .from(noteMedia)
         .where(
@@ -127,7 +127,7 @@ export class SyncService {
             sql`, `,
           )})`,
         )
-        .all() as Array<Record<string, unknown>>;
+        .all()) as Array<Record<string, unknown>>;
     }
 
     return {
@@ -149,17 +149,17 @@ export class SyncService {
    * Tables with updated_at are filtered; tables without (reviewLogs, cardTemplates)
    * are returned in full if any parent was modified.
    */
-  pullDelta(userId: string, since: number): SyncPullResponse {
+  async pullDelta(userId: string, since: number): Promise<SyncPullResponse> {
     const now = Date.now();
     const sinceDate = new Date(since);
 
-    const userDecks = this.db
+    const userDecks = await this.db
       .select()
       .from(decks)
       .where(and(eq(decks.userId, userId), gte(decks.updatedAt, sinceDate)))
       .all();
 
-    const userNoteTypes = this.db
+    const userNoteTypes = await this.db
       .select()
       .from(noteTypes)
       .where(
@@ -171,7 +171,7 @@ export class SyncService {
     const modifiedNtIds = userNoteTypes.map((nt) => nt.id);
     let userCardTemplates: Array<Record<string, unknown>> = [];
     if (modifiedNtIds.length > 0) {
-      userCardTemplates = this.db
+      userCardTemplates = (await this.db
         .select()
         .from(cardTemplates)
         .where(
@@ -180,37 +180,39 @@ export class SyncService {
             sql`, `,
           )})`,
         )
-        .all() as Array<Record<string, unknown>>;
+        .all()) as Array<Record<string, unknown>>;
     }
 
-    const userNotes = this.db
+    const userNotes = await this.db
       .select()
       .from(notes)
       .where(and(eq(notes.userId, userId), gte(notes.updatedAt, sinceDate)))
       .all();
 
-    const userCards = this.db
-      .select()
-      .from(cards)
-      .innerJoin(notes, eq(cards.noteId, notes.id))
-      .where(and(eq(notes.userId, userId), gte(cards.updatedAt, sinceDate)))
-      .all()
-      .map((r) => r.cards);
+    const userCards = (
+      await this.db
+        .select()
+        .from(cards)
+        .innerJoin(notes, eq(cards.noteId, notes.id))
+        .where(and(eq(notes.userId, userId), gte(cards.updatedAt, sinceDate)))
+        .all()
+    ).map((r) => r.cards);
 
     // Review logs since the timestamp
-    const userReviewLogs = this.db
-      .select()
-      .from(reviewLogs)
-      .innerJoin(cards, eq(reviewLogs.cardId, cards.id))
-      .innerJoin(notes, eq(cards.noteId, notes.id))
-      .where(
-        and(eq(notes.userId, userId), gte(reviewLogs.reviewedAt, sinceDate)),
-      )
-      .all()
-      .map((r) => r.review_logs);
+    const userReviewLogs = (
+      await this.db
+        .select()
+        .from(reviewLogs)
+        .innerJoin(cards, eq(reviewLogs.cardId, cards.id))
+        .innerJoin(notes, eq(cards.noteId, notes.id))
+        .where(
+          and(eq(notes.userId, userId), gte(reviewLogs.reviewedAt, sinceDate)),
+        )
+        .all()
+    ).map((r) => r.review_logs);
 
     // Media doesn't have updated_at, so check created_at
-    const userMedia = this.db
+    const userMedia = await this.db
       .select()
       .from(media)
       .where(and(eq(media.userId, userId), gte(media.createdAt, sinceDate)))
@@ -220,7 +222,7 @@ export class SyncService {
     const modifiedNoteIds = userNotes.map((n) => n.id);
     let userNoteMedia: Array<Record<string, unknown>> = [];
     if (modifiedNoteIds.length > 0) {
-      userNoteMedia = this.db
+      userNoteMedia = (await this.db
         .select()
         .from(noteMedia)
         .where(
@@ -229,7 +231,7 @@ export class SyncService {
             sql`, `,
           )})`,
         )
-        .all() as Array<Record<string, unknown>>;
+        .all()) as Array<Record<string, unknown>>;
     }
 
     // Sync deletions table query will be added in a future phase
