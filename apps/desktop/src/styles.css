@@ -2,3 +2,13 @@
 @source "../../web/src";
 
 @import "@/styles/globals.css";
+
+/* Offset the fixed sidebar and its wrapper below the desktop titlebar (h-10 = 2.5rem) */
+[data-slot="sidebar-wrapper"] {
+  min-height: 100%;
+}
+
+[data-slot="sidebar-container"] {
+  top: 2.5rem;
+  height: calc(100svh - 2.5rem);
+}
