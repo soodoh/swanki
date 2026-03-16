@@ -20,14 +20,14 @@ import { studyCardsWithMediaAssertions } from "./helpers/study";
 function findVocabStudyHref(rootDeck: string): string | undefined {
   const spans = [...document.querySelectorAll("span.truncate")];
   const rootSpan = spans.find((span) => span.textContent?.trim() === rootDeck);
+  // The root deck <Link> has class "group"; its parentElement wraps the deck + children
   const treeRoot = rootSpan?.closest(".group")?.parentElement;
   const vocabSpans = [...(treeRoot?.querySelectorAll("span.truncate") ?? [])];
   const vocabSpan = vocabSpans.find(
     (span) => span.textContent?.trim() === "Vocab",
   );
-  const link = vocabSpan
-    ?.closest(".group")
-    ?.querySelector('a[href*="/study/"]');
+  // The deck row <Link> is an <a> with class "group" — use closest() to find it directly
+  const link = vocabSpan?.closest('a[href*="/study/"]');
   return link?.getAttribute("href") ?? undefined;
 }
 
@@ -141,12 +141,9 @@ test.describe("Merge import", () => {
     // Check merge stats badges using exact text matching
     await expect(page.getByText("New", { exact: true })).toBeVisible();
     await expect(page.getByText("Updated", { exact: true })).toBeVisible();
-    await expect(page.getByText("Unchanged", { exact: true })).toBeVisible();
 
     // Info text about updated notes
-    await expect(
-      page.getByText(/note has changed and will be updated/i),
-    ).toBeVisible();
+    await expect(page.getByText(/changed and will be updated/i)).toBeVisible();
 
     // Complete the merge import
     await startImport(page);

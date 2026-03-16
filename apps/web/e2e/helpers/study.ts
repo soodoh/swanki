@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
  * are present and loaded correctly.
  */
 export async function assertMediaLoads(page: Page): Promise<void> {
-  const cardContent = page.locator(".card-content");
+  const cardContent = page.locator(".prose");
   await expect(cardContent).toBeVisible();
 
   // Check images load
@@ -87,7 +87,7 @@ export async function studyCardsWithMediaAssertions(
 
   // Wait for either card content or congrats to appear
   await expect(
-    page.locator(".card-content").or(page.getByText("Congratulations!")),
+    page.locator(".prose").or(page.getByText("Congratulations!")),
   ).toBeVisible({ timeout: 15_000 });
 
   for (let i = 0; i < maxCards; i += 1) {
@@ -98,7 +98,7 @@ export async function studyCardsWithMediaAssertions(
     }
 
     // Wait for card content to be visible
-    const cardContent = page.locator(".card-content");
+    const cardContent = page.locator(".prose");
     await expect(cardContent).toBeVisible({ timeout: 10_000 });
 
     // Assert media on question side

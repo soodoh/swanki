@@ -38,7 +38,7 @@ export async function waitForPreviewLoad(page: Page): Promise<void> {
 }
 
 export async function startImport(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Start Import" }).click();
+  await page.getByRole("button", { name: "Import" }).click();
 }
 
 export async function waitForImportComplete(page: Page): Promise<void> {
