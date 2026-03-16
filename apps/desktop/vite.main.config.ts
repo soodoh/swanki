@@ -1,6 +1,12 @@
 import { defineConfig } from "vite";
+import { resolve } from "node:path";
 
 export default defineConfig({
+  define: {
+    DRIZZLE_MIGRATIONS_PATH: JSON.stringify(
+      resolve(__dirname, "../web/drizzle"),
+    ),
+  },
   resolve: {
     conditions: ["node"],
     mainFields: ["module", "jsnext:main", "jsnext"],

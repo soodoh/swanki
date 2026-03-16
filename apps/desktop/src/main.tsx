@@ -4,8 +4,8 @@ import { RouterProvider } from "@tanstack/react-router";
 import { DesktopProvider } from "./providers/desktop-provider";
 import { router } from "./routes";
 
-// Import web app's Tailwind CSS and theme variables
-import "@/styles/globals.css";
+// Import desktop CSS entry point (adds @source for web app, then globals.css)
+import "./styles.css";
 
 function App(): React.ReactElement {
   return (

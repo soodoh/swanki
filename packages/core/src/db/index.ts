@@ -1,13 +1,5 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import * as schema from "./schema";
 
-export function createDb(dbPath: string) {
-  const sqlite = new Database(dbPath);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-  return { drizzleDb: drizzle(sqlite, { schema }), rawDb: sqlite };
-}
-
-export type AppDb = BetterSQLite3Database<typeof schema>;
+/** Shared DB type compatible with both bun:sqlite and better-sqlite3 drivers */
+export type AppDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
