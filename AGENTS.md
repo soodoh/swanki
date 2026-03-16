@@ -4,22 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Swanki is an Anki-compatible spaced repetition flashcard app. Turborepo monorepo with three apps:
+Swanki is an Anki-compatible spaced repetition flashcard app. Turborepo monorepo:
 
-- **web** (`apps/web`) — the main app: @tanstack/start + React + Tailwind CSS, runs on Bun
+- **web** (`apps/web`) — @tanstack/start + React + Tailwind CSS, SSR via Nitro (node-server preset)
+- **desktop** (`apps/desktop`) — Electron app with offline-first local SQLite, built with Electron Forge + Vite
+- **core** (`packages/core`) — shared services, hooks, DB schema, and utilities used by both web and desktop
 - **docs** (`apps/docs`) — placeholder
 - **mobile** (`apps/mobile`) — placeholder
 
-All active development is in `apps/web`.
-
 ## Build & Dev Commands
 
-- `bun run dev:web` — start web dev server (port 3000)
-- `bun run build` — build all apps
-- `bun run lint` — oxlint + prettier check
-- `bun run lint:fix` — auto-fix lint issues
-- `bun run test` — run tests in watch mode (vitest)
-- `bun run test:run` — run tests once (CI mode)
+```
+bun run dev:web          # web dev server (port 3000, includes sqlite rebuild)
+bun run start:desktop    # start desktop dev with Electron Forge
+bun run dev:desktop      # desktop dev via turbo (with rebuild)
+bun run build            # build all apps
+bun run build:desktop    # build desktop for distribution
+bun run package:desktop  # package desktop app
+bun run make:desktop     # create desktop installers (Squirrel/DMG/DEB/RPM)
+bun run lint             # oxlint + prettier check
+bun run lint:fix         # auto-fix lint issues
+bun run test             # run tests in watch mode (vitest)
+bun run test:run         # run tests once (CI mode)
+```
 
 Single test file from `apps/web`:
 
@@ -29,78 +36,99 @@ cd apps/web && bun --bun vitest run src/__tests__/lib/fsrs.test.ts
 
 ### Database Migrations
 
-Drizzle Kit manages SQLite migrations. Config at `apps/web/drizzle.config.ts`, migrations in `apps/web/drizzle/`.
+Drizzle Kit manages SQLite migrations. Config at `apps/web/drizzle.config.ts`, migrations in `apps/web/drizzle/`. Both web and desktop apps apply migrations from this shared folder.
 
 ```
 cd apps/web && bun x drizzle-kit generate
 cd apps/web && bun x drizzle-kit push
 ```
 
+### SQLite Rebuild
+
+better-sqlite3 is a native module that must be compiled for the correct runtime:
+
+- **Desktop**: `electron-rebuild` runs via postinstall in `apps/desktop/`
+- **Web/tests**: `scripts/rebuild-sqlite.mjs` rebuilds for Node ABI (runs automatically with `dev:web`)
+
 ## Stack
 
 - **Runtime**: Bun
 - **Monorepo**: Turborepo
-- **Web framework**: @tanstack/start (SSR with Vite + Nitro/Bun preset)
+- **Web framework**: @tanstack/start (SSR with Vite + Nitro/node-server preset)
+- **Desktop**: Electron Forge with Vite plugins (main, preload, renderer configs)
 - **Routing**: TanStack Router (file-based, auto-generated `routeTree.gen.ts`)
-- **Data fetching**: @tanstack/react-query (client-side hooks in `src/lib/hooks/`)
-- **Database**: SQLite via `bun:sqlite` + Drizzle ORM (`src/db/`)
-- **Auth**: better-auth with email/password + Google/GitHub OAuth (`src/lib/auth.ts`)
-- **Spaced repetition**: ts-fsrs library, wrapped in `src/lib/fsrs.ts`
-- **Styling**: Tailwind CSS v4 + shadcn/ui components (`src/components/ui/`)
+- **Data fetching**: @tanstack/react-query (hooks in `packages/core/src/hooks/`)
+- **Database**: SQLite via better-sqlite3 + Drizzle ORM
+- **Auth**: better-auth with email/password + Google/GitHub OAuth
+- **Spaced repetition**: ts-fsrs library
+- **Styling**: Tailwind CSS v4 + shadcn/ui components (`apps/web/src/components/ui/`)
 - **Linting**: oxlint (config: `apps/web/oxlint.config.mjs`) + prettier
-- **Testing**: Vitest with in-memory SQLite (`src/__tests__/test-utils.ts`)
+- **Testing**: Vitest with in-memory SQLite (`apps/web/src/__tests__/test-utils.ts`)
 - **Git hooks**: husky + lint-staged + commitlint (conventional commits, no scopes)
 
 ## Architecture
 
-### API Routes
+### Core Package (`packages/core`)
 
-Server API handlers live in `src/routes/api/` as TanStack Router file routes with `server.handlers`. Each handler:
+Shared logic consumed by both web and desktop. Granular exports via `package.json` exports field:
 
-1. Calls `requireSession(request)` from `src/lib/auth-middleware.ts` for auth
-2. Instantiates a service class with the `db` singleton
-3. Returns `Response.json()`
+- `@swanki/core/db` — database factory (`createDb`) and schema
+- `@swanki/core/services/*` — all service classes (DeckService, CardService, StudyService, etc.)
+- `@swanki/core/hooks/*` — React Query hooks (use-study, use-decks, use-browse, etc.)
+- `@swanki/core/lib/*` — utilities (template-renderer, sanitize, fsrs, search-parser)
+- `@swanki/core/import/*` — import parsers (apkg, crowdanki, csv)
+- `@swanki/core/transport` — `AppTransport` interface for platform abstraction
+- `@swanki/core/platform` — platform context ("web" | "desktop")
 
-```
-routes/api/study/$deckId.ts  →  StudyService
-routes/api/cards/$cardId.ts  →  CardService
-routes/api/decks/$deckId.ts  →  DeckService
-routes/api/notes/$noteId.ts  →  NoteService
-routes/api/browse.ts         →  BrowseService
-routes/api/note-types/       →  NoteTypeService
-routes/api/stats.ts          →  StatsService
-```
+### Platform Abstraction (Transport Layer)
+
+Both apps share the same React components and hooks. Platform-specific I/O is abstracted through `AppTransport`:
+
+- **Web**: `WebTransport` — fetch-based HTTP calls to API routes
+- **Desktop**: `IpcTransport` — Electron IPC calls to main process
+
+`TransportProvider` injects the correct transport. Hooks in core call `transport.query()`/`transport.mutate()` instead of `fetch()` directly.
+
+### API Routes (Web)
+
+Server API handlers live in `apps/web/src/routes/api/` as TanStack Router file routes with `server.handlers`. Each handler calls `requireSession(request)` for auth, instantiates a service from core, and returns `Response.json()`.
+
+### Desktop IPC (Desktop)
+
+`apps/desktop/electron/ipc-handlers.ts` routes IPC messages to core services:
+
+- `db:query` — routes GET-like requests
+- `db:mutate` — routes POST/PUT/PATCH/DELETE
+- `auth:*`, `sync:*`, `window:*` — platform-specific handlers
 
 ### Service Layer
 
-All business logic is in `src/lib/services/`. Services take a Drizzle `db` instance (type `BunSQLiteDatabase<typeof schema>`) and contain synchronous methods that run SQLite queries directly. No async/await needed for DB operations — `bun:sqlite` is synchronous.
-
-### Client-Side Data
-
-React Query hooks in `src/lib/hooks/` wrap API calls and manage cache. Pages in `src/routes/_authenticated/` consume these hooks.
+All business logic is in `packages/core/src/services/`. Services take a Drizzle `db` instance (type `BetterSQLite3Database<typeof schema>`) and contain synchronous methods — better-sqlite3 is synchronous, no async/await needed for DB operations.
 
 ### Authenticated Routes
 
-`src/routes/_authenticated.tsx` is a layout route that guards all child routes via `beforeLoad` — redirects to `/login` if no session. Child routes access `session` from route context.
+`apps/web/src/routes/_authenticated.tsx` is a layout route that guards child routes via `beforeLoad` — redirects to `/login` if no session.
 
 ### Card Rendering
 
-Templates use Anki-compatible mustache syntax (`{{FieldName}}`, `{{FrontSide}}`, `{{#Field}}...{{/Field}}`, `{{cloze:Field}}`). Rendering logic is in `src/lib/template-renderer.ts`. HTML output is sanitized with DOMPurify (`src/lib/sanitize.ts`).
+Templates use Anki-compatible mustache syntax (`{{FieldName}}`, `{{FrontSide}}`, `{{#Field}}...{{/Field}}`, `{{cloze:Field}}`). Rendering logic in `packages/core/src/lib/template-renderer.ts`, sanitized with DOMPurify.
 
 ### Database Schema
 
-Defined in `src/db/schema.ts`. Core tables: `decks`, `noteTypes`, `cardTemplates`, `notes`, `cards`, `reviewLogs`, `media`. Auth tables re-exported from `src/db/auth-schema.ts`. All IDs are UUIDs via `crypto.randomUUID()`.
+Defined in `packages/core/src/db/schema.ts`. Core tables: `decks`, `noteTypes`, `cardTemplates`, `notes`, `cards`, `reviewLogs`, `media`. Auth tables in `packages/core/src/db/auth-schema.ts`. All IDs are UUIDs via `crypto.randomUUID()`.
 
-### Path Alias
+### Desktop Database
 
-`@/*` maps to `apps/web/src/*` (configured in `tsconfig.json`).
+Local SQLite at `app.getPath("userData")/swanki.db`. Migrations loaded from `apps/web/drizzle/` (packaged as `extraResource`). Media served via custom protocol `swanki-media://media/`.
 
 ## Conventions
 
-- `src/routeTree.gen.ts` is auto-generated by TanStack Router — never edit manually
-- oxlint relaxes `typescript/no-unsafe-*` rules in test files (see `oxlint.config.mjs`)
-- Tests use in-memory SQLite with Drizzle migrations applied via `createTestDb()` from `src/__tests__/test-utils.ts`
-- The `DATABASE_URL` env var defaults to `sqlite.db` in the project root
+- `apps/web/src/routeTree.gen.ts` is auto-generated by TanStack Router — never edit manually
+- oxlint relaxes `typescript/no-unsafe-*` rules in test files and `src/lib/offline/**`
+- Tests use in-memory SQLite with migrations applied via `createTestDb()` from `apps/web/src/__tests__/test-utils.ts`
+- `@/*` path alias maps to `apps/web/src/*`
+- Desktop uses `.cjs` extension for Forge's CJS output to coexist with `"type": "module"`
+- `DATABASE_URL` env var defaults to `data/sqlite.db`
 
 ## License
 
