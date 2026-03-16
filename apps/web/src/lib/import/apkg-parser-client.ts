@@ -5,7 +5,7 @@
  */
 import { unzipSync } from "fflate";
 import type { Database as SqlJsDatabase } from "sql.js";
-import { getSqlJs, queryAll, queryFirst } from "../offline/sql-js-init";
+import { getSqlJs, queryAll, queryFirst } from "./sql-js-init";
 
 import {
   findDbFile,
@@ -179,8 +179,6 @@ export async function buildClientPreview(
     db.close();
   }
 }
-
-// Query helpers imported from ../offline/sql-js-init
 
 function isNewSchema(db: SqlJsDatabase): boolean {
   try {

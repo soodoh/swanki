@@ -1,22 +1,11 @@
+/* oxlint-disable eslint/class-methods-use-this -- implements AppTransport interface */
 /**
  * WebTransport — web-specific implementation of AppTransport.
- * Wraps offlineQuery/offlineMutation with local-router resolution.
+ * Stateless HTTP fetch wrapper, analogous to desktop's IpcTransport.
  */
 import type { AppTransport } from "@swanki/core/transport";
-import type { OfflineContextValue } from "./offline/offline-provider";
-import { offlineQuery, offlineMutation } from "./offline/offline-fetch";
-import {
-  resolveLocalQuery,
-  resolveLocalMutation,
-} from "./offline/local-router";
 
 export class WebTransport implements AppTransport {
-  private offline: OfflineContextValue;
-
-  constructor(offline: OfflineContextValue) {
-    this.offline = offline;
-  }
-
   async query<T>(
     endpoint: string,
     params?: Record<string, string>,
@@ -24,26 +13,11 @@ export class WebTransport implements AppTransport {
     const url = params
       ? `${endpoint}?${new URLSearchParams(params)}`
       : endpoint;
-    const localQuery = resolveLocalQuery(endpoint, params);
-
-    return offlineQuery({
-      serverFetch: async () => {
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error(`GET ${url} failed`);
-        }
-        return res.json() as Promise<T>;
-      },
-      localQuery: localQuery as
-        | ((
-            db: Parameters<typeof offlineQuery>[0]["db"] &
-              Record<string, unknown>,
-          ) => T)
-        | undefined,
-      db: this.offline.db,
-      isOnline: this.offline.isOnline,
-      isLocalReady: this.offline.isLocalReady,
-    });
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`GET ${url} failed`);
+    }
+    return res.json() as Promise<T>;
   }
 
   async mutate<T>(
@@ -51,29 +25,14 @@ export class WebTransport implements AppTransport {
     method: "POST" | "PUT" | "PATCH" | "DELETE",
     body?: unknown,
   ): Promise<T> {
-    const localMutation = resolveLocalMutation(endpoint, method, body);
-
-    return offlineMutation(
-      {
-        serverFetch: async (input) => {
-          const res = await fetch(endpoint, {
-            method,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(input),
-          });
-          if (!res.ok) {
-            throw new Error(`${method} ${endpoint} failed`);
-          }
-          return res.json() as Promise<T>;
-        },
-        localMutation,
-        queueEntry: () => ({ endpoint, method, body }),
-        db: this.offline.db,
-        isOnline: this.offline.isOnline,
-        queue: this.offline.queue,
-        persist: this.offline.persist,
-      },
-      body,
-    ) as Promise<T>;
+    const res = await fetch(endpoint, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`${method} ${endpoint} failed`);
+    }
+    return res.json() as Promise<T>;
   }
 }

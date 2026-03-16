@@ -1,6 +1,7 @@
+/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-call, typescript/no-unsafe-member-access, typescript/no-redundant-type-constituents */
 /**
  * Shared SQL.js initialization singleton and query helpers.
- * Used by both the APKG import parser and the offline local database.
+ * Used by the client-side APKG import parser to preview .apkg files in the browser.
  */
 import initSqlJs from "sql.js";
 import type { Database as SqlJsDatabase } from "sql.js";
@@ -54,20 +55,4 @@ export function queryFirst<T>(
   }
   stmt.free();
   return result;
-}
-
-/** Execute a statement (INSERT/UPDATE/DELETE) without returning rows. */
-export function execSql(
-  db: SqlJsDatabase,
-  sql: string,
-  params?: unknown[],
-): void {
-  if (params) {
-    const stmt = db.prepare(sql);
-    stmt.bind(params);
-    stmt.step();
-    stmt.free();
-  } else {
-    db.run(sql);
-  }
 }
