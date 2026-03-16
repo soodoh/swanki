@@ -2,42 +2,32 @@ import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 /**
- * Helper: set sample data for a field in the preview tab.
- */
-async function setSampleField(
-  page: Page,
-  fieldName: string,
-  value: string,
-): Promise<void> {
-  const input = page.locator(`#sample-${fieldName}`);
-  await input.clear();
-  await input.fill(value);
-}
-
-/**
- * Helper: get the question preview card element.
+ * Helper: get the question preview content element.
+ * The preview pane renders: <Label>Question Preview</Label> then <Card><div class="prose">...</div></Card>
  */
 function questionCard(page: Page) {
   return page
-    .locator('[class*="card"]')
-    .filter({ has: page.getByText("Question", { exact: true }) })
-    .locator(".card");
+    .getByText("Question Preview", { exact: true })
+    .locator("xpath=..")
+    .locator(".prose");
 }
 
 /**
- * Helper: get the answer preview card element.
+ * Helper: get the answer preview content element.
  */
 function answerCard(page: Page) {
   return page
-    .locator('[class*="card"]')
-    .filter({ has: page.getByText("Answer", { exact: true }) })
-    .locator(".card");
+    .getByText("Answer Preview", { exact: true })
+    .locator("xpath=..")
+    .locator(".prose");
 }
 
 test.describe("Template preview rendering", () => {
   test.describe.configure({ mode: "serial" });
 
   let noteTypeId: string;
+  let deckId: string;
+  let noteId: string;
 
   /**
    * Helper: create a note type via API and return its ID.
@@ -91,7 +81,21 @@ test.describe("Template preview rendering", () => {
   }
 
   /**
-   * Helper: open the note type editor dialog and switch to the Preview tab.
+   * Helper: update the sample note's fields via API so the preview uses these values.
+   */
+  async function updateNoteFields(
+    page: Page,
+    fields: Record<string, string>,
+  ): Promise<void> {
+    const res = await page.request.put(`/api/notes/${noteId}`, {
+      data: { fields },
+    });
+    expect(res.ok()).toBe(true);
+  }
+
+  /**
+   * Helper: open the note type editor dialog and navigate to the Preview sub-tab.
+   * Path: /note-types → open dialog → "Cards" tab → "Preview" sub-tab (within auto-expanded template)
    */
   async function openPreviewTab(page: Page, ntName: string): Promise<void> {
     await page.goto("/note-types", { waitUntil: "networkidle" });
@@ -100,12 +104,17 @@ test.describe("Template preview rendering", () => {
     await expect(
       page.getByText("Edit fields, templates, and styling"),
     ).toBeVisible();
-    // Switch to preview tab
+    // Switch to "Cards" top-level tab
+    await page.getByRole("tab", { name: "Cards" }).click();
+    // First template accordion is auto-expanded; click "Preview" sub-tab within it
     await page.getByRole("tab", { name: "Preview" }).click();
-    await expect(page.getByText("Sample Data")).toBeVisible();
+    // Wait for preview panes to render
+    await expect(page.getByText("Question Preview")).toBeVisible();
   }
 
-  test("setup: create note type with template", async ({ page }) => {
+  test("setup: create note type with template and sample note", async ({
+    page,
+  }) => {
     // Create note type with Front, Back, Text fields
     noteTypeId = await createNoteType(page, "E2E Preview Test", [
       "Front",
@@ -122,31 +131,49 @@ test.describe("Template preview rendering", () => {
       "{{Front}}",
       "{{FrontSide}}<hr>{{Back}}",
     );
+
+    // Create a deck and note so useSampleNote() returns real field data
+    const deckRes = await page.request.post("/api/decks", {
+      data: { name: "E2E Preview Deck" },
+    });
+    expect(deckRes.ok()).toBe(true);
+    const deck = (await deckRes.json()) as { id: string };
+    deckId = deck.id;
+
+    const noteRes = await page.request.post("/api/notes", {
+      data: {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Hello", Back: "World", Text: "Sample text" },
+      },
+    });
+    expect(noteRes.ok()).toBe(true);
+    const note = (await noteRes.json()) as { id: string };
+    noteId = note.id;
   });
 
   test("basic field substitution renders in preview", async ({ page }) => {
+    await updateNoteFields(page, {
+      Front: "What is 2+2?",
+      Back: "4",
+      Text: "",
+    });
     await openPreviewTab(page, "E2E Preview Test");
 
-    // Default sample data is "(sample Front)" etc.
     const q = questionCard(page);
     const a = answerCard(page);
-
-    await expect(q).toContainText("(sample Front)");
-    await expect(a).toContainText("(sample Back)");
-
-    // Change sample data and verify preview updates
-    await setSampleField(page, "Front", "What is 2+2?");
-    await setSampleField(page, "Back", "4");
 
     await expect(q).toContainText("What is 2+2?");
     await expect(a).toContainText("4");
   });
 
   test("FrontSide renders question content in answer", async ({ page }) => {
+    await updateNoteFields(page, {
+      Front: "Capital of France?",
+      Back: "Paris",
+      Text: "",
+    });
     await openPreviewTab(page, "E2E Preview Test");
-
-    await setSampleField(page, "Front", "Capital of France?");
-    await setSampleField(page, "Back", "Paris");
 
     const a = answerCard(page);
 
@@ -158,11 +185,12 @@ test.describe("Template preview rendering", () => {
   });
 
   test("media tags render as img and audio elements", async ({ page }) => {
+    await updateNoteFields(page, {
+      Front: "Look: [image:photo.jpg]",
+      Back: "Listen: [audio:sound.mp3]",
+      Text: "",
+    });
     await openPreviewTab(page, "E2E Preview Test");
-
-    // Set sample data with media bracket tags
-    await setSampleField(page, "Front", "Look: [image:photo.jpg]");
-    await setSampleField(page, "Back", "Listen: [audio:sound.mp3]");
 
     const q = questionCard(page);
     const a = answerCard(page);
@@ -195,20 +223,28 @@ test.describe("Template preview rendering", () => {
       },
     });
 
-    await openPreviewTab(page, "E2E Preview Test");
-
     // With Back filled — conditional content should be visible
-    await setSampleField(page, "Front", "Question");
-    await setSampleField(page, "Back", "Answer here");
+    await updateNoteFields(page, {
+      Front: "Question",
+      Back: "Answer here",
+      Text: "",
+    });
+    await openPreviewTab(page, "E2E Preview Test");
 
     const q = questionCard(page);
     await expect(q).toContainText("Hint: Answer here");
 
     // Clear Back — conditional content should be hidden
-    await setSampleField(page, "Back", "");
+    await updateNoteFields(page, {
+      Front: "Question",
+      Back: "",
+      Text: "",
+    });
+    await openPreviewTab(page, "E2E Preview Test");
 
-    await expect(q).not.toContainText("Hint:");
-    await expect(q).toContainText("Question");
+    const q2 = questionCard(page);
+    await expect(q2).not.toContainText("Hint:");
+    await expect(q2).toContainText("Question");
   });
 
   test("cloze deletion renders correctly", async ({ page }) => {
@@ -226,13 +262,12 @@ test.describe("Template preview rendering", () => {
       },
     });
 
+    await updateNoteFields(page, {
+      Front: "",
+      Back: "",
+      Text: "{{c1::Paris}} is the capital of France",
+    });
     await openPreviewTab(page, "E2E Preview Test");
-
-    await setSampleField(
-      page,
-      "Text",
-      "{{c1::Paris}} is the capital of France",
-    );
 
     const q = questionCard(page);
     const a = answerCard(page);
@@ -249,13 +284,12 @@ test.describe("Template preview rendering", () => {
   });
 
   test("cloze with hint shows hint text on question side", async ({ page }) => {
+    await updateNoteFields(page, {
+      Front: "",
+      Back: "",
+      Text: "{{c1::Paris::city name}} is the capital of France",
+    });
     await openPreviewTab(page, "E2E Preview Test");
-
-    await setSampleField(
-      page,
-      "Text",
-      "{{c1::Paris::city name}} is the capital of France",
-    );
 
     const q = questionCard(page);
 
@@ -286,9 +320,12 @@ test.describe("Template preview rendering", () => {
       },
     });
 
+    await updateNoteFields(page, {
+      Front: "Styled text",
+      Back: "Answer",
+      Text: "",
+    });
     await openPreviewTab(page, "E2E Preview Test");
-
-    await setSampleField(page, "Front", "Styled text");
 
     // Verify CSS is present in the page via a <style> tag
     const styleTag = page.locator("style");
@@ -321,13 +358,12 @@ test.describe("Template preview rendering", () => {
       },
     });
 
+    await updateNoteFields(page, {
+      Front: "",
+      Back: "",
+      Text: "{{c1::Paris}} is the capital of {{c2::France}}",
+    });
     await openPreviewTab(page, "E2E Preview Test");
-
-    await setSampleField(
-      page,
-      "Text",
-      "{{c1::Paris}} is the capital of {{c2::France}}",
-    );
 
     const q = questionCard(page);
 
@@ -352,10 +388,12 @@ test.describe("Template preview rendering", () => {
       },
     });
 
+    await updateNoteFields(page, {
+      Front: "Big text",
+      Back: "Table cell",
+      Text: "",
+    });
     await openPreviewTab(page, "E2E Preview Test");
-
-    await setSampleField(page, "Front", "Big text");
-    await setSampleField(page, "Back", "Table cell");
 
     const q = questionCard(page);
     const a = answerCard(page);
