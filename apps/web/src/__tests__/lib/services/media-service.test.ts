@@ -6,6 +6,7 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type * as schema from "@/db/schema";
+import { nodeFs } from "@swanki/core/node-filesystem";
 
 type Db = BetterSQLite3Database<typeof schema>;
 
@@ -17,7 +18,7 @@ describe("MediaService.importBatch", () => {
   beforeEach(() => {
     testDir = join(testMediaDir, crypto.randomUUID());
     db = createTestDb();
-    service = new MediaService(db, testDir);
+    service = new MediaService(db, testDir, nodeFs);
   });
 
   afterEach(() => {
@@ -104,7 +105,7 @@ describe("MediaService.reconcileNoteReferences", () => {
   beforeEach(() => {
     testDir = join(testMediaDir, crypto.randomUUID());
     db = createTestDb();
-    service = new MediaService(db, testDir);
+    service = new MediaService(db, testDir, nodeFs);
   });
 
   afterEach(() => {
@@ -129,7 +130,7 @@ describe("MediaService.reconcileNoteReferences", () => {
     db.insert(noteMedia).values({ noteId: 1, mediaId: mediaRecord.id }).run();
 
     // Reconcile with empty array (simulating delete)
-    service.reconcileNoteReferences(1, []);
+    await service.reconcileNoteReferences(1, []);
 
     const refs = db.select().from(noteMedia).all();
     expect(refs).toHaveLength(0);
@@ -155,7 +156,7 @@ describe("MediaService.reconcileNoteReferences", () => {
     db.insert(noteMedia).values({ noteId: 1, mediaId: mediaRecord.id }).run();
     db.insert(noteMedia).values({ noteId: 2, mediaId: mediaRecord.id }).run();
 
-    service.reconcileNoteReferences(1, []);
+    await service.reconcileNoteReferences(1, []);
 
     const records = db.select().from(media).all();
     expect(records).toHaveLength(1);
@@ -176,7 +177,7 @@ describe("MediaService.reconcileNoteReferences", () => {
     await service.importBatch("user-1", entries);
     const mediaRecord = db.select().from(media).all()[0];
 
-    service.reconcileNoteReferences(1, [mediaRecord.filename]);
+    await service.reconcileNoteReferences(1, [mediaRecord.filename]);
 
     const refs = db.select().from(noteMedia).all();
     expect(refs).toHaveLength(1);

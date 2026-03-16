@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { DeckService } from "../../../lib/services/deck-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import { db } from "../../../db";
 
 const mediaDir: string = join(process.cwd(), "data", "media");
-const deckService = new DeckService(db, mediaDir);
+const deckService = new DeckService(db, mediaDir, nodeFs);
 
 export const Route = createFileRoute("/api/decks/$deckId")({
   server: {
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
         if (Number.isNaN(deckId)) {
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
-        const deck = deckService.getById(deckId, session.user.id);
+        const deck = await deckService.getById(deckId, session.user.id);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
           parentId?: number | undefined;
           settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
         };
-        const deck = deckService.update(deckId, session.user.id, body);
+        const deck = await deckService.update(deckId, session.user.id, body);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
         if (Number.isNaN(deckId)) {
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
-        deckService.delete(deckId, session.user.id);
+        await deckService.delete(deckId, session.user.id);
         return new Response(undefined, { status: 204 });
       },
     },

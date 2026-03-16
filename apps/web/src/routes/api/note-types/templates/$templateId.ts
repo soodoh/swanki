@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
           questionTemplate?: string;
           answerTemplate?: string;
         };
-        const template = noteTypeService.updateTemplate(
+        const template = await noteTypeService.updateTemplate(
           templateId,
           userId,
           body,
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
         if (Number.isNaN(templateId)) {
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
-        noteTypeService.deleteTemplate(templateId, userId);
+        await noteTypeService.deleteTemplate(templateId, userId);
         return new Response(undefined, { status: 204 });
       },
     },

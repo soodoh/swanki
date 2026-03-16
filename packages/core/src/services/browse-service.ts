@@ -155,11 +155,11 @@ export class BrowseService {
     this.db = db;
   }
 
-  search(
+  async search(
     userId: string,
     query: string,
     options?: SearchOptions,
-  ): BrowseSearchResult {
+  ): Promise<BrowseSearchResult> {
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 50;
     const offset = (page - 1) * limit;
@@ -168,7 +168,7 @@ export class BrowseService {
     const conditions = buildWhereClause(ast, userId);
 
     // Query 1: Count distinct notes matching all conditions
-    const countResult = this.db
+    const countResult = await this.db
       .select({ count: sql<number>`count(distinct ${notes.id})` })
       .from(notes)
       .innerJoin(cards, eq(cards.noteId, notes.id))
@@ -179,7 +179,7 @@ export class BrowseService {
 
     const total = countResult ? Number(countResult.count) : 0;
 
-    const noteIdRows = this.db
+    const noteIdRows = await this.db
       .selectDistinct({ noteId: notes.id })
       .from(notes)
       .innerJoin(cards, eq(cards.noteId, notes.id))
@@ -197,7 +197,7 @@ export class BrowseService {
     }
 
     // Query 2: For the returned note IDs, fetch note data with card aggregation
-    const noteRows = this.db
+    const noteRows = await this.db
       .select({
         noteId: notes.id,
         noteTypeId: notes.noteTypeId,
@@ -249,8 +249,11 @@ export class BrowseService {
     };
   }
 
-  getNoteDetail(userId: string, noteId: number): NoteDetail | undefined {
-    const note = this.db
+  async getNoteDetail(
+    userId: string,
+    noteId: number,
+  ): Promise<NoteDetail | undefined> {
+    const note = await this.db
       .select()
       .from(notes)
       .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
@@ -260,7 +263,7 @@ export class BrowseService {
       return undefined;
     }
 
-    const noteType = this.db
+    const noteType = await this.db
       .select()
       .from(noteTypes)
       .where(eq(noteTypes.id, note.noteTypeId))
@@ -270,14 +273,14 @@ export class BrowseService {
       return undefined;
     }
 
-    const templates = this.db
+    const templates = await this.db
       .select()
       .from(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, noteType.id))
       .all();
 
     // Get deck from first card
-    const firstCard = this.db
+    const firstCard = await this.db
       .select({ deckId: cards.deckId })
       .from(cards)
       .where(eq(cards.noteId, noteId))
@@ -287,7 +290,7 @@ export class BrowseService {
     let deckName = "";
     let deckId = 0;
     if (firstCard) {
-      const deck = this.db
+      const deck = await this.db
         .select()
         .from(decks)
         .where(eq(decks.id, firstCard.deckId))

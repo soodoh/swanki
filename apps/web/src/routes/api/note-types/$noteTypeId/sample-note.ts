@@ -16,7 +16,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/sample-note")(
           if (Number.isNaN(noteTypeId)) {
             return Response.json({ error: "Invalid ID" }, { status: 400 });
           }
-          const fields = noteTypeService.getFirstNoteFields(
+          const fields = await noteTypeService.getFirstNoteFields(
             noteTypeId,
             session.user.id,
           );

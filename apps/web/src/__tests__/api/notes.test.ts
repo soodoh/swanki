@@ -4,6 +4,7 @@ import { NoteService } from "../../lib/services/note-service";
 import { DeckService } from "../../lib/services/deck-service";
 import { noteTypes, cardTemplates, cards } from "../../db/schema";
 import { eq } from "drizzle-orm";
+import { nodeFs } from "@swanki/core/node-filesystem";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -21,7 +22,7 @@ describe("NoteService", () => {
   beforeEach(async () => {
     db = createTestDb();
     noteService = new NoteService(db);
-    deckService = new DeckService(db, testMediaDir);
+    deckService = new DeckService(db, testMediaDir, nodeFs);
 
     // Create a deck
     const deck = await deckService.create(userId, { name: "Test Deck" });

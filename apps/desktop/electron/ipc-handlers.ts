@@ -10,6 +10,7 @@ import { BrowseService } from "@swanki/core/services/browse-service";
 import { StatsService } from "@swanki/core/services/stats-service";
 import { ImportService } from "@swanki/core/services/import-service";
 import { MediaService } from "@swanki/core/services/media-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import {
   openAuthWindow,
   clearToken,
@@ -30,15 +31,17 @@ export function registerIpcHandlers(
   mediaDir: string,
   mainWindow: BrowserWindow,
 ): void {
-  const deckService = new DeckService(db, mediaDir);
+  const deckService = new DeckService(db, mediaDir, nodeFs);
   const studyService = new StudyService(db);
   const cardService = new CardService(db);
   const noteService = new NoteService(db);
   const noteTypeService = new NoteTypeService(db);
   const browseService = new BrowseService(db);
   const statsService = new StatsService(db);
-  const importService = new ImportService(db, rawDb);
-  const mediaService = new MediaService(db, mediaDir);
+  const importService = new ImportService(db, {
+    execSQL: (sql) => rawDb.exec(sql),
+  });
+  const mediaService = new MediaService(db, mediaDir, nodeFs);
 
   // Query handler
   ipcMain.handle(
@@ -52,18 +55,21 @@ export function registerIpcHandlers(
     ) => {
       // Deck queries
       if (endpoint === "/api/decks") {
-        return deckService.getTree(userId);
+        return await deckService.getTree(userId);
       }
 
       // Study queries
       const studyMatch = endpoint.match(/^\/api\/study\/(\d+)$/);
       if (studyMatch) {
-        return studyService.getStudySession(userId, parseInt(studyMatch[1]));
+        return await studyService.getStudySession(
+          userId,
+          parseInt(studyMatch[1]),
+        );
       }
 
       const previewMatch = endpoint.match(/^\/api\/study\/preview\/(\d+)$/);
       if (previewMatch) {
-        return studyService.getIntervalPreviews(
+        return await studyService.getIntervalPreviews(
           userId,
           parseInt(previewMatch[1]),
         );
@@ -75,17 +81,20 @@ export function registerIpcHandlers(
         params?.counts === "true" &&
         params?.deckId
       ) {
-        return cardService.getDueCounts(userId, parseInt(params.deckId), {
+        return await cardService.getDueCounts(userId, parseInt(params.deckId), {
           includeChildren: true,
         });
       }
 
       // Browse queries
       if (endpoint === "/api/browse" && params?.noteId) {
-        return browseService.getNoteDetail(userId, parseInt(params.noteId));
+        return await browseService.getNoteDetail(
+          userId,
+          parseInt(params.noteId),
+        );
       }
       if (endpoint === "/api/browse") {
-        return browseService.search(userId, params?.q ?? "", {
+        return await browseService.search(userId, params?.q ?? "", {
           page: parseInt(params?.page ?? "1"),
           limit: parseInt(params?.limit ?? "50"),
           sortBy: params?.sortBy as "due" | "created" | "updated" | undefined,
@@ -95,19 +104,19 @@ export function registerIpcHandlers(
 
       // Stats queries
       if (endpoint === "/api/stats" && params?.type === "reviews") {
-        return statsService.getReviewsPerDay(
+        return await statsService.getReviewsPerDay(
           userId,
           parseInt(params?.days ?? "30"),
         );
       }
       if (endpoint === "/api/stats" && params?.type === "states") {
-        return statsService.getCardStates(userId);
+        return await statsService.getCardStates(userId);
       }
       if (endpoint === "/api/stats" && params?.type === "streak") {
-        return statsService.getStreak(userId);
+        return await statsService.getStreak(userId);
       }
       if (endpoint === "/api/stats" && params?.type === "heatmap") {
-        return statsService.getHeatmap(
+        return await statsService.getHeatmap(
           userId,
           parseInt(params?.year ?? String(new Date().getFullYear())),
         );
@@ -115,13 +124,13 @@ export function registerIpcHandlers(
 
       // Note type queries
       if (endpoint === "/api/note-types") {
-        return noteTypeService.listByUser(userId);
+        return await noteTypeService.listByUser(userId);
       }
       const sampleNoteMatch = endpoint.match(
         /^\/api\/note-types\/(\d+)\/sample-note$/,
       );
       if (sampleNoteMatch) {
-        const fields = noteTypeService.getFirstNoteFields(
+        const fields = await noteTypeService.getFirstNoteFields(
           parseInt(sampleNoteMatch[1]),
           userId,
         );
@@ -129,7 +138,10 @@ export function registerIpcHandlers(
       }
       const noteTypeIdMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
       if (noteTypeIdMatch) {
-        return noteTypeService.getById(parseInt(noteTypeIdMatch[1]), userId);
+        return await noteTypeService.getById(
+          parseInt(noteTypeIdMatch[1]),
+          userId,
+        );
       }
 
       throw new Error(`Unknown query endpoint: ${endpoint}`);
@@ -151,22 +163,22 @@ export function registerIpcHandlers(
 
       // Deck mutations
       if (endpoint === "/api/decks" && method === "POST") {
-        return deckService.create(
+        return await deckService.create(
           userId,
           data as { name: string; parentId?: number },
         );
       }
       const deckMatch = endpoint.match(/^\/api\/decks\/(\d+)$/);
       if (deckMatch && method === "PUT") {
-        return deckService.update(parseInt(deckMatch[1]), userId, data);
+        return await deckService.update(parseInt(deckMatch[1]), userId, data);
       }
       if (deckMatch && method === "DELETE") {
-        return deckService.delete(parseInt(deckMatch[1]), userId);
+        return await deckService.delete(parseInt(deckMatch[1]), userId);
       }
 
       // Study mutations
       if (endpoint === "/api/study/review" && method === "POST") {
-        return studyService.submitReview(
+        return await studyService.submitReview(
           userId,
           data.cardId as number,
           data.rating as number,
@@ -174,12 +186,12 @@ export function registerIpcHandlers(
         );
       }
       if (endpoint === "/api/study/undo" && method === "POST") {
-        return studyService.undoLastReview(userId, data.cardId as number);
+        return await studyService.undoLastReview(userId, data.cardId as number);
       }
 
       // Note mutations
       if (endpoint === "/api/notes" && method === "POST") {
-        return noteService.create(
+        return await noteService.create(
           userId,
           data as {
             noteTypeId: number;
@@ -191,29 +203,29 @@ export function registerIpcHandlers(
       }
       const noteMatch = endpoint.match(/^\/api\/notes\/(\d+)$/);
       if (noteMatch && method === "PUT") {
-        return noteService.update(parseInt(noteMatch[1]), userId, data);
+        return await noteService.update(parseInt(noteMatch[1]), userId, data);
       }
       if (noteMatch && method === "DELETE") {
-        noteService.delete(parseInt(noteMatch[1]), userId);
+        await noteService.delete(parseInt(noteMatch[1]), userId);
         return { ok: true };
       }
 
       // Browse mutations
       if (endpoint === "/api/browse" && method === "PATCH") {
-        return noteService.update(
+        return await noteService.update(
           data.noteId as number,
           userId,
           data as { fields?: Record<string, string>; tags?: string },
         );
       }
       if (endpoint === "/api/browse" && method === "DELETE") {
-        noteService.delete(data.noteId as number, userId);
+        await noteService.delete(data.noteId as number, userId);
         return { ok: true };
       }
 
       // Note type mutations
       if (endpoint === "/api/note-types" && method === "POST") {
-        return noteTypeService.create(
+        return await noteTypeService.create(
           userId,
           data as {
             name: string;
@@ -224,16 +236,16 @@ export function registerIpcHandlers(
       }
       const ntMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
       if (ntMatch && method === "PUT") {
-        return noteTypeService.update(parseInt(ntMatch[1]), userId, data);
+        return await noteTypeService.update(parseInt(ntMatch[1]), userId, data);
       }
       if (ntMatch && method === "DELETE") {
-        noteTypeService.delete(parseInt(ntMatch[1]), userId);
+        await noteTypeService.delete(parseInt(ntMatch[1]), userId);
         return { ok: true };
       }
 
       // Template mutations
       if (endpoint === "/api/note-types/templates" && method === "POST") {
-        return noteTypeService.addTemplate(
+        return await noteTypeService.addTemplate(
           data.noteTypeId as number,
           userId,
           data as {
@@ -245,14 +257,14 @@ export function registerIpcHandlers(
       }
       const tplMatch = endpoint.match(/^\/api\/note-types\/templates\/(\d+)$/);
       if (tplMatch && method === "PUT") {
-        return noteTypeService.updateTemplate(
+        return await noteTypeService.updateTemplate(
           parseInt(tplMatch[1]),
           userId,
           data,
         );
       }
       if (tplMatch && method === "DELETE") {
-        noteTypeService.deleteTemplate(parseInt(tplMatch[1]), userId);
+        await noteTypeService.deleteTemplate(parseInt(tplMatch[1]), userId);
         return { ok: true };
       }
 

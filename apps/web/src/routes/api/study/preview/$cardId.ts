@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/study/preview/$cardId")({
         if (Number.isNaN(cardId)) {
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
-        const result = studyService.getIntervalPreviews(
+        const result = await studyService.getIntervalPreviews(
           session.user.id,
           cardId,
         );

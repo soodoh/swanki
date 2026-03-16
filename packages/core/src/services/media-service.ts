@@ -1,8 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import type { AppDb } from "../db/index";
 import { media, noteMedia } from "../db/schema";
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import type { AppFileSystem } from "../filesystem";
 
 type Db = AppDb;
 
@@ -43,21 +42,21 @@ export class MediaService {
   constructor(
     db: Db,
     private mediaDir: string,
+    private fs: AppFileSystem,
   ) {
     this.db = db;
   }
 
-  private ensureMediaDir(): void {
+  private async ensureMediaDir(): Promise<void> {
     try {
-      // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-      mkdirSync(this.mediaDir, { recursive: true });
+      await this.fs.mkdir(this.mediaDir, { recursive: true });
     } catch {
       // Directory already exists or can't be created
     }
   }
 
   async upload(userId: string, file: File): Promise<MediaRecord> {
-    this.ensureMediaDir();
+    await this.ensureMediaDir();
 
     // Validate MIME type to prevent serving arbitrary content (e.g. text/html XSS)
     const mimeType = file.type || "application/octet-stream";
@@ -79,7 +78,7 @@ export class MediaService {
     const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
     // Check for duplicates by hash
-    const existing = this.db
+    const existing = await this.db
       .select()
       .from(media)
       .where(eq(media.hash, hash))
@@ -96,16 +95,14 @@ export class MediaService {
     const filename = `${hash}${ext}`;
 
     // Write to disk
-    this.ensureMediaDir();
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-    const filePath: string = join(this.mediaDir, filename);
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-    writeFileSync(filePath, bytes);
+    await this.ensureMediaDir();
+    const filePath = this.fs.join(this.mediaDir, filename);
+    await this.fs.writeFile(filePath, bytes);
 
     // Record in DB
     const now = new Date();
 
-    const record = this.db
+    const record = await this.db
       .insert(media)
       .values({
         userId,
@@ -124,7 +121,7 @@ export class MediaService {
     userId: string,
     entries: Array<{ filename: string; index: string; data: Uint8Array }>,
   ): Promise<{ mapping: Map<string, string>; warnings: string[] }> {
-    this.ensureMediaDir();
+    await this.ensureMediaDir();
 
     const mapping = new Map<string, string>();
     const warnings: string[] = [];
@@ -147,7 +144,7 @@ export class MediaService {
       }),
     );
 
-    // Phase 2: Deduplicate + check DB for existing (synchronous)
+    // Phase 2: Deduplicate + check DB for existing
     type PendingWrite = {
       entry: (typeof nonEmpty)[number];
       hash: string;
@@ -169,7 +166,7 @@ export class MediaService {
         continue;
       }
 
-      const existing = this.db
+      const existing = await this.db
         .select()
         .from(media)
         .where(eq(media.hash, hash))
@@ -179,10 +176,8 @@ export class MediaService {
         mapping.set(entry.filename, existing.filename);
         seenHashes.set(hash, existing.filename);
         // Re-write file if DB record exists but file is missing from disk
-        // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-        const existingPath: string = join(this.mediaDir, existing.filename);
-        // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-        if (!existsSync(existingPath)) {
+        const existingPath = this.fs.join(this.mediaDir, existing.filename);
+        if (!(await this.fs.exists(existingPath))) {
           pendingWrites.push({
             entry,
             hash,
@@ -220,17 +215,15 @@ export class MediaService {
     for (let i = 0; i < pendingWrites.length; i += BATCH_SIZE) {
       const batch = pendingWrites.slice(i, i + BATCH_SIZE);
 
-      this.ensureMediaDir();
+      await this.ensureMediaDir();
       for (const { entry, filename } of batch) {
-        // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-        const filePath: string = join(this.mediaDir, filename);
-        // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-        writeFileSync(filePath, entry.data);
+        const filePath = this.fs.join(this.mediaDir, filename);
+        await this.fs.writeFile(filePath, entry.data);
       }
 
       for (const { entry, hash, filename, mimeType, fileOnly } of batch) {
         if (!fileOnly) {
-          this.db
+          await this.db
             .insert(media)
             .values({
               userId,
@@ -250,10 +243,10 @@ export class MediaService {
     return { mapping, warnings, mediaCount: mapping.size };
   }
 
-  getByFilename(
+  async getByFilename(
     filename: string,
-  ): { record: MediaRecord; filePath: string } | undefined {
-    const record = this.db
+  ): Promise<{ record: MediaRecord; filePath: string } | undefined> {
+    const record = await this.db
       .select()
       .from(media)
       .where(eq(media.filename, filename))
@@ -263,13 +256,15 @@ export class MediaService {
       return undefined;
     }
 
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-    const filePath: string = join(this.mediaDir, record.filename);
+    const filePath = this.fs.join(this.mediaDir, record.filename);
     return { record, filePath };
   }
 
-  reconcileNoteReferences(noteId: number, currentFilenames: string[]): void {
-    const existingRefs = this.db
+  async reconcileNoteReferences(
+    noteId: number,
+    currentFilenames: string[],
+  ): Promise<void> {
+    const existingRefs = await this.db
       .select()
       .from(noteMedia)
       .where(eq(noteMedia.noteId, noteId))
@@ -279,7 +274,7 @@ export class MediaService {
 
     const currentMediaIds = new Set<number>();
     for (const filename of currentFilenames) {
-      const record = this.db
+      const record = await this.db
         .select()
         .from(media)
         .where(eq(media.filename, filename))
@@ -292,7 +287,7 @@ export class MediaService {
     // Add new references
     for (const mediaId of currentMediaIds) {
       if (!existingMediaIds.has(mediaId)) {
-        this.db
+        await this.db
           .insert(noteMedia)
           .values({ noteId, mediaId })
           .onConflictDoNothing()
@@ -303,7 +298,7 @@ export class MediaService {
     // Remove stale references and clean up orphans
     for (const ref of existingRefs) {
       if (!currentMediaIds.has(ref.mediaId)) {
-        this.db
+        await this.db
           .delete(noteMedia)
           .where(
             and(
@@ -314,29 +309,27 @@ export class MediaService {
           .run();
 
         // Check if media is now orphaned
-        const remaining = this.db
+        const remaining = await this.db
           .select()
           .from(noteMedia)
           .where(eq(noteMedia.mediaId, ref.mediaId))
           .all();
 
         if (remaining.length === 0) {
-          const mediaRecord = this.db
+          const mediaRecord = await this.db
             .select()
             .from(media)
             .where(eq(media.id, ref.mediaId))
             .get();
 
           if (mediaRecord) {
-            // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- node:path is untyped in this project
-            const filePath: string = join(this.mediaDir, mediaRecord.filename);
+            const filePath = this.fs.join(this.mediaDir, mediaRecord.filename);
             try {
-              // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
-              unlinkSync(filePath);
+              await this.fs.unlink(filePath);
             } catch {
               // File may already be gone
             }
-            this.db.delete(media).where(eq(media.id, ref.mediaId)).run();
+            await this.db.delete(media).where(eq(media.id, ref.mediaId)).run();
           }
         }
       }

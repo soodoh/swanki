@@ -28,40 +28,40 @@ describe("UserSettingsService", () => {
   });
 
   describe("getTheme", () => {
-    it("returns 'system' by default", () => {
-      const theme = service.getTheme(userId);
+    it("returns 'system' by default", async () => {
+      const theme = await service.getTheme(userId);
       expect(theme).toBe("system");
     });
 
-    it("returns the stored theme", () => {
-      service.setTheme(userId, "dark");
-      const theme = service.getTheme(userId);
+    it("returns the stored theme", async () => {
+      await service.setTheme(userId, "dark");
+      const theme = await service.getTheme(userId);
       expect(theme).toBe("dark");
     });
 
-    it("returns 'system' for non-existent user", () => {
-      const theme = service.getTheme("non-existent");
+    it("returns 'system' for non-existent user", async () => {
+      const theme = await service.getTheme("non-existent");
       expect(theme).toBe("system");
     });
   });
 
   describe("setTheme", () => {
-    it("updates theme to dark", () => {
-      service.setTheme(userId, "dark");
-      const theme = service.getTheme(userId);
+    it("updates theme to dark", async () => {
+      await service.setTheme(userId, "dark");
+      const theme = await service.getTheme(userId);
       expect(theme).toBe("dark");
     });
 
-    it("updates theme to light", () => {
-      service.setTheme(userId, "light");
-      const theme = service.getTheme(userId);
+    it("updates theme to light", async () => {
+      await service.setTheme(userId, "light");
+      const theme = await service.getTheme(userId);
       expect(theme).toBe("light");
     });
 
-    it("updates theme back to system", () => {
-      service.setTheme(userId, "dark");
-      service.setTheme(userId, "system");
-      const theme = service.getTheme(userId);
+    it("updates theme back to system", async () => {
+      await service.setTheme(userId, "dark");
+      await service.setTheme(userId, "system");
+      const theme = await service.getTheme(userId);
       expect(theme).toBe("system");
     });
   });

@@ -6,7 +6,7 @@ import { NoteTypeService } from "./services/note-type-service";
 // oxlint-disable-next-line typescript-eslint(no-unsafe-member-access) -- process.env typed as any in Bun
 const envVars = process.env as Record<string, string | undefined>;
 
-function createDefaultNoteTypes(userId: string): void {
+async function createDefaultNoteTypes(userId: string): Promise<void> {
   const noteTypeService = new NoteTypeService(db);
 
   const basicFields = [
@@ -15,27 +15,27 @@ function createDefaultNoteTypes(userId: string): void {
   ];
 
   // 1. Basic note type
-  const basic = noteTypeService.create(userId, {
+  const basic = await noteTypeService.create(userId, {
     name: "Basic",
     fields: basicFields,
   });
-  noteTypeService.addTemplate(basic.id, userId, {
+  await noteTypeService.addTemplate(basic.id, userId, {
     name: "Card 1",
     questionTemplate: "{{Front}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Back}}',
   });
 
   // 2. Basic (and reversed card)
-  const basicReversed = noteTypeService.create(userId, {
+  const basicReversed = await noteTypeService.create(userId, {
     name: "Basic (and reversed card)",
     fields: basicFields,
   });
-  noteTypeService.addTemplate(basicReversed.id, userId, {
+  await noteTypeService.addTemplate(basicReversed.id, userId, {
     name: "Card 1",
     questionTemplate: "{{Front}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Back}}',
   });
-  noteTypeService.addTemplate(basicReversed.id, userId, {
+  await noteTypeService.addTemplate(basicReversed.id, userId, {
     name: "Card 2",
     questionTemplate: "{{Back}}",
     answerTemplate: '{{FrontSide}}<hr id="answer">{{Front}}',
@@ -62,8 +62,8 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        after: (user) => {
-          createDefaultNoteTypes(user.id);
+        after: async (user) => {
+          await createDefaultNoteTypes(user.id);
         },
       },
     },

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { detectFormat } from "../../../lib/services/import-service";
 import { getUploadPath } from "../../../lib/services/upload-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import type { ApkgNoteType, ApkgNote } from "../../../lib/import/apkg-parser";
 import { countMedia } from "../../../lib/import/apkg-parser-core";
@@ -267,7 +268,12 @@ export const Route = createFileRoute("/api/import/preview")({
             }
             mergeMode = body.mergeMode;
 
-            const filePath = getUploadPath(uploadDir, userId, body.fileId);
+            const filePath = await getUploadPath(
+              nodeFs,
+              uploadDir,
+              userId,
+              body.fileId,
+            );
             if (!filePath) {
               return Response.json(
                 { error: "Upload not found or expired" },

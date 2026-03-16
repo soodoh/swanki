@@ -29,11 +29,14 @@ export class CardService {
     this.db = db;
   }
 
-  getTodayReviewData(userId: string, deckIds: number[]): TodayReviewData {
+  async getTodayReviewData(
+    userId: string,
+    deckIds: number[],
+  ): Promise<TodayReviewData> {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const rows = this.db
+    const rows = await this.db
       .select({
         cardId: reviewLogs.cardId,
         preReviewState: reviewLogs.state,
@@ -76,22 +79,22 @@ export class CardService {
     };
   }
 
-  getDueCards(
+  async getDueCards(
     userId: string,
     deckId: number,
     options?: { includeChildren?: boolean },
-  ): CardWithNote[] {
+  ): Promise<CardWithNote[]> {
     const now = new Date();
 
     // Collect deck IDs to query
     const deckIds = [deckId];
     if (options?.includeChildren) {
-      const childDecks = this.getDescendantDeckIds(deckId, userId);
+      const childDecks = await this.getDescendantDeckIds(deckId, userId);
       deckIds.push(...childDecks);
     }
 
     // Get deck settings for limits
-    const deck = this.db
+    const deck = await this.db
       .select()
       .from(decks)
       .where(and(eq(decks.id, deckId), eq(decks.userId, userId)))
@@ -107,7 +110,7 @@ export class CardService {
     };
 
     // Get today's review data for daily limits and sibling burying
-    const todayData = this.getTodayReviewData(userId, deckIds);
+    const todayData = await this.getTodayReviewData(userId, deckIds);
 
     const remainingNewLimit = Math.max(
       0,
@@ -120,7 +123,7 @@ export class CardService {
 
     // Query all due cards: due <= now
     // Join with notes to get note data and filter by userId
-    const dueRows = this.db
+    const dueRows = await this.db
       .select({
         card: cards,
         noteFields: notes.fields,
@@ -192,8 +195,8 @@ export class CardService {
     return [...learningCards, ...limitedReviews, ...limitedNew];
   }
 
-  getById(id: number, userId: string): CardWithNote | undefined {
-    const row = this.db
+  async getById(id: number, userId: string): Promise<CardWithNote | undefined> {
+    const row = await this.db
       .select({
         card: cards,
         noteFields: notes.fields,
@@ -213,13 +216,17 @@ export class CardService {
     };
   }
 
-  moveToDeck(cardIds: number[], deckId: number, userId: string): void {
+  async moveToDeck(
+    cardIds: number[],
+    deckId: number,
+    userId: string,
+  ): Promise<void> {
     if (cardIds.length === 0) {
       return;
     }
 
     // Verify cards belong to the user by joining with notes
-    const userCards = this.db
+    const userCards = await this.db
       .select({ cardId: cards.id })
       .from(cards)
       .innerJoin(notes, eq(cards.noteId, notes.id))
@@ -229,7 +236,7 @@ export class CardService {
     const validCardIds = userCards.map((c) => c.cardId);
 
     if (validCardIds.length > 0) {
-      this.db
+      await this.db
         .update(cards)
         .set({ deckId, updatedAt: new Date() })
         .where(inArray(cards.id, validCardIds))
@@ -237,12 +244,12 @@ export class CardService {
     }
   }
 
-  getDueCounts(
+  async getDueCounts(
     userId: string,
     deckId: number,
     options?: { includeChildren?: boolean },
-  ): CardCounts {
-    const dueCards = this.getDueCards(userId, deckId, options);
+  ): Promise<CardCounts> {
+    const dueCards = await this.getDueCards(userId, deckId, options);
     const counts: CardCounts = { new: 0, learning: 0, review: 0 };
     for (const card of dueCards) {
       const state = card.state ?? 0;
@@ -257,8 +264,8 @@ export class CardService {
     return counts;
   }
 
-  getCounts(userId: string, deckId: number): CardCounts {
-    const rows = this.db
+  async getCounts(userId: string, deckId: number): Promise<CardCounts> {
+    const rows = await this.db
       .select({
         state: cards.state,
         count: sql<number>`count(*)`,
@@ -285,12 +292,15 @@ export class CardService {
     return counts;
   }
 
-  getPendingLearningCount(userId: string, deckIds: number[]): number {
+  async getPendingLearningCount(
+    userId: string,
+    deckIds: number[],
+  ): Promise<number> {
     if (deckIds.length === 0) {
       return 0;
     }
     const now = new Date();
-    const row = this.db
+    const row = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(cards)
       .innerJoin(notes, eq(cards.noteId, notes.id))
@@ -306,8 +316,11 @@ export class CardService {
     return Number(row?.count ?? 0);
   }
 
-  getDescendantDeckIds(parentId: number, userId: string): number[] {
-    const children = this.db
+  async getDescendantDeckIds(
+    parentId: number,
+    userId: string,
+  ): Promise<number[]> {
+    const children = await this.db
       .select({ id: decks.id })
       .from(decks)
       .where(and(eq(decks.parentId, parentId), eq(decks.userId, userId)))
@@ -316,7 +329,7 @@ export class CardService {
     const result: number[] = [];
     for (const child of children) {
       result.push(child.id);
-      const grandchildren = this.getDescendantDeckIds(child.id, userId);
+      const grandchildren = await this.getDescendantDeckIds(child.id, userId);
       result.push(...grandchildren);
     }
 

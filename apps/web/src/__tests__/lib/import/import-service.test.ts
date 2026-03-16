@@ -55,7 +55,9 @@ describe("ImportService", () => {
   beforeEach(() => {
     const testDb = createTestDbWithRaw();
     db = testDb.db;
-    importService = new ImportService(testDb.db, testDb.rawDb);
+    importService = new ImportService(testDb.db, {
+      execSQL: (sql: string) => testDb.rawDb.exec(sql),
+    });
   });
 
   describe("importFromCsv", () => {

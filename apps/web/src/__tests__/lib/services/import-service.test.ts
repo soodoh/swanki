@@ -121,9 +121,11 @@ describe("extractMediaFilenames", () => {
 });
 
 describe("importFromApkg noteMedia population", () => {
-  it("should create noteMedia records for notes with media references", () => {
+  it("should create noteMedia records for notes with media references", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
 
     // Insert a mock media record
     db.insert(media)
@@ -184,7 +186,7 @@ describe("importFromApkg noteMedia population", () => {
     };
 
     const mediaMapping = new Map([["image.jpg", "abc123.jpg"]]);
-    service.importFromApkg("user-1", apkgData, mediaMapping);
+    await service.importFromApkg("user-1", apkgData, mediaMapping);
 
     const allNotes = db.select().from(notes).all();
     expect(allNotes).toHaveLength(1);
@@ -256,18 +258,25 @@ function makeApkgData(overrides?: {
 }
 
 describe("importFromApkg merge mode", () => {
-  it("should skip unchanged notes on second import with merge=true", () => {
+  it("should skip unchanged notes on second import with merge=true", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const data = makeApkgData();
 
-    const first = service.importFromApkg("user-1", data, undefined, true);
+    const first = await service.importFromApkg("user-1", data, undefined, true);
     expect(first.noteCount).toBe(2);
     expect(first.cardCount).toBe(2);
     expect(first.duplicatesSkipped).toBe(0);
     expect(first.notesUpdated).toBe(0);
 
-    const second = service.importFromApkg("user-1", data, undefined, true);
+    const second = await service.importFromApkg(
+      "user-1",
+      data,
+      undefined,
+      true,
+    );
     expect(second.noteCount).toBe(0);
     expect(second.cardCount).toBe(0);
     expect(second.duplicatesSkipped).toBe(2);
@@ -286,13 +295,20 @@ describe("importFromApkg merge mode", () => {
     expect(allNotes).toHaveLength(2);
   });
 
-  it("should skip duplicate notes on second import with merge=false", () => {
+  it("should skip duplicate notes on second import with merge=false", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const data = makeApkgData();
 
-    service.importFromApkg("user-1", data, undefined, false);
-    const second = service.importFromApkg("user-1", data, undefined, false);
+    await service.importFromApkg("user-1", data, undefined, false);
+    const second = await service.importFromApkg(
+      "user-1",
+      data,
+      undefined,
+      false,
+    );
 
     // Notes with existing ankiGuid are skipped (unique constraint)
     expect(second.noteCount).toBe(0);
@@ -308,18 +324,25 @@ describe("importFromApkg merge mode", () => {
     expect(allNotes).toHaveLength(2);
   });
 
-  it("should import only new notes when some already exist", () => {
+  it("should import only new notes when some already exist", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
 
     // First import with 2 notes
     const data1 = makeApkgData({ noteGuids: ["guid-1", "guid-2"] });
-    service.importFromApkg("user-1", data1, undefined, true);
+    await service.importFromApkg("user-1", data1, undefined, true);
 
     // Second import with 3 notes (2 existing + 1 new)
     const data2 = makeApkgData({ noteGuids: ["guid-1", "guid-2", "guid-3"] });
 
-    const result = service.importFromApkg("user-1", data2, undefined, true);
+    const result = await service.importFromApkg(
+      "user-1",
+      data2,
+      undefined,
+      true,
+    );
     expect(result.noteCount).toBe(1);
     expect(result.duplicatesSkipped).toBe(2);
     expect(result.notesUpdated).toBe(0);
@@ -331,21 +354,28 @@ describe("importFromApkg merge mode", () => {
 });
 
 describe("importFromApkg merge update-on-change", () => {
-  it("should update notes when fields have changed", () => {
+  it("should update notes when fields have changed", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
 
     const data1 = makeApkgData({
       noteGuids: ["guid-1"],
       noteFields: [["Original Front", "Original Back"]],
     });
-    service.importFromApkg("user-1", data1, undefined, true);
+    await service.importFromApkg("user-1", data1, undefined, true);
 
     const data2 = makeApkgData({
       noteGuids: ["guid-1"],
       noteFields: [["Updated Front", "Updated Back"]],
     });
-    const result = service.importFromApkg("user-1", data2, undefined, true);
+    const result = await service.importFromApkg(
+      "user-1",
+      data2,
+      undefined,
+      true,
+    );
 
     expect(result.notesUpdated).toBe(1);
     expect(result.duplicatesSkipped).toBe(0);
@@ -359,24 +389,33 @@ describe("importFromApkg merge update-on-change", () => {
     });
   });
 
-  it("should skip notes when fields are unchanged", () => {
+  it("should skip notes when fields are unchanged", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
 
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       noteFields: [["Front 1", "Back 1"]],
     });
-    service.importFromApkg("user-1", data, undefined, true);
-    const result = service.importFromApkg("user-1", data, undefined, true);
+    await service.importFromApkg("user-1", data, undefined, true);
+    const result = await service.importFromApkg(
+      "user-1",
+      data,
+      undefined,
+      true,
+    );
 
     expect(result.notesUpdated).toBe(0);
     expect(result.duplicatesSkipped).toBe(1);
   });
 
-  it("should handle mix of new, updated, and unchanged notes", () => {
+  it("should handle mix of new, updated, and unchanged notes", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
 
     // Import 2 notes
     const data1 = makeApkgData({
@@ -386,7 +425,7 @@ describe("importFromApkg merge update-on-change", () => {
         ["Front 2", "Back 2"],
       ],
     });
-    service.importFromApkg("user-1", data1, undefined, true);
+    await service.importFromApkg("user-1", data1, undefined, true);
 
     // Re-import: guid-1 unchanged, guid-2 changed, guid-3 new
     const data2 = makeApkgData({
@@ -397,7 +436,12 @@ describe("importFromApkg merge update-on-change", () => {
         ["Front 3", "Back 3"],
       ],
     });
-    const result = service.importFromApkg("user-1", data2, undefined, true);
+    const result = await service.importFromApkg(
+      "user-1",
+      data2,
+      undefined,
+      true,
+    );
 
     expect(result.noteCount).toBe(1); // guid-3 is new
     expect(result.notesUpdated).toBe(1); // guid-2 updated
@@ -407,23 +451,30 @@ describe("importFromApkg merge update-on-change", () => {
     expect(allNotes).toHaveLength(3);
   });
 
-  it("should rewrite media URLs in updated fields", () => {
+  it("should rewrite media URLs in updated fields", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
 
     const data1 = makeApkgData({
       noteGuids: ["guid-1"],
       noteFields: [['<img src="old.jpg">', "Back"]],
     });
     const mapping1 = new Map([["old.jpg", "old-hash.jpg"]]);
-    service.importFromApkg("user-1", data1, mapping1, true);
+    await service.importFromApkg("user-1", data1, mapping1, true);
 
     const data2 = makeApkgData({
       noteGuids: ["guid-1"],
       noteFields: [['<img src="new.jpg">', "Back Updated"]],
     });
     const mapping2 = new Map([["new.jpg", "new-hash.jpg"]]);
-    const result = service.importFromApkg("user-1", data2, mapping2, true);
+    const result = await service.importFromApkg(
+      "user-1",
+      data2,
+      mapping2,
+      true,
+    );
 
     expect(result.notesUpdated).toBe(1);
 
@@ -434,9 +485,11 @@ describe("importFromApkg merge update-on-change", () => {
     });
   });
 
-  it("should overwrite locally-edited notes on re-import", () => {
+  it("should overwrite locally-edited notes on re-import", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const importService = new ImportService(db, rawDb);
+    const importService = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const noteService = new NoteService(db);
 
     // Step 1: Import an APKG with merge mode
@@ -444,12 +497,12 @@ describe("importFromApkg merge update-on-change", () => {
       noteGuids: ["guid-1"],
       noteFields: [["Original Front", "Original Back"]],
     });
-    importService.importFromApkg("user-1", data, undefined, true);
+    await importService.importFromApkg("user-1", data, undefined, true);
 
     // Step 2: Edit the note locally via NoteService
     const allNotes = db.select().from(notes).all();
     expect(allNotes).toHaveLength(1);
-    noteService.update(allNotes[0].id, "user-1", {
+    await noteService.update(allNotes[0].id, "user-1", {
       fields: { Front: "Locally Edited Front", Back: "Locally Edited Back" },
     });
 
@@ -460,7 +513,7 @@ describe("importFromApkg merge update-on-change", () => {
     });
 
     // Step 3: Re-import the same APKG — should detect field divergence and update
-    const result = importService.importFromApkg(
+    const result = await importService.importFromApkg(
       "user-1",
       data,
       undefined,
@@ -477,7 +530,7 @@ describe("importFromApkg merge update-on-change", () => {
     });
 
     // Step 5: Re-importing again should now skip (fields match)
-    const result2 = importService.importFromApkg(
+    const result2 = await importService.importFromApkg(
       "user-1",
       data,
       undefined,
@@ -489,15 +542,17 @@ describe("importFromApkg merge update-on-change", () => {
 });
 
 describe("importFromApkg nested deck hierarchy", () => {
-  it("should create nested decks from :: separated names", () => {
+  it("should create nested decks from :: separated names", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "A::B::C" }],
     });
 
-    service.importFromApkg("user-1", data);
+    await service.importFromApkg("user-1", data);
 
     const allDecks = db.select().from(decks).all();
     expect(allDecks).toHaveLength(3);
@@ -515,9 +570,11 @@ describe("importFromApkg nested deck hierarchy", () => {
     expect(deckC!.parentId).toBe(deckB!.id);
   });
 
-  it("should deduplicate shared prefixes across decks", () => {
+  it("should deduplicate shared prefixes across decks", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const data = makeApkgData({
       noteGuids: ["guid-1", "guid-2"],
       decks: [
@@ -527,7 +584,7 @@ describe("importFromApkg nested deck hierarchy", () => {
       cardDeckIds: [1, 2],
     });
 
-    service.importFromApkg("user-1", data);
+    await service.importFromApkg("user-1", data);
 
     const allDecks = db.select().from(decks).all();
     // A, B, C, D — shared prefix A::B is not duplicated
@@ -544,15 +601,17 @@ describe("importFromApkg nested deck hierarchy", () => {
     expect(deckD!.parentId).toBe(deckB[0].id);
   });
 
-  it("should create flat deck with no parentId for simple names", () => {
+  it("should create flat deck with no parentId for simple names", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "Simple Deck" }],
     });
 
-    service.importFromApkg("user-1", data);
+    await service.importFromApkg("user-1", data);
 
     const allDecks = db.select().from(decks).all();
     expect(allDecks).toHaveLength(1);
@@ -560,15 +619,17 @@ describe("importFromApkg nested deck hierarchy", () => {
     expect(allDecks[0].parentId).toBeNull();
   });
 
-  it("should handle Anki unit separator U+001F in deck names", () => {
+  it("should handle Anki unit separator U+001F in deck names", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "Music\u001FTheory\u001FChords" }],
     });
 
-    service.importFromApkg("user-1", data);
+    await service.importFromApkg("user-1", data);
 
     const allDecks = db.select().from(decks).all();
     expect(allDecks).toHaveLength(3);
@@ -582,16 +643,18 @@ describe("importFromApkg nested deck hierarchy", () => {
     expect(chords!.parentId).toBe(theory!.id);
   });
 
-  it("should not duplicate decks on merge re-import with hierarchy", () => {
+  it("should not duplicate decks on merge re-import with hierarchy", async () => {
     const { db, rawDb } = createTestDbWithRaw();
-    const service = new ImportService(db, rawDb);
+    const service = new ImportService(db, {
+      execSQL: (sql: string) => rawDb.exec(sql),
+    });
     const data = makeApkgData({
       noteGuids: ["guid-1"],
       decks: [{ id: 1, name: "A::B::C" }],
     });
 
-    service.importFromApkg("user-1", data, undefined, true);
-    service.importFromApkg("user-1", data, undefined, true);
+    await service.importFromApkg("user-1", data, undefined, true);
+    await service.importFromApkg("user-1", data, undefined, true);
 
     const allDecks = db.select().from(decks).all();
     // Should still be 3, not 6

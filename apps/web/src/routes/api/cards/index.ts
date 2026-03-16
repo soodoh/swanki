@@ -27,17 +27,25 @@ export const Route = createFileRoute("/api/cards/")({
 
         const counts = url.searchParams.get("counts");
         if (counts === "true") {
-          const result = cardService.getDueCounts(session.user.id, deckId, {
-            includeChildren: true,
-          });
+          const result = await cardService.getDueCounts(
+            session.user.id,
+            deckId,
+            {
+              includeChildren: true,
+            },
+          );
           return Response.json(result);
         }
 
         const includeChildren =
           url.searchParams.get("includeChildren") === "true";
-        const dueCards = cardService.getDueCards(session.user.id, deckId, {
-          includeChildren,
-        });
+        const dueCards = await cardService.getDueCards(
+          session.user.id,
+          deckId,
+          {
+            includeChildren,
+          },
+        );
         return Response.json(dueCards);
       },
     },

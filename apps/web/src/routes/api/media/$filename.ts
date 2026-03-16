@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { join } from "node:path";
 import { requireSession } from "../../../lib/auth-middleware";
 import { MediaService } from "../../../lib/services/media-service";
+import { nodeFs } from "@swanki/core/node-filesystem";
 import { db } from "../../../db";
 import { existsSync, readFileSync } from "node:fs";
 
 const mediaDir: string = join(process.cwd(), "data", "media");
-const mediaService = new MediaService(db, mediaDir);
+const mediaService = new MediaService(db, mediaDir, nodeFs);
 
 export const Route = createFileRoute("/api/media/$filename")({
   server: {
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/api/media/$filename")({
       GET: async ({ request, params }) => {
         await requireSession(request);
 
-        const result = mediaService.getByFilename(params.filename);
+        const result = await mediaService.getByFilename(params.filename);
 
         if (!result) {
           return Response.json({ error: "File not found" }, { status: 404 });

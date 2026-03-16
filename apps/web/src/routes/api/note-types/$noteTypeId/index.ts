@@ -14,7 +14,10 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/")({
         if (Number.isNaN(noteTypeId)) {
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
-        const result = noteTypeService.getById(noteTypeId, session.user.id);
+        const result = await noteTypeService.getById(
+          noteTypeId,
+          session.user.id,
+        );
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
@@ -31,7 +34,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/")({
           fields?: Array<{ name: string; ordinal: number }>;
           css?: string;
         };
-        const noteType = noteTypeService.update(
+        const noteType = await noteTypeService.update(
           noteTypeId,
           session.user.id,
           body,
@@ -48,7 +51,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/")({
           return Response.json({ error: "Invalid ID" }, { status: 400 });
         }
         try {
-          noteTypeService.delete(noteTypeId, session.user.id);
+          await noteTypeService.delete(noteTypeId, session.user.id);
           return new Response(undefined, { status: 204 });
         } catch (error) {
           if (
