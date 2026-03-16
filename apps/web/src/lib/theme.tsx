@@ -62,6 +62,11 @@ export function ThemeProvider({
     });
   }, []);
 
+  // Apply theme class on mount and when theme changes
+  useEffect(() => {
+    applyThemeClass(theme);
+  }, [theme]);
+
   // Listen for OS preference changes when in "system" mode
   useEffect(() => {
     if (theme !== "system") {

@@ -3,6 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swanki</title>
+    <script>
+      (function () {
+        var d = document.documentElement,
+          c = d.classList;
+        if (!c.contains("dark") && !c.contains("light")) {
+          if (window.matchMedia("(prefers-color-scheme:dark)").matches)
+            c.add("dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
