@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "turbo dev",
-    "dev:web": "turbo dev --filter=web",
+    "dev:web": "node scripts/rebuild-sqlite.mjs; turbo dev --filter=web",
     "dev:docs": "turbo dev --filter=docs",
     "dev:mobile": "turbo dev --filter=mobile",
     "start:desktop": "cd apps/desktop && bun x electron-forge start",

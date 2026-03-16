@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { zipSync, strToU8 } from "fflate";
 import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";

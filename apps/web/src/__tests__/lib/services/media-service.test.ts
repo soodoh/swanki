@@ -4,10 +4,13 @@ import { MediaService } from "@/lib/services/media-service";
 import { media, noteMedia } from "@/db/schema";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import type { AppDb } from "@swanki/core/db";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type * as schema from "@/db/schema";
+
+type Db = BetterSQLite3Database<typeof schema>;
 
 describe("MediaService.importBatch", () => {
-  let db: AppDb;
+  let db: Db;
   let service: MediaService;
   let testDir: string;
 
@@ -94,7 +97,7 @@ describe("MediaService.importBatch", () => {
 });
 
 describe("MediaService.reconcileNoteReferences", () => {
-  let db: AppDb;
+  let db: Db;
   let service: MediaService;
   let testDir: string;
 

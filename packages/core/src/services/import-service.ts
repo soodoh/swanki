@@ -1,7 +1,6 @@
 import { eq, and, isNull } from "drizzle-orm";
 import type { AppDb } from "../db/index";
-/** Minimal raw SQLite handle used only for transaction control */
-type RawSqliteDb = { exec(sql: string): void };
+import type Database from "better-sqlite3";
 import {
   decks,
   noteTypes,
@@ -199,7 +198,7 @@ export class ImportService {
   private db: Db;
   constructor(
     db: Db,
-    private rawDb: RawSqliteDb,
+    private rawDb: Database,
   ) {
     this.db = db;
   }
