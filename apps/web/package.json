@@ -9,8 +9,8 @@
     "start": "node .output/server/index.mjs",
     "lint": "bun x oxlint -c oxlint.config.mjs . && prettier --check .",
     "lint:fix": "bun x oxlint -c oxlint.config.mjs --fix . && prettier --write .",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "node ../../scripts/rebuild-sqlite.mjs && vitest",
+    "test:run": "node ../../scripts/rebuild-sqlite.mjs && vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "postinstall": "cp node_modules/sql.js/dist/sql-wasm.wasm public/sql-wasm.wasm 2>/dev/null || true"
