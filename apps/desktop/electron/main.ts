@@ -38,10 +38,7 @@ app.whenReady().then(() => {
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
-      preload: join(
-        __dirname,
-        `../renderer/${MAIN_WINDOW_VITE_NAME}/preload.cjs`,
-      ),
+      preload: join(__dirname, "preload.cjs"),
     },
   });
 
@@ -70,6 +67,11 @@ app.whenReady().then(() => {
   mainWindow.on("unmaximize", () => {
     mainWindow?.webContents.send("window:maximized-changed", false);
   });
+
+  // Open DevTools in development
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.webContents.openDevTools();
+  }
 
   // Load renderer
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

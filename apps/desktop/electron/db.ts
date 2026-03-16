@@ -6,6 +6,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "@swanki/core/db/schema";
 
+declare const DRIZZLE_MIGRATIONS_PATH: string;
+
 const userDataPath = app.getPath("userData");
 const dbPath = join(userDataPath, "swanki.db");
 
@@ -24,7 +26,7 @@ export const rawSqlite = sqlite;
 // Run migrations
 const migrationsFolder = app.isPackaged
   ? join(process.resourcesPath, "drizzle")
-  : join(__dirname, "../../web/drizzle");
+  : DRIZZLE_MIGRATIONS_PATH;
 
 try {
   migrate(db, { migrationsFolder });

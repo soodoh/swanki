@@ -1,5 +1,4 @@
 import { unzipSync } from "fflate";
-import Database from "better-sqlite3";
 import {
   writeFileSync as fsWriteFileSync,
   unlinkSync as fsUnlinkSync,
@@ -47,27 +46,32 @@ const existsSync = fsExistsSync as (path: string) => boolean;
 const join = pathJoin as (...paths: string[]) => string;
 const tmpdir = osTmpdir as () => string;
 
-/** Minimal typed wrapper for better-sqlite3 query operations */
+/** Minimal typed wrapper compatible with both bun:sqlite and better-sqlite3 */
 type SqliteStatement<T> = {
   get(...params: unknown[]): T | undefined;
   all(...params: unknown[]): T[];
   run(...params: unknown[]): unknown;
 };
 
-type TypedDatabase = {
+export type TypedDatabase = {
   prepare<T>(sql: string): SqliteStatement<T>;
-  pragma(sql: string): void;
+  exec(sql: string): void;
   close(): void;
 };
+
+/** Factory that opens a SQLite database from a file path */
+export type SqliteFactory = (path: string) => TypedDatabase;
 
 export type ParseApkgOptions = {
   /** When true, skip reading media binary data (useful for preview). */
   skipMedia?: boolean;
+  /** Factory to open SQLite databases — must be provided by the platform */
+  createDb: SqliteFactory;
 };
 
 export function parseApkg(
   buffer: ArrayBuffer,
-  options?: ParseApkgOptions,
+  options: ParseApkgOptions,
 ): ApkgData {
   const uint8 = new Uint8Array(buffer);
   const unzipped = options?.skipMedia
@@ -94,10 +98,10 @@ export function parseApkg(
 
   try {
     writeFileSync(tempPath, dbBytes);
-    const db = new Database(tempPath) as unknown as TypedDatabase;
+    const db = options.createDb(tempPath);
 
     try {
-      db.pragma("journal_mode = DELETE");
+      db.exec("PRAGMA journal_mode = DELETE");
 
       const useNewSchema = isNewSchema(db);
       const deckData = useNewSchema ? readDecksNew(db) : readDecks(db);
