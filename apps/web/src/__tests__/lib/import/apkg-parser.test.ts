@@ -1,5 +1,5 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { zipSync, strToU8 } from "fflate";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
