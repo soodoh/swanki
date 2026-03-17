@@ -37,7 +37,11 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1",
+      },
       { title: "Swanki" },
     ],
     links: [{ rel: "stylesheet", href: "/src/styles/globals.css" }],
