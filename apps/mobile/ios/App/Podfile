@@ -1,0 +1,25 @@
+require_relative '../../../../node_modules/.bun/@capacitor+ios@7.6.0+49675fcae9c66213/node_modules/@capacitor/ios/scripts/pods_helpers'
+
+platform :ios, '14.0'
+use_frameworks!
+
+# workaround to avoid Xcode caching of Pods that requires
+# Product -> Clean Build Folder after new Cordova plugins installed
+# Requires CocoaPods 1.6 or newer
+install! 'cocoapods', :disable_input_output_paths => true
+
+def capacitor_pods
+  pod 'Capacitor', :path => '../../../../node_modules/.bun/@capacitor+ios@7.6.0+49675fcae9c66213/node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../../../node_modules/.bun/@capacitor+ios@7.6.0+49675fcae9c66213/node_modules/@capacitor/ios'
+  pod 'CapacitorFilesystem', :path => '../../../../node_modules/.bun/@capacitor+filesystem@7.1.8+49675fcae9c66213/node_modules/@capacitor/filesystem'
+  pod 'CapacitorCommunitySqlite', :path => '../../../../node_modules/.bun/@capacitor-community+sqlite@7.0.3+49675fcae9c66213/node_modules/@capacitor-community/sqlite'
+end
+
+target 'App' do
+  capacitor_pods
+  # Add your Pods here
+end
+
+post_install do |installer|
+  assertDeploymentTarget(installer)
+end
