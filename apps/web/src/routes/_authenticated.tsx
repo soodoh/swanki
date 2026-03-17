@@ -3,7 +3,6 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { TransportProvider } from "@swanki/core/transport";
 import { PlatformProvider } from "@swanki/core/platform";
 import { AppShell } from "@/components/app-shell";
-import { getSession } from "@/lib/auth-session";
 import { WebTransport } from "@/lib/transport";
 
 type SessionData = {
@@ -15,10 +14,28 @@ type SessionData = {
   };
 };
 
-const transport = new WebTransport();
+const isMobile = import.meta.env.VITE_PLATFORM === "mobile";
+
+// Hardcoded local user for mobile (no auth required, like desktop)
+const mobileUser = {
+  id: "local-mobile-user",
+  name: "Local User",
+  email: "local@swanki.app",
+};
+
+const transport = isMobile ? undefined : new WebTransport();
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
+    // SPA mode (mobile) — no server functions, use local user
+    if (isMobile) {
+      return {
+        session: { user: mobileUser } satisfies SessionData,
+      };
+    }
+
+    // Dynamic import to avoid pulling in DB module graph in mobile builds
+    const { getSession } = await import("@/lib/auth-session");
     const session = await getSession();
 
     if (!session) {
@@ -46,8 +63,18 @@ function AuthenticatedLayout(): React.ReactElement {
   // oxlint-disable-next-line typescript/no-unsafe-member-access -- typed via beforeLoad return
   const user = (session as SessionData).user;
 
+  // On mobile, MobileInitProvider at the app root already provides
+  // TransportProvider and PlatformProvider — just render the shell
+  if (isMobile) {
+    return (
+      <AppShell user={user}>
+        <Outlet />
+      </AppShell>
+    );
+  }
+
   return (
-    <TransportProvider value={transport}>
+    <TransportProvider value={transport!}>
       <PlatformProvider value="web">
         <AppShell user={user}>
           <Outlet />

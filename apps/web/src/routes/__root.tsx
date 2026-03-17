@@ -5,15 +5,32 @@ import {
   Scripts,
   createRootRoute,
 } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
-import { getUserTheme } from "@/lib/auth-session";
 
 const queryClient = new QueryClient();
 
+const isMobile = import.meta.env.VITE_PLATFORM === "mobile";
+
+// Lazy-load MobileInitProvider — only bundled in mobile builds
+const MobileInitProvider = isMobile
+  ? lazy(() =>
+      import("@/lib/mobile/mobile-init-provider").then((m) => ({
+        default: m.MobileInitProvider,
+      })),
+    )
+  : null;
+
 export const Route = createRootRoute({
   beforeLoad: async () => {
+    // SPA mode (mobile) — server functions unavailable
+    if (isMobile) {
+      return { theme: "system" as const };
+    }
+    // Dynamic import to avoid pulling in DB module graph in mobile builds
+    const { getUserTheme } = await import("@/lib/auth-session");
     const theme = await getUserTheme();
     return { theme: theme as "light" | "dark" | "system" };
   },
@@ -30,6 +47,7 @@ export const Route = createRootRoute({
 
 // Inline script to handle "system" mode before paint.
 // Content is a hardcoded constant — not user input — so no XSS risk.
+// oxlint-disable-next-line react/no-danger -- hardcoded constant, not user input
 const THEME_INIT_SCRIPT = `(function(){var d=document.documentElement,c=d.classList;if(!c.contains('dark')&&!c.contains('light')){if(window.matchMedia('(prefers-color-scheme:dark)').matches)c.add('dark')}})();`;
 
 function RootComponent(): React.ReactElement {
@@ -44,6 +62,14 @@ function RootComponent(): React.ReactElement {
     htmlClass = "light";
   }
 
+  const appContent = (
+    <ThemeProvider initialTheme={typedTheme}>
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
+    </ThemeProvider>
+  );
+
   return (
     <html lang="en" className={htmlClass}>
       <head>
@@ -52,13 +78,28 @@ function RootComponent(): React.ReactElement {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider initialTheme={typedTheme}>
-            <TooltipProvider>
-              <Outlet />
-            </TooltipProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
+        {isMobile && MobileInitProvider ? (
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100vh",
+                }}
+              >
+                Loading...
+              </div>
+            }
+          >
+            <MobileInitProvider>{appContent}</MobileInitProvider>
+          </Suspense>
+        ) : (
+          <QueryClientProvider client={queryClient}>
+            {appContent}
+          </QueryClientProvider>
+        )}
         <Scripts />
       </body>
     </html>
