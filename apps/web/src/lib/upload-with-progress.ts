@@ -7,11 +7,39 @@ export type UploadResponse = {
   format: string;
 };
 
-export async function uploadWithProgress(
+type ElectronWindow = {
+  electronAPI: {
+    invoke: (channel: string, args: unknown) => Promise<unknown>;
+  };
+};
+
+function isDesktop(): boolean {
+  return (
+    "electronAPI" in globalThis &&
+    typeof (globalThis as unknown as ElectronWindow).electronAPI === "object"
+  );
+}
+
+async function uploadViaIpc(
   file: File,
   onProgress: UploadProgressCallback,
 ): Promise<UploadResponse> {
-  return new Promise((resolve, reject) => {
+  const buffer = await file.arrayBuffer();
+  // Report full progress immediately — IPC transfer is near-instant
+  onProgress(file.size, file.size);
+  const api = (globalThis as unknown as ElectronWindow).electronAPI;
+  const result = await api.invoke("import:upload", {
+    filename: file.name,
+    data: new Uint8Array(buffer),
+  });
+  return result as UploadResponse;
+}
+
+async function uploadViaXhr(
+  file: File,
+  onProgress: UploadProgressCallback,
+): Promise<UploadResponse> {
+  return new Promise<UploadResponse>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let settled = false;
 
@@ -64,4 +92,14 @@ export async function uploadWithProgress(
     xhr.open("POST", "/api/import/upload");
     xhr.send(formData);
   });
+}
+
+export async function uploadWithProgress(
+  file: File,
+  onProgress: UploadProgressCallback,
+): Promise<UploadResponse> {
+  if (isDesktop()) {
+    return uploadViaIpc(file, onProgress);
+  }
+  return uploadViaXhr(file, onProgress);
 }
