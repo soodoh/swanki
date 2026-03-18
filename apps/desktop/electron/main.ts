@@ -68,8 +68,8 @@ app.whenReady().then(() => {
     mainWindow?.webContents.send("window:maximized-changed", false);
   });
 
-  // Open DevTools in development
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  // Open DevTools in development (not during automated tests)
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL && !process.env.PLAYWRIGHT_TEST) {
     mainWindow.webContents.openDevTools();
   }
 

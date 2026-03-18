@@ -5,23 +5,29 @@
  * Audio tags render a play button + hidden <audio>; event wiring is done
  * by wireSoundButtons() after the HTML is mounted in the DOM.
  */
-export function expandMediaTags(html: string): string {
+export function expandMediaTags(
+  html: string,
+  mediaBaseUrl = "/api/media/",
+): string {
   /* oxlint-disable unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference */
   let result = html;
 
   // [image:file] → <img>
-  result = result.replace(/\[image:([^\]]+)\]/g, '<img src="/api/media/$1">');
+  result = result.replace(
+    /\[image:([^\]]+)\]/g,
+    `<img src="${mediaBaseUrl}$1">`,
+  );
 
   // [audio:file] → play button + <audio>
   result = result.replace(
     /\[audio:([^\]]+)\]/g,
-    '<span class="sound-player"><button type="button" class="sound-btn" aria-label="Play audio">\u25B6</button><audio src="/api/media/$1" preload="auto"></audio></span>',
+    `<span class="sound-player"><button type="button" class="sound-btn" aria-label="Play audio">\u25B6</button><audio src="${mediaBaseUrl}$1" preload="auto"></audio></span>`,
   );
 
   // [video:file] → <video>
   result = result.replace(
     /\[video:([^\]]+)\]/g,
-    '<video src="/api/media/$1" controls></video>',
+    `<video src="${mediaBaseUrl}$1" controls></video>`,
   );
 
   /* oxlint-enable unicorn(prefer-string-replace-all) */

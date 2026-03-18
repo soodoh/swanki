@@ -55,6 +55,7 @@ import type {
 import { renderTemplate } from "@/lib/template-renderer";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
 import { expandMediaTags } from "@/lib/media-tags";
+import { usePlatform } from "@swanki/core/platform";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TemplateCodeEditor } from "@/components/template-code-editor";
 import { CssCodeEditor } from "@/components/css-code-editor";
@@ -481,6 +482,9 @@ function TemplatePreviewPane({
   html: string;
   css: string;
 }): React.ReactElement {
+  const platform = usePlatform();
+  const mediaBaseUrl =
+    platform === "desktop" ? "swanki-media://media/" : "/api/media/";
   return (
     <div className="grid gap-2">
       <Label className="text-xs font-medium text-muted-foreground">
@@ -493,7 +497,7 @@ function TemplatePreviewPane({
           <div
             className="prose prose-sm dark:prose-invert max-w-none text-center"
             dangerouslySetInnerHTML={{
-              __html: expandMediaTags(sanitizeHtml(html)),
+              __html: expandMediaTags(sanitizeHtml(html), mediaBaseUrl),
             }}
           />
           {/* oxlint-enable react/no-danger */}

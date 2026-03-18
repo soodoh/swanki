@@ -26,6 +26,7 @@ import {
 import { MediaService } from "@swanki/core/services/media-service";
 import { nodeFs } from "@swanki/core/node-filesystem";
 import { parseApkg } from "@swanki/core/import/apkg-parser";
+import { countMedia } from "@swanki/core/import/apkg-parser-core";
 import { parseCsv } from "@swanki/core/import/csv-parser";
 import {
   parseCrowdAnkiZip,
@@ -483,9 +484,50 @@ export function registerIpcHandlers(
               else updatedNotes++;
             }
           }
-          return { mergeStats: { newNotes, updatedNotes, unchangedNotes } };
+          return {
+            decks: apkgData.decks.map((d) => ({ name: d.name })),
+            noteTypes: apkgData.noteTypes.map((nt) => ({
+              name: nt.name,
+              fields: nt.fields,
+              templates: nt.templates.map((tmpl) => ({
+                name: tmpl.name,
+                questionFormat: tmpl.questionFormat,
+                answerFormat: tmpl.answerFormat,
+                ordinal: tmpl.ordinal,
+              })),
+              css: nt.css,
+            })),
+            sampleNotes: [],
+            totalCards: apkgData.cards.length,
+            totalNotes: apkgData.notes.length,
+            totalMedia: apkgData._unzipped
+              ? countMedia(apkgData._unzipped)
+              : apkgData.media.length,
+            mergeStats: { newNotes, updatedNotes, unchangedNotes },
+          };
         }
-        return {};
+
+        const totalMedia = apkgData._unzipped
+          ? countMedia(apkgData._unzipped)
+          : apkgData.media.length;
+        return {
+          decks: apkgData.decks.map((d) => ({ name: d.name })),
+          noteTypes: apkgData.noteTypes.map((nt) => ({
+            name: nt.name,
+            fields: nt.fields,
+            templates: nt.templates.map((tmpl) => ({
+              name: tmpl.name,
+              questionFormat: tmpl.questionFormat,
+              answerFormat: tmpl.answerFormat,
+              ordinal: tmpl.ordinal,
+            })),
+            css: nt.css,
+          })),
+          sampleNotes: [],
+          totalCards: apkgData.cards.length,
+          totalNotes: apkgData.notes.length,
+          totalMedia,
+        };
       }
 
       // Import: start async import (APKG/COLPKG)
