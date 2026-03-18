@@ -14,6 +14,8 @@ import { buildClientPreview } from "@/lib/import/apkg-parser-client";
 import { buildCrowdAnkiPreview } from "@/lib/import/crowdanki-parser";
 import { uploadWithProgress } from "@/lib/upload-with-progress";
 import type { ImportJobStatus } from "@/lib/import/import-job";
+import { useTransport } from "@swanki/core/transport";
+import { usePlatform } from "@swanki/core/platform";
 
 export const Route = createFileRoute("/_authenticated/import")({
   component: ImportPage,
@@ -139,6 +141,8 @@ let cachedState: WizardState | undefined;
 
 // oxlint-disable-next-line eslint(complexity) -- wizard component with multiple steps inherently has high branching
 export function ImportPage(): React.ReactElement {
+  const transport = useTransport();
+  const platform = usePlatform();
   const [currentStep, setCurrentStep] = useState(cachedState?.currentStep ?? 0);
   const [file, setFile] = useState<File | undefined>(cachedState?.file);
   const [fileId, setFileId] = useState<string | undefined>(cachedState?.fileId);
@@ -351,23 +355,20 @@ export function ImportPage(): React.ReactElement {
       // Fetch merge stats from server using fileId (no re-upload)
       const mergeMode = config.apkg?.mergeMode ?? "merge";
       if (mergeMode === "merge") {
-        const res = await fetch("/api/import/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        try {
+          const serverData = await transport.mutate<{
+            mergeStats?: typeof data.mergeStats;
+          }>("/api/import/preview", "POST", {
             fileId: uploadedFileId,
             mergeMode,
-          }),
-        });
-        if (res.ok) {
-          const serverData = (await res.json()) as {
-            mergeStats?: typeof data.mergeStats;
-          };
+          });
           if (serverData.mergeStats) {
             setApkgPreview((prev) =>
               prev ? { ...prev, mergeStats: serverData.mergeStats } : prev,
             );
           }
+        } catch {
+          // Merge stats are optional — continue without them
         }
       }
     } catch (error) {
@@ -392,20 +393,17 @@ export function ImportPage(): React.ReactElement {
       const uploadedFileId = await ensureUploaded(previewFile);
 
       // Fetch merge stats from server using fileId (no re-upload)
-      const res = await fetch("/api/import/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: uploadedFileId }),
-      });
-      if (res.ok) {
-        const serverData = (await res.json()) as {
+      try {
+        const serverData = await transport.mutate<{
           mergeStats?: typeof data.mergeStats;
-        };
+        }>("/api/import/preview", "POST", { fileId: uploadedFileId });
         if (serverData.mergeStats) {
           setApkgPreview((prev) =>
             prev ? { ...prev, mergeStats: serverData.mergeStats } : prev,
           );
         }
+      } catch {
+        // Merge stats are optional — continue without them
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Preview failed";
@@ -468,21 +466,16 @@ export function ImportPage(): React.ReactElement {
         detail: "Starting import...",
       });
 
-      const startRes = await fetch("/api/import/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const startResult = await transport.mutate<{ jobId: string }>(
+        "/api/import/start",
+        "POST",
+        {
           fileId: uploadedFileId,
           mergeMode: config.apkg?.mergeMode ?? "merge",
-        }),
-      });
+        },
+      );
 
-      if (!startRes.ok) {
-        const errData = (await startRes.json()) as { error?: string };
-        throw new Error(errData.error ?? "Failed to start import");
-      }
-
-      const { jobId } = (await startRes.json()) as { jobId: string };
+      const { jobId } = startResult;
 
       // Poll for progress
       await pollJobStatus(jobId);
@@ -505,12 +498,9 @@ export function ImportPage(): React.ReactElement {
       const poll = () => {
         void (async () => {
           try {
-            const res = await fetch(`/api/import/status/${jobId}`);
-            if (!res.ok) {
-              throw new Error("Failed to fetch job status");
-            }
-
-            const job = (await res.json()) as ImportJobStatus;
+            const job = await transport.query<ImportJobStatus>(
+              `/api/import/status/${jobId}`,
+            );
 
             if (job.status === "processing") {
               // Map server progress (0-100 within phases) to overall progress (40-95)
@@ -582,23 +572,7 @@ export function ImportPage(): React.ReactElement {
     setImportProgress({ status: "uploading", progress: 20 });
 
     try {
-      const formData = new FormData();
-      formData.append("file", importFile);
-      formData.append("mergeMode", config.apkg?.mergeMode ?? "merge");
-
-      setImportProgress({ status: "processing", progress: 50 });
-
-      const res = await fetch("/api/import/", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errData = (await res.json()) as { error?: string };
-        throw new Error(errData.error ?? "Import failed");
-      }
-
-      const result = (await res.json()) as {
+      type SyncImportResult = {
         cardCount: number;
         noteCount: number;
         deckCount?: number;
@@ -608,6 +582,41 @@ export function ImportPage(): React.ReactElement {
         mediaWarnings?: string[];
         mediaCount?: number;
       };
+
+      let result: SyncImportResult;
+
+      // On web, send FormData directly to the API.
+      // On desktop/mobile, upload first then import via transport.
+      if (platform === "web") {
+        const formData = new FormData();
+        formData.append("file", importFile);
+        formData.append("mergeMode", config.apkg?.mergeMode ?? "merge");
+
+        setImportProgress({ status: "processing", progress: 50 });
+
+        const res = await fetch("/api/import/", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = (await res.json()) as { error?: string };
+          throw new Error(errData.error ?? "Import failed");
+        }
+
+        result = (await res.json()) as SyncImportResult;
+      } else {
+        const uploadedFileId = await ensureUploaded(importFile);
+        setImportProgress({ status: "processing", progress: 50 });
+        result = await transport.mutate<SyncImportResult>(
+          "/api/import/",
+          "POST",
+          {
+            fileId: uploadedFileId,
+            mergeMode: config.apkg?.mergeMode ?? "merge",
+          },
+        );
+      }
 
       setImportProgress({
         status: "complete",
