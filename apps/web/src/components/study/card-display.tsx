@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeHtml, sanitizeCss } from "@/lib/sanitize";
 import { expandMediaTags } from "@/lib/media-tags";
 import { useCardAudio } from "@/lib/hooks/use-card-audio";
+import { usePlatform } from "@swanki/core/platform";
 
 type CardDisplayProps = {
   html: string;
@@ -33,7 +34,10 @@ export function CardDisplay({
   hideButton,
 }: CardDisplayProps): React.ReactElement {
   const contentRef = useRef<HTMLDivElement>(null);
-  const processedHtml = expandMediaTags(sanitizeHtml(html));
+  const platform = usePlatform();
+  const mediaBaseUrl =
+    platform === "desktop" ? "swanki-media://media/" : "/api/media/";
+  const processedHtml = expandMediaTags(sanitizeHtml(html), mediaBaseUrl);
   const audioKey = useMemo(
     () => `${String(showAnswer)}-${html}`,
     [showAnswer, html],

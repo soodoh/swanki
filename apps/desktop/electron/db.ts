@@ -8,7 +8,8 @@ import * as schema from "@swanki/core/db/schema";
 
 declare const DRIZZLE_MIGRATIONS_PATH: string;
 
-const userDataPath = app.getPath("userData");
+const userDataPath =
+  process.env.SWANKI_TEST_DATA_DIR ?? app.getPath("userData");
 const dbPath = join(userDataPath, "swanki.db");
 
 // Ensure the directory exists

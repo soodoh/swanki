@@ -1,2 +1,5 @@
 .vite/
 out/
+.e2e-test-data/
+.e2e-vite-cache/
+test-results/

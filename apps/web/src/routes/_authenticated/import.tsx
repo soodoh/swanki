@@ -345,7 +345,20 @@ export function ImportPage(): React.ReactElement {
     setApkgPreview(undefined);
 
     try {
-      // Upload file first (if not already uploaded)
+      // Desktop: parse via IPC using native SQLite — no WASM needed
+      if (platform === "desktop") {
+        const uploadedFileId = await ensureUploaded(previewFile);
+        const mergeMode = config.apkg?.mergeMode ?? "merge";
+        const data = await transport.mutate<ApkgPreviewData>(
+          "/api/import/preview",
+          "POST",
+          { fileId: uploadedFileId, mergeMode },
+        );
+        setApkgPreview(data);
+        return;
+      }
+
+      // Web: parse in-browser using sql.js WASM
       const uploadedFileId = await ensureUploaded(previewFile);
 
       const buffer = await previewFile.arrayBuffer();
