@@ -1,5 +1,6 @@
+/// <reference types="bun-types" />
 import { unzipSync } from "fflate";
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import {
   writeFileSync as fsWriteFileSync,
   unlinkSync as fsUnlinkSync,
@@ -86,7 +87,7 @@ export function parseApkg(
 
   const dbBytes = prepareDbBytes(unzipped[dbFilename]);
 
-  // Write to temp file since better-sqlite3 needs a file path
+  // Write to temp file since bun:sqlite needs a file path
   const tempPath = join(
     tmpdir(),
     `swanki-import-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,

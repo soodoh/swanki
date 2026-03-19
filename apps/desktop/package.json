@@ -8,7 +8,6 @@
     "dev": "bun x electron-forge start",
     "build": "bun x electron-forge make",
     "package": "bun x electron-forge package",
-    "postinstall": "electron-rebuild -f -w better-sqlite3",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
