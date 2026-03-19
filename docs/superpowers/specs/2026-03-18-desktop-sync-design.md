@@ -32,13 +32,21 @@ Affected tables: `decks`, `noteTypes`, `cardTemplates`, `notes`, `cards`, `revie
 
 Foreign keys update accordingly (e.g., `cards.noteId` becomes `TEXT` referencing `notes.id`).
 
-For notes, the existing `ankiGuid` field is promoted to serve as the primary key `id`, maintaining Anki import compatibility.
+For notes, the `id` becomes a UUID text field like all other tables. The existing `ankiGuid` column is preserved as a separate field for Anki import deduplication (used to match imported notes against existing ones). The unique index on `(userId, ankiGuid)` remains for this purpose. Natively created notes have a UUID `id` and a null `ankiGuid`.
 
 For media, the content hash (SHA-256 hex) serves as the primary key. This provides automatic deduplication — if two notes reference the same file, there is one row and one stored file.
 
 This is a breaking migration. Existing databases will need UUIDs assigned to all rows.
 
-### 1.2 Tombstone Table
+### 1.2 Missing `updatedAt` Columns
+
+Three syncable tables currently lack `updatedAt`: `cardTemplates`, `reviewLogs`, and `media`.
+
+- **`cardTemplates`**: Add `updatedAt` column. Updated whenever a template is modified.
+- **`reviewLogs`**: Append-only table — reviews are never edited. Use `reviewedAt` as the sync timestamp for change detection. No `updatedAt` needed; LWW does not apply (insert-only, no conflicts possible since each review log has a unique UUID).
+- **`media`**: Immutable once created (content-addressed by hash). Use `createdAt` as the sync timestamp. No `updatedAt` needed; if the same hash exists on both sides, the content is identical by definition.
+
+### 1.3 Tombstone Table
 
 ```sql
 CREATE TABLE deletions (
@@ -54,7 +62,7 @@ Indexed on `(userId, deletedAt)` for efficient delta sync queries.
 
 All delete operations across services write a tombstone row before hard-deleting the entity.
 
-### 1.3 Settings Storage
+### 1.4 Settings Storage
 
 The existing `sync-state.json` is extended:
 
@@ -179,7 +187,14 @@ Push first, then pull. This ensures:
 
 ### 5.1 Change Detection
 
-No additional tracking mechanism needed. Entities with `updatedAt > lastPushTime` are candidates for push. Deletions tracked via the tombstone table.
+No additional tracking mechanism needed. Change detection per table:
+
+- **decks, noteTypes, notes, cards, cardTemplates**: `updatedAt > lastPushTime`
+- **reviewLogs**: `reviewedAt > lastPushTime` (append-only, never updated)
+- **media**: `createdAt > lastPushTime` (immutable, content-addressed)
+- **noteMedia**: no timestamp columns. Any operation that adds or removes a noteMedia row must bump the parent note's `updatedAt`. This guarantees noteMedia changes are captured by the note's change detection. During sync, all noteMedia rows for a changed note are re-synced.
+
+Deletions tracked via the tombstone table.
 
 ### 5.2 Auto-Sync Triggers
 
@@ -244,10 +259,10 @@ Same settings screen structure, stored via Capacitor Preferences. Not implemente
 - `apps/web/src/routes/api/sync/media/upload.ts` — media upload endpoint
 - `apps/web/src/routes/api/sync/media/download.ts` — media download endpoint
 - `apps/web/src/routes/settings.tsx` — settings page (shared UI)
-- `packages/core/src/db/schema.ts` — tombstone table, UUID PK migration
 
 ### Modified Files
 
+- `packages/core/src/db/schema.ts` — tombstone table, UUID PK migration, add `updatedAt` to `cardTemplates`
 - `packages/core/src/services/sync-service.ts` — add `push()`, populate deletions in pull
 - `apps/desktop/electron/sync.ts` — add push logic, LWW on pull, debounced auto-sync, media transfer
 - `apps/desktop/electron/auth.ts` — read server URL from settings instead of env var
