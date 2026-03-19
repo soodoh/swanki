@@ -21,8 +21,8 @@ export class NoteService {
   async create(
     userId: string,
     data: {
-      noteTypeId: number;
-      deckId: number;
+      noteTypeId: string;
+      deckId: string;
       fields: Record<string, string>;
       tags?: string;
     },
@@ -69,7 +69,7 @@ export class NoteService {
   }
 
   async getById(
-    id: number,
+    id: string,
     userId: string,
   ): Promise<NoteWithCards | undefined> {
     const note = await this.db
@@ -92,7 +92,7 @@ export class NoteService {
   }
 
   async update(
-    id: number,
+    id: string,
     userId: string,
     data: { fields?: Record<string, string>; tags?: string },
   ): Promise<Note | undefined> {
@@ -129,7 +129,7 @@ export class NoteService {
       .get();
   }
 
-  async delete(id: number, userId: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const existing = await this.db
       .select()
       .from(notes)
@@ -150,7 +150,7 @@ export class NoteService {
       .run();
   }
 
-  async listByDeck(deckId: number, userId: string): Promise<Note[]> {
+  async listByDeck(deckId: string, userId: string): Promise<Note[]> {
     // Find notes that have cards in the given deck
     const deckCards = await this.db
       .select({ noteId: cards.noteId })

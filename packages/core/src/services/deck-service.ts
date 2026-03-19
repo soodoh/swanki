@@ -32,7 +32,7 @@ export class DeckService {
 
   async create(
     userId: string,
-    data: { name: string; parentId?: number },
+    data: { name: string; parentId?: string },
   ): Promise<Deck> {
     const now = new Date();
 
@@ -63,7 +63,7 @@ export class DeckService {
     return buildTree(allDecks);
   }
 
-  async getById(id: number, userId: string): Promise<Deck | undefined> {
+  async getById(id: string, userId: string): Promise<Deck | undefined> {
     return await this.db
       .select()
       .from(decks)
@@ -72,12 +72,12 @@ export class DeckService {
   }
 
   async update(
-    id: number,
+    id: string,
     userId: string,
     data: {
       name?: string;
       description?: string;
-      parentId?: number | undefined;
+      parentId?: string | undefined;
       settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
     },
   ): Promise<Deck | undefined> {
@@ -98,7 +98,7 @@ export class DeckService {
     return await this.getById(id, userId);
   }
 
-  async delete(id: number, userId: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const existing = await this.getById(id, userId);
     if (!existing) {
       return;
@@ -125,7 +125,7 @@ export class DeckService {
       await this.db.delete(cards).where(inArray(cards.id, cardIds)).run();
 
       // Find orphaned notes (notes with no remaining cards)
-      const orphanedNoteIds: number[] = [];
+      const orphanedNoteIds: string[] = [];
       for (const noteId of noteIds) {
         const remaining = await this.db
           .select({ id: cards.id })
@@ -241,7 +241,7 @@ export class DeckService {
 }
 
 function buildTree(flatDecks: Deck[]): DeckTreeNode[] {
-  const nodeMap = new Map<number, DeckTreeNode>();
+  const nodeMap = new Map<string, DeckTreeNode>();
 
   // Create nodes with empty children arrays
   for (const deck of flatDecks) {

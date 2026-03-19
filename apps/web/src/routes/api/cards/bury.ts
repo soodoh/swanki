@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/cards/bury")({
       POST: async ({ request }) => {
         const session = await requireSession(request);
         const body = (await request.json()) as {
-          cardIds?: number[];
+          cardIds?: string[];
           bury?: boolean;
         };
         if (!Array.isArray(body.cardIds) || body.cardIds.length === 0) {

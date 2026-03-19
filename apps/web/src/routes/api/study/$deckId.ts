@@ -10,10 +10,7 @@ export const Route = createFileRoute("/api/study/$deckId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const deckId = Number(params.deckId);
-        if (Number.isNaN(deckId)) {
-          return Response.json({ error: "Invalid deck ID" }, { status: 400 });
-        }
+        const deckId = params.deckId;
 
         const result = await studyService.getStudySession(
           session.user.id,

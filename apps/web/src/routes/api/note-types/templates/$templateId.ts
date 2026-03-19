@@ -11,10 +11,7 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
         const userId = session.user.id;
-        const templateId = Number(params.templateId);
-        if (Number.isNaN(templateId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const templateId = params.templateId;
         const body = (await request.json()) as {
           questionTemplate?: string;
           answerTemplate?: string;
@@ -32,10 +29,7 @@ export const Route = createFileRoute("/api/note-types/templates/$templateId")({
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
         const userId = session.user.id;
-        const templateId = Number(params.templateId);
-        if (Number.isNaN(templateId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const templateId = params.templateId;
         await noteTypeService.deleteTemplate(templateId, userId);
         return new Response(undefined, { status: 204 });
       },

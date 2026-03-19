@@ -60,7 +60,7 @@ function NoteTypeEditorContent({
 }: {
   data: {
     noteType: {
-      id: number;
+      id: string;
       name: string;
       fields: NoteTypeField[];
       css: string;

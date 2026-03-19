@@ -3,10 +3,10 @@ import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 import { useTransport } from "../transport";
 
 export type DeckTreeNode = {
-  id: number;
+  id: string;
   userId: string;
   name: string;
-  parentId: number | undefined;
+  parentId: string | undefined;
   description: string;
   settings: { newCardsPerDay: number; maxReviewsPerDay: number } | undefined;
   createdAt: string;
@@ -32,13 +32,13 @@ export function useDecks(): UseQueryResult<DeckTreeNode[]> {
 export function useCreateDeck(): UseMutationResult<
   DeckTreeNode | undefined,
   Error,
-  { name: string; parentId?: number }
+  { name: string; parentId?: string }
 > {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { name: string; parentId?: number }) =>
+    mutationFn: (data: { name: string; parentId?: string }) =>
       transport.mutate<DeckTreeNode | undefined>("/api/decks", "POST", data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["decks"] });
@@ -47,7 +47,7 @@ export function useCreateDeck(): UseMutationResult<
 }
 
 export function useDeckCounts(
-  deckId: number | undefined,
+  deckId: string | undefined,
 ): UseQueryResult<CardCounts> {
   const transport = useTransport();
 
@@ -63,10 +63,10 @@ export function useDeckCounts(
 }
 
 export type DeckUpdatePayload = {
-  deckId: number;
+  deckId: string;
   name?: string;
   description?: string;
-  parentId?: number | undefined;
+  parentId?: string | undefined;
   settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
 };
 
@@ -87,12 +87,12 @@ export function useUpdateDeck(): UseMutationResult<
   });
 }
 
-export function useDeleteDeck(): UseMutationResult<void, Error, number> {
+export function useDeleteDeck(): UseMutationResult<void, Error, string> {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (deckId: number) =>
+    mutationFn: (deckId: string) =>
       transport.mutate<void>(`/api/decks/${deckId}`, "DELETE"),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["decks"] });

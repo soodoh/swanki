@@ -94,7 +94,7 @@ export class SyncService {
     }
 
     // Review logs for user's cards
-    const cardIds = (userCards as Array<{ id: number }>).map((c) => c.id);
+    const cardIds = (userCards as Array<{ id: string }>).map((c) => c.id);
     let userReviewLogs: Array<Record<string, unknown>> = [];
     if (cardIds.length > 0) {
       userReviewLogs = (await this.db
