@@ -42,14 +42,29 @@ export async function assertMediaLoads(page: Page): Promise<void> {
 }
 
 /**
- * Also check audio inside .sound-player elements (alternative rendering path).
+ * Assert that each sound player's audio is accessible via /api/media/.
+ * Verifies:
+ *   1. The file is served with status 200 and Content-Type: audio/*
+ *   2. The response body is non-empty
+ *
+ * This mirrors the desktop assertSoundPlayersWork check, adapted for HTTP
+ * (the web endpoint does not implement Range/206, unlike the Electron protocol).
  */
 export async function assertSoundPlayersWork(page: Page): Promise<void> {
-  const soundPlayers = page.locator(".sound-player audio");
+  const soundPlayers = page.locator(".sound-player");
   const count = await soundPlayers.count();
   for (let i = 0; i < count; i += 1) {
-    const src = await soundPlayers.nth(i).getAttribute("src");
+    const audio = soundPlayers.nth(i).locator("audio");
+    const src = await audio.getAttribute("src");
     expect(src).toContain("/api/media/");
+
+    const origin = new URL(page.url()).origin;
+    const fullUrl = src!.startsWith("http") ? src! : `${origin}${src}`;
+    const response = await page.request.get(fullUrl);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toMatch(/^audio\//);
+    const body = await response.body();
+    expect(body.length).toBeGreaterThan(0);
   }
 }
 
@@ -112,6 +127,7 @@ export async function studyCardsWithMediaAssertions(
 
     // Assert media on answer side
     await assertMediaLoads(page);
+    await assertSoundPlayersWork(page);
 
     // Rate as Good (3)
     await rateCard(page, 3);

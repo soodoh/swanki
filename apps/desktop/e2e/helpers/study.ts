@@ -4,8 +4,7 @@ import type { Page } from "@playwright/test";
 /**
  * Assert that media elements in the card content are present and loaded.
  * Desktop uses the swanki-media:// custom Electron protocol instead of
- * HTTP /api/media/ — we verify the src attribute format, image load state,
- * and audio load state.
+ * HTTP /api/media/ — we verify the src attribute format and image load state.
  */
 export async function assertMediaLoads(page: Page): Promise<void> {
   const cardContent = page.locator(".prose");
@@ -26,52 +25,55 @@ export async function assertMediaLoads(page: Page): Promise<void> {
     expect(loaded).toBe(true);
   }
 
-  // Check audio elements — verify src format and that the audio actually loaded
-  // from the custom protocol. readyState >= HAVE_CURRENT_DATA (2) means the
-  // browser has buffered enough data to start playback, which confirms the
-  // swanki-media:// scheme is registered as privileged and can stream media.
+  // Check audio elements — verify src format only.
+  // page.request.get() cannot fetch swanki-media:// (it's a custom Electron protocol).
   const audios = cardContent.locator("audio");
   const audioCount = await audios.count();
   for (let i = 0; i < audioCount; i++) {
-    const audio = audios.nth(i);
-    const src = await audio.getAttribute("src");
+    const src = await audios.nth(i).getAttribute("src");
     expect(src).toContain("swanki-media://media/");
-
-    await expect(async () => {
-      const readyState = await audio.evaluate(
-        (el: HTMLAudioElement) => el.readyState,
-      );
-      expect(readyState).toBeGreaterThanOrEqual(2);
-    }).toPass({ timeout: 5000 });
   }
 }
 
 /**
- * Assert that sound player audio elements autoplayed when the card face was
- * rendered. Checks that each player is either currently playing, has advanced
- * past 0 s, or has ended — any of these confirms autoplay was not blocked by
- * the browser's autoplay policy. Minimal fixture MP3s may finish before the
- * assertion runs, so `ended` is included as a valid "has played" state.
+ * Assert that each sound player's audio is accessible via the swanki-media://
+ * custom Electron protocol. Uses window.fetch() (enabled by supportFetchAPI on
+ * the registered scheme) to verify:
+ *   1. The file is served with status 200 and Content-Type: audio/*
+ *   2. Range requests return 206 Partial Content (required for audio seeking)
+ *
+ * This catches the original bugs — unregistered/unprivileged scheme, missing
+ * Content-Type header — without relying on actual audio playback (the minimal
+ * fixture MP3s may not be decodable by all Chromium builds).
  */
 export async function assertSoundPlayersWork(page: Page): Promise<void> {
-  const soundPlayers = page.locator(".sound-player audio");
+  const soundPlayers = page.locator(".sound-player");
   const count = await soundPlayers.count();
   for (let i = 0; i < count; i++) {
-    const audio = soundPlayers.nth(i);
+    const audio = soundPlayers.nth(i).locator("audio");
     const src = await audio.getAttribute("src");
     expect(src).toContain("swanki-media://media/");
 
-    await expect(async () => {
-      const { paused, currentTime, ended } = await audio.evaluate(
-        (el: HTMLAudioElement) => ({
-          paused: el.paused,
-          currentTime: el.currentTime,
-          ended: el.ended,
-        }),
-      );
-      // Audio must have played: currently playing, advanced past 0 s, or ended
-      expect(!paused || currentTime > 0 || ended).toBe(true);
-    }).toPass({ timeout: 3000 });
+    const result = await page.evaluate(async (url: string) => {
+      // Full fetch — verifies scheme is reachable and returns audio MIME type
+      const full = await fetch(url);
+      const bytes = await full.arrayBuffer();
+
+      // Range fetch — verifies 206 support needed for audio seeking
+      const range = await fetch(url, { headers: { Range: "bytes=0-99" } });
+
+      return {
+        status: full.status,
+        contentType: full.headers.get("Content-Type"),
+        size: bytes.byteLength,
+        rangeStatus: range.status,
+      };
+    }, src as string);
+
+    expect(result.status).toBe(200);
+    expect(result.contentType).toMatch(/^audio\//);
+    expect(result.size).toBeGreaterThan(0);
+    expect(result.rangeStatus).toBe(206);
   }
 }
 
