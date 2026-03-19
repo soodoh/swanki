@@ -226,7 +226,7 @@ export function DesktopStudyPage(): React.ReactElement {
   const isComplete = session && session.cards.length === 0;
 
   return (
-    <div className="-m-4 flex h-[calc(100dvh-3.5rem)] flex-col bg-background md:-m-6">
+    <div className="-m-4 flex h-[calc(100dvh-6rem)] flex-col bg-background md:-m-6">
       {/* Header */}
       <header className="shrink-0 border-b bg-background">
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4">
