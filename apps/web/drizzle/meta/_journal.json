@@ -8,6 +8,13 @@
       "when": 1773381530174,
       "tag": "0000_good_tana_nile",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773878933000,
+      "tag": "0001_cute_radioactive_man",
+      "breakpoints": true
     }
   ]
 }
