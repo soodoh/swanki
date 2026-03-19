@@ -22,6 +22,7 @@ export const Route = createFileRoute("/api/sync/media/upload")({
           );
         }
 
+        // oxlint-disable-next-line typescript/await-thenable -- Drizzle ORM returns thenable
         const record = await db
           .select()
           .from(media)
