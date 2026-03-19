@@ -13,6 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/settings")({
   component: DesktopSettingsPage,
@@ -28,8 +36,11 @@ type DesktopSettings = {
 type ElectronAPI = {
   settingsGet(): Promise<DesktopSettings>;
   settingsUpdate(data: { cloudServerUrl: string }): Promise<{ ok: boolean }>;
-  authSignIn(): Promise<{ signedIn: boolean }>;
+  authSignIn(): Promise<{ signedIn: boolean; hasLocalData?: boolean }>;
   authSignOut(): Promise<{ signedIn: boolean }>;
+  authCompleteSignIn(data: {
+    strategy: "merge" | "replace";
+  }): Promise<{ ok: boolean }>;
   syncNow(): Promise<{ status: string }>;
 };
 
@@ -83,6 +94,8 @@ export function DesktopSettingsPage(): React.ReactElement {
   const [authLoading, setAuthLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergeStrategyLoading, setMergeStrategyLoading] = useState(false);
 
   async function loadSettings(): Promise<void> {
     const data = await getElectronAPI().settingsGet();
@@ -116,21 +129,48 @@ export function DesktopSettingsPage(): React.ReactElement {
     }
   }
 
+  function showStatusTimed(message: string): void {
+    setStatusMessage(message);
+    setTimeout(() => {
+      setStatusMessage("");
+    }, 3000);
+  }
+
   async function handleSignIn(): Promise<void> {
     setAuthLoading(true);
     try {
       const result = await getElectronAPI().authSignIn();
-      if (result.signedIn) {
-        setStatusMessage("Signed in successfully.");
+      if (result.signedIn && result.hasLocalData) {
+        // Show the merge/replace dialog — do not update status yet
+        setMergeDialogOpen(true);
+      } else if (result.signedIn) {
+        showStatusTimed("Signed in successfully.");
+        await loadSettings();
       } else {
-        setStatusMessage("Sign in was cancelled.");
+        showStatusTimed("Sign in was cancelled.");
       }
-      await loadSettings();
     } finally {
       setAuthLoading(false);
-      setTimeout(() => {
-        setStatusMessage("");
-      }, 3000);
+    }
+  }
+
+  async function handleCompleteSignIn(
+    strategy: "merge" | "replace",
+  ): Promise<void> {
+    setMergeStrategyLoading(true);
+    try {
+      await getElectronAPI().authCompleteSignIn({ strategy });
+      setMergeDialogOpen(false);
+      const message =
+        strategy === "merge"
+          ? "Signed in and merged local data with cloud."
+          : "Signed in. Local data replaced with cloud data.";
+      showStatusTimed(message);
+      await loadSettings();
+    } catch {
+      showStatusTimed("Failed to complete sign-in. Please try again.");
+    } finally {
+      setMergeStrategyLoading(false);
     }
   }
 
@@ -174,6 +214,48 @@ export function DesktopSettingsPage(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Merge / Replace dialog shown when signing in with existing local data */}
+      <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>You have local data</DialogTitle>
+            <DialogDescription>
+              You have flashcard data stored locally. What would you like to do
+              with it?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              <strong>Merge with cloud</strong> — keep your local cards and
+              combine them with your cloud data.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <strong>Start fresh from cloud</strong> — discard local data and
+              download everything from the cloud.
+            </p>
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-start">
+            <Button
+              onClick={() => {
+                void handleCompleteSignIn("merge");
+              }}
+              disabled={mergeStrategyLoading}
+            >
+              {mergeStrategyLoading ? "Merging..." : "Merge with cloud"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleCompleteSignIn("replace");
+              }}
+              disabled={mergeStrategyLoading}
+            >
+              {mergeStrategyLoading ? "Loading..." : "Start fresh from cloud"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <main className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="mb-6 text-lg font-bold tracking-tight">Settings</h1>
 
