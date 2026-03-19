@@ -181,20 +181,50 @@ const DELETE_ORDER = [...SYNC_TABLE_MAP].reverse();
 
 const SYNC_STATE_PATH = join(app.getPath("userData"), "sync-state.json");
 
-function getLastSyncTime(): number | null {
+type SyncState = {
+  lastSyncTime?: number | null;
+  lastPushTime?: number | null;
+  cloudServerUrl?: string | null;
+};
+
+function readSyncState(): SyncState {
   try {
     if (existsSync(SYNC_STATE_PATH)) {
-      const data = JSON.parse(readFileSync(SYNC_STATE_PATH, "utf-8"));
-      return data.lastSyncTime ?? null;
+      return JSON.parse(readFileSync(SYNC_STATE_PATH, "utf-8")) as SyncState;
     }
   } catch {
     /* ignore */
   }
-  return null;
+  return {};
+}
+
+function writeSyncState(patch: Partial<SyncState>): void {
+  const current = readSyncState();
+  writeFileSync(SYNC_STATE_PATH, JSON.stringify({ ...current, ...patch }));
+}
+
+export function getLastSyncTime(): number | null {
+  return readSyncState().lastSyncTime ?? null;
 }
 
 function setLastSyncTime(time: number): void {
-  writeFileSync(SYNC_STATE_PATH, JSON.stringify({ lastSyncTime: time }));
+  writeSyncState({ lastSyncTime: time });
+}
+
+export function getLastPushTime(): number | null {
+  return readSyncState().lastPushTime ?? null;
+}
+
+export function setLastPushTime(time: number): void {
+  writeSyncState({ lastPushTime: time });
+}
+
+export function getCloudServerUrlFromConfig(): string | null {
+  return readSyncState().cloudServerUrl ?? null;
+}
+
+export function setCloudServerUrl(url: string): void {
+  writeSyncState({ cloudServerUrl: url });
 }
 
 // ── Status tracking ─────────────────────────────────────────────────

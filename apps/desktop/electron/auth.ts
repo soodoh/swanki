@@ -1,11 +1,9 @@
 import { BrowserWindow, safeStorage, app } from "electron";
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { getCloudServerUrlFromConfig } from "./sync";
 
 const TOKEN_PATH = join(app.getPath("userData"), ".auth");
-
-/** The cloud server URL — configurable via environment variable. */
-const CLOUD_SERVER_URL = process.env.SWANKI_CLOUD_URL ?? "https://swanki.app";
 
 /**
  * Encrypt and store the session token to disk.
@@ -75,7 +73,7 @@ export async function openAuthWindow(
     // Hide the menu bar in the auth popup
     authWin.setMenuBarVisibility(false);
 
-    authWin.loadURL(`${CLOUD_SERVER_URL}/login?desktop=true`);
+    authWin.loadURL(`${getCloudServerUrl()}/login?desktop=true`);
 
     let resolved = false;
 
@@ -119,7 +117,10 @@ export async function openAuthWindow(
 
 /**
  * Return the configured cloud server URL.
+ * Priority: sync-state.json config > SWANKI_CLOUD_URL env var > localhost default.
  */
 export function getCloudServerUrl(): string {
-  return CLOUD_SERVER_URL;
+  const fromConfig = getCloudServerUrlFromConfig();
+  if (fromConfig) return fromConfig;
+  return process.env.SWANKI_CLOUD_URL ?? "http://localhost:3000";
 }
