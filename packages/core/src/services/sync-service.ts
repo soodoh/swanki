@@ -241,7 +241,7 @@ export class SyncService {
     const deletionsList = tombstones.map((t) => ({
       tableName: t.tableName,
       entityId: t.entityId,
-      deletedAt: Math.floor(t.deletedAt.getTime() / 1000),
+      deletedAt: t.deletedAt.getTime(),
     }));
 
     return {
@@ -268,406 +268,424 @@ export class SyncService {
     const conflicts: SyncPushResponse["conflicts"] = [];
     const mediaToUpload: string[] = [];
 
-    // Helper: convert a numeric timestamp (epoch ms) to a Date
-    const toDate = (v: unknown): Date | undefined => {
-      if (v instanceof Date) return v;
-      if (typeof v === "number") return new Date(v);
-      return undefined;
-    };
+    // Reverse FK order for deletions: children before parents
+    const DELETION_ORDER = [
+      "note_media",
+      "media",
+      "review_logs",
+      "cards",
+      "notes",
+      "card_templates",
+      "decks",
+      "note_types",
+    ];
 
-    // Helper: get the updatedAt from a record as epoch ms for comparison
-    const getUpdatedAtMs = (row: Record<string, unknown>): number => {
-      const v = row.updatedAt ?? row.updated_at;
-      if (v instanceof Date) return v.getTime();
-      if (typeof v === "number") return v;
-      return 0;
-    };
+    await this.db.run(sql`BEGIN`);
 
-    // ---- Process tables in FK order ----
+    try {
+      // Helper: convert a numeric timestamp (epoch ms) to a Date
+      const toDate = (v: unknown): Date | undefined => {
+        if (v instanceof Date) return v;
+        if (typeof v === "number") return new Date(v);
+        return undefined;
+      };
 
-    // 1. noteTypes (has userId, updatedAt)
-    for (const entity of payload.noteTypes) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(noteTypes)
-        .where(eq(noteTypes.id, id))
-        .get();
+      // Helper: get the updatedAt from a record as epoch ms for comparison
+      const getUpdatedAtMs = (row: Record<string, unknown>): number => {
+        const v = row.updatedAt ?? row.updated_at;
+        if (v instanceof Date) return v.getTime();
+        if (typeof v === "number") return v;
+        return 0;
+      };
 
-      if (!existing) {
-        await this.db
-          .insert(noteTypes)
-          .values({
-            id,
-            userId,
-            name: entity.name as string,
-            fields: entity.fields as Array<{ name: string; ordinal: number }>,
-            css: (entity.css as string) ?? "",
-            createdAt: toDate(entity.createdAt) ?? new Date(),
-            updatedAt: toDate(entity.updatedAt) ?? new Date(),
-          })
-          .run();
-      } else {
-        const incomingMs = getUpdatedAtMs(entity);
-        const existingMs = existing.updatedAt.getTime();
-        if (incomingMs >= existingMs) {
+      // ---- Process tables in FK order ----
+
+      // 1. noteTypes (has userId, updatedAt)
+      for (const entity of payload.noteTypes) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(noteTypes)
+          .where(eq(noteTypes.id, id))
+          .get();
+
+        if (!existing) {
           await this.db
-            .update(noteTypes)
-            .set({
+            .insert(noteTypes)
+            .values({
+              id,
+              userId,
               name: entity.name as string,
-              fields: entity.fields as Array<{
-                name: string;
-                ordinal: number;
-              }>,
-              css: (entity.css as string) ?? existing.css,
+              fields: entity.fields as Array<{ name: string; ordinal: number }>,
+              css: (entity.css as string) ?? "",
+              createdAt: toDate(entity.createdAt) ?? new Date(),
               updatedAt: toDate(entity.updatedAt) ?? new Date(),
             })
-            .where(eq(noteTypes.id, id))
             .run();
-          conflicts.push({
-            tableName: "noteTypes",
-            entityId: id,
-            winner: "client",
-          });
         } else {
-          conflicts.push({
-            tableName: "noteTypes",
-            entityId: id,
-            winner: "server",
-          });
+          const incomingMs = getUpdatedAtMs(entity);
+          const existingMs = existing.updatedAt.getTime();
+          if (incomingMs >= existingMs) {
+            await this.db
+              .update(noteTypes)
+              .set({
+                name: entity.name as string,
+                fields: entity.fields as Array<{
+                  name: string;
+                  ordinal: number;
+                }>,
+                css: (entity.css as string) ?? existing.css,
+                updatedAt: toDate(entity.updatedAt) ?? new Date(),
+              })
+              .where(eq(noteTypes.id, id))
+              .run();
+            conflicts.push({
+              tableName: "noteTypes",
+              entityId: id,
+              winner: "client",
+            });
+          } else {
+            conflicts.push({
+              tableName: "noteTypes",
+              entityId: id,
+              winner: "server",
+            });
+          }
         }
       }
-    }
 
-    // 2. cardTemplates (has updatedAt, no userId)
-    for (const entity of payload.cardTemplates) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(cardTemplates)
-        .where(eq(cardTemplates.id, id))
-        .get();
+      // 2. cardTemplates (has updatedAt, no userId)
+      for (const entity of payload.cardTemplates) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(cardTemplates)
+          .where(eq(cardTemplates.id, id))
+          .get();
 
-      if (!existing) {
-        await this.db
-          .insert(cardTemplates)
-          .values({
-            id,
-            noteTypeId: entity.noteTypeId as string,
-            name: entity.name as string,
-            ordinal: entity.ordinal as number,
-            questionTemplate: entity.questionTemplate as string,
-            answerTemplate: entity.answerTemplate as string,
-            updatedAt: toDate(entity.updatedAt) ?? new Date(),
-          })
-          .run();
-      } else {
-        const incomingMs = getUpdatedAtMs(entity);
-        const existingMs = existing.updatedAt.getTime();
-        if (incomingMs >= existingMs) {
+        if (!existing) {
           await this.db
-            .update(cardTemplates)
-            .set({
+            .insert(cardTemplates)
+            .values({
+              id,
+              noteTypeId: entity.noteTypeId as string,
               name: entity.name as string,
               ordinal: entity.ordinal as number,
               questionTemplate: entity.questionTemplate as string,
               answerTemplate: entity.answerTemplate as string,
               updatedAt: toDate(entity.updatedAt) ?? new Date(),
             })
-            .where(eq(cardTemplates.id, id))
             .run();
-          conflicts.push({
-            tableName: "cardTemplates",
-            entityId: id,
-            winner: "client",
-          });
         } else {
-          conflicts.push({
-            tableName: "cardTemplates",
-            entityId: id,
-            winner: "server",
-          });
+          const incomingMs = getUpdatedAtMs(entity);
+          const existingMs = existing.updatedAt.getTime();
+          if (incomingMs >= existingMs) {
+            await this.db
+              .update(cardTemplates)
+              .set({
+                name: entity.name as string,
+                ordinal: entity.ordinal as number,
+                questionTemplate: entity.questionTemplate as string,
+                answerTemplate: entity.answerTemplate as string,
+                updatedAt: toDate(entity.updatedAt) ?? new Date(),
+              })
+              .where(eq(cardTemplates.id, id))
+              .run();
+            conflicts.push({
+              tableName: "cardTemplates",
+              entityId: id,
+              winner: "client",
+            });
+          } else {
+            conflicts.push({
+              tableName: "cardTemplates",
+              entityId: id,
+              winner: "server",
+            });
+          }
         }
       }
-    }
 
-    // 3. decks (has userId, updatedAt)
-    for (const entity of payload.decks) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(decks)
-        .where(eq(decks.id, id))
-        .get();
+      // 3. decks (has userId, updatedAt)
+      for (const entity of payload.decks) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(decks)
+          .where(eq(decks.id, id))
+          .get();
 
-      if (!existing) {
-        await this.db
-          .insert(decks)
-          .values({
-            id,
-            userId,
-            name: entity.name as string,
-            parentId: (entity.parentId as string) ?? null,
-            description: (entity.description as string) ?? "",
-            settings: entity.settings as
-              | {
-                  newCardsPerDay: number;
-                  maxReviewsPerDay: number;
-                }
-              | undefined,
-            createdAt: toDate(entity.createdAt) ?? new Date(),
-            updatedAt: toDate(entity.updatedAt) ?? new Date(),
-          })
-          .run();
-      } else {
-        const incomingMs = getUpdatedAtMs(entity);
-        const existingMs = existing.updatedAt.getTime();
-        if (incomingMs >= existingMs) {
+        if (!existing) {
           await this.db
-            .update(decks)
-            .set({
+            .insert(decks)
+            .values({
+              id,
+              userId,
               name: entity.name as string,
-              parentId: (entity.parentId as string) ?? existing.parentId,
-              description:
-                (entity.description as string) ?? existing.description,
-              settings:
-                (entity.settings as {
-                  newCardsPerDay: number;
-                  maxReviewsPerDay: number;
-                }) ?? existing.settings,
+              parentId: (entity.parentId as string) ?? null,
+              description: (entity.description as string) ?? "",
+              settings: entity.settings as
+                | {
+                    newCardsPerDay: number;
+                    maxReviewsPerDay: number;
+                  }
+                | undefined,
+              createdAt: toDate(entity.createdAt) ?? new Date(),
               updatedAt: toDate(entity.updatedAt) ?? new Date(),
             })
-            .where(eq(decks.id, id))
             .run();
-          conflicts.push({
-            tableName: "decks",
-            entityId: id,
-            winner: "client",
-          });
         } else {
-          conflicts.push({
-            tableName: "decks",
-            entityId: id,
-            winner: "server",
-          });
+          const incomingMs = getUpdatedAtMs(entity);
+          const existingMs = existing.updatedAt.getTime();
+          if (incomingMs >= existingMs) {
+            await this.db
+              .update(decks)
+              .set({
+                name: entity.name as string,
+                parentId: (entity.parentId as string) ?? existing.parentId,
+                description:
+                  (entity.description as string) ?? existing.description,
+                settings:
+                  (entity.settings as {
+                    newCardsPerDay: number;
+                    maxReviewsPerDay: number;
+                  }) ?? existing.settings,
+                updatedAt: toDate(entity.updatedAt) ?? new Date(),
+              })
+              .where(eq(decks.id, id))
+              .run();
+            conflicts.push({
+              tableName: "decks",
+              entityId: id,
+              winner: "client",
+            });
+          } else {
+            conflicts.push({
+              tableName: "decks",
+              entityId: id,
+              winner: "server",
+            });
+          }
         }
       }
-    }
 
-    // 4. notes (has userId, updatedAt)
-    for (const entity of payload.notes) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(notes)
-        .where(eq(notes.id, id))
-        .get();
+      // 4. notes (has userId, updatedAt)
+      for (const entity of payload.notes) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(notes)
+          .where(eq(notes.id, id))
+          .get();
 
-      if (!existing) {
-        await this.db
-          .insert(notes)
-          .values({
-            id,
-            userId,
-            noteTypeId: entity.noteTypeId as string,
-            fields: entity.fields as Record<string, string>,
-            tags: (entity.tags as string) ?? "",
-            ankiGuid: (entity.ankiGuid as string) ?? null,
-            createdAt: toDate(entity.createdAt) ?? new Date(),
-            updatedAt: toDate(entity.updatedAt) ?? new Date(),
-          })
-          .run();
-      } else {
-        const incomingMs = getUpdatedAtMs(entity);
-        const existingMs = existing.updatedAt.getTime();
-        if (incomingMs >= existingMs) {
+        if (!existing) {
           await this.db
-            .update(notes)
-            .set({
+            .insert(notes)
+            .values({
+              id,
+              userId,
+              noteTypeId: entity.noteTypeId as string,
               fields: entity.fields as Record<string, string>,
-              tags: (entity.tags as string) ?? existing.tags,
+              tags: (entity.tags as string) ?? "",
+              ankiGuid: (entity.ankiGuid as string) ?? null,
+              createdAt: toDate(entity.createdAt) ?? new Date(),
               updatedAt: toDate(entity.updatedAt) ?? new Date(),
             })
-            .where(eq(notes.id, id))
             .run();
-          conflicts.push({
-            tableName: "notes",
-            entityId: id,
-            winner: "client",
-          });
         } else {
-          conflicts.push({
-            tableName: "notes",
-            entityId: id,
-            winner: "server",
-          });
+          const incomingMs = getUpdatedAtMs(entity);
+          const existingMs = existing.updatedAt.getTime();
+          if (incomingMs >= existingMs) {
+            await this.db
+              .update(notes)
+              .set({
+                fields: entity.fields as Record<string, string>,
+                tags: (entity.tags as string) ?? existing.tags,
+                updatedAt: toDate(entity.updatedAt) ?? new Date(),
+              })
+              .where(eq(notes.id, id))
+              .run();
+            conflicts.push({
+              tableName: "notes",
+              entityId: id,
+              winner: "client",
+            });
+          } else {
+            conflicts.push({
+              tableName: "notes",
+              entityId: id,
+              winner: "server",
+            });
+          }
         }
       }
-    }
 
-    // 5. cards (has updatedAt, no userId)
-    for (const entity of payload.cards) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(cards)
-        .where(eq(cards.id, id))
-        .get();
+      // 5. cards (has updatedAt, no userId)
+      for (const entity of payload.cards) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(cards)
+          .where(eq(cards.id, id))
+          .get();
 
-      if (!existing) {
-        await this.db
-          .insert(cards)
-          .values({
-            id,
-            noteId: entity.noteId as string,
-            deckId: entity.deckId as string,
-            templateId: entity.templateId as string,
-            ordinal: entity.ordinal as number,
-            due: toDate(entity.due) ?? new Date(),
-            stability: (entity.stability as number) ?? 0,
-            difficulty: (entity.difficulty as number) ?? 0,
-            elapsedDays: (entity.elapsedDays as number) ?? 0,
-            scheduledDays: (entity.scheduledDays as number) ?? 0,
-            reps: (entity.reps as number) ?? 0,
-            lapses: (entity.lapses as number) ?? 0,
-            state: (entity.state as number) ?? 0,
-            lastReview: toDate(entity.lastReview) ?? null,
-            suspended: (entity.suspended as number) ?? 0,
-            buriedUntil: toDate(entity.buriedUntil) ?? null,
-            createdAt: toDate(entity.createdAt) ?? new Date(),
-            updatedAt: toDate(entity.updatedAt) ?? new Date(),
-          })
-          .run();
-      } else {
-        const incomingMs = getUpdatedAtMs(entity);
-        const existingMs = existing.updatedAt.getTime();
-        if (incomingMs >= existingMs) {
+        if (!existing) {
           await this.db
-            .update(cards)
-            .set({
+            .insert(cards)
+            .values({
+              id,
+              noteId: entity.noteId as string,
               deckId: entity.deckId as string,
-              due: toDate(entity.due) ?? existing.due,
-              stability: (entity.stability as number) ?? existing.stability,
-              difficulty: (entity.difficulty as number) ?? existing.difficulty,
-              elapsedDays:
-                (entity.elapsedDays as number) ?? existing.elapsedDays,
-              scheduledDays:
-                (entity.scheduledDays as number) ?? existing.scheduledDays,
-              reps: (entity.reps as number) ?? existing.reps,
-              lapses: (entity.lapses as number) ?? existing.lapses,
-              state: (entity.state as number) ?? existing.state,
-              lastReview: toDate(entity.lastReview) ?? existing.lastReview,
-              suspended: (entity.suspended as number) ?? existing.suspended,
-              buriedUntil: toDate(entity.buriedUntil) ?? existing.buriedUntil,
+              templateId: entity.templateId as string,
+              ordinal: entity.ordinal as number,
+              due: toDate(entity.due) ?? new Date(),
+              stability: (entity.stability as number) ?? 0,
+              difficulty: (entity.difficulty as number) ?? 0,
+              elapsedDays: (entity.elapsedDays as number) ?? 0,
+              scheduledDays: (entity.scheduledDays as number) ?? 0,
+              reps: (entity.reps as number) ?? 0,
+              lapses: (entity.lapses as number) ?? 0,
+              state: (entity.state as number) ?? 0,
+              lastReview: toDate(entity.lastReview) ?? null,
+              suspended: (entity.suspended as number) ?? 0,
+              buriedUntil: toDate(entity.buriedUntil) ?? null,
+              createdAt: toDate(entity.createdAt) ?? new Date(),
               updatedAt: toDate(entity.updatedAt) ?? new Date(),
             })
-            .where(eq(cards.id, id))
             .run();
-          conflicts.push({
-            tableName: "cards",
-            entityId: id,
-            winner: "client",
-          });
         } else {
-          conflicts.push({
-            tableName: "cards",
-            entityId: id,
-            winner: "server",
-          });
+          const incomingMs = getUpdatedAtMs(entity);
+          const existingMs = existing.updatedAt.getTime();
+          if (incomingMs >= existingMs) {
+            await this.db
+              .update(cards)
+              .set({
+                deckId: entity.deckId as string,
+                due: toDate(entity.due) ?? existing.due,
+                stability: (entity.stability as number) ?? existing.stability,
+                difficulty:
+                  (entity.difficulty as number) ?? existing.difficulty,
+                elapsedDays:
+                  (entity.elapsedDays as number) ?? existing.elapsedDays,
+                scheduledDays:
+                  (entity.scheduledDays as number) ?? existing.scheduledDays,
+                reps: (entity.reps as number) ?? existing.reps,
+                lapses: (entity.lapses as number) ?? existing.lapses,
+                state: (entity.state as number) ?? existing.state,
+                lastReview: toDate(entity.lastReview) ?? existing.lastReview,
+                suspended: (entity.suspended as number) ?? existing.suspended,
+                buriedUntil: toDate(entity.buriedUntil) ?? existing.buriedUntil,
+                updatedAt: toDate(entity.updatedAt) ?? new Date(),
+              })
+              .where(eq(cards.id, id))
+              .run();
+            conflicts.push({
+              tableName: "cards",
+              entityId: id,
+              winner: "client",
+            });
+          } else {
+            conflicts.push({
+              tableName: "cards",
+              entityId: id,
+              winner: "server",
+            });
+          }
         }
       }
-    }
 
-    // 6. reviewLogs (append-only: insert if not exists, skip if exists)
-    for (const entity of payload.reviewLogs) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(reviewLogs)
-        .where(eq(reviewLogs.id, id))
-        .get();
+      // 6. reviewLogs (append-only: insert if not exists, skip if exists)
+      for (const entity of payload.reviewLogs) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(reviewLogs)
+          .where(eq(reviewLogs.id, id))
+          .get();
 
-      if (!existing) {
-        await this.db
-          .insert(reviewLogs)
-          .values({
-            id,
-            cardId: entity.cardId as string,
-            rating: entity.rating as number,
-            state: entity.state as number,
-            due: toDate(entity.due) ?? new Date(),
-            stability: entity.stability as number,
-            difficulty: entity.difficulty as number,
-            elapsedDays: entity.elapsedDays as number,
-            lastElapsedDays: entity.lastElapsedDays as number,
-            scheduledDays: entity.scheduledDays as number,
-            reviewedAt: toDate(entity.reviewedAt) ?? new Date(),
-            timeTakenMs: entity.timeTakenMs as number,
-          })
-          .run();
+        if (!existing) {
+          await this.db
+            .insert(reviewLogs)
+            .values({
+              id,
+              cardId: entity.cardId as string,
+              rating: entity.rating as number,
+              state: entity.state as number,
+              due: toDate(entity.due) ?? new Date(),
+              stability: entity.stability as number,
+              difficulty: entity.difficulty as number,
+              elapsedDays: entity.elapsedDays as number,
+              lastElapsedDays: entity.lastElapsedDays as number,
+              scheduledDays: entity.scheduledDays as number,
+              reviewedAt: toDate(entity.reviewedAt) ?? new Date(),
+              timeTakenMs: entity.timeTakenMs as number,
+            })
+            .run();
+        }
       }
-    }
 
-    // 7. media (content-addressed: insert if hash not exists, skip if exists)
-    for (const entity of payload.media) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(media)
-        .where(eq(media.id, id))
-        .get();
+      // 7. media (content-addressed: insert if hash not exists, skip if exists)
+      for (const entity of payload.media) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(media)
+          .where(eq(media.id, id))
+          .get();
 
-      if (!existing) {
-        await this.db
-          .insert(media)
-          .values({
-            id,
-            userId,
-            filename: entity.filename as string,
-            mimeType: entity.mimeType as string,
-            size: entity.size as number,
-            createdAt: toDate(entity.createdAt) ?? new Date(),
-          })
-          .run();
-        // Media record was inserted but file may not exist on server yet
-        mediaToUpload.push(id);
+        if (!existing) {
+          await this.db
+            .insert(media)
+            .values({
+              id,
+              userId,
+              filename: entity.filename as string,
+              mimeType: entity.mimeType as string,
+              size: entity.size as number,
+              createdAt: toDate(entity.createdAt) ?? new Date(),
+            })
+            .run();
+          // Media record was inserted but file may not exist on server yet
+          mediaToUpload.push(id);
+        }
       }
-    }
 
-    // 8. noteMedia (junction: insert if not exists, skip if exists)
-    for (const entity of payload.noteMedia) {
-      const id = entity.id as string;
-      const existing = await this.db
-        .select()
-        .from(noteMedia)
-        .where(eq(noteMedia.id, id))
-        .get();
+      // 8. noteMedia (junction: insert if not exists, skip if exists)
+      for (const entity of payload.noteMedia) {
+        const id = entity.id as string;
+        const existing = await this.db
+          .select()
+          .from(noteMedia)
+          .where(eq(noteMedia.id, id))
+          .get();
 
-      if (!existing) {
-        await this.db
-          .insert(noteMedia)
-          .values({
-            id,
-            noteId: entity.noteId as string,
-            mediaId: entity.mediaId as string,
-          })
-          .run();
+        if (!existing) {
+          await this.db
+            .insert(noteMedia)
+            .values({
+              id,
+              noteId: entity.noteId as string,
+              mediaId: entity.mediaId as string,
+            })
+            .run();
+        }
       }
-    }
 
-    // ---- Apply deletions last ----
-    // Table name → Drizzle table mapping for deletion lookups
-    type AnyTable =
-      | typeof decks
-      | typeof noteTypes
-      | typeof cardTemplates
-      | typeof notes
-      | typeof cards
-      | typeof reviewLogs
-      | typeof media
-      | typeof noteMedia;
-    const tableMap: Record<string, { table: AnyTable; hasUpdatedAt: boolean }> =
-      {
+      // ---- Apply deletions last ----
+      // Table name → Drizzle table mapping for deletion lookups
+      type AnyTable =
+        | typeof decks
+        | typeof noteTypes
+        | typeof cardTemplates
+        | typeof notes
+        | typeof cards
+        | typeof reviewLogs
+        | typeof media
+        | typeof noteMedia;
+      const tableMap: Record<
+        string,
+        { table: AnyTable; hasUpdatedAt: boolean }
+      > = {
         decks: { table: decks, hasUpdatedAt: true },
         note_types: { table: noteTypes, hasUpdatedAt: true },
         card_templates: { table: cardTemplates, hasUpdatedAt: true },
@@ -678,59 +696,74 @@ export class SyncService {
         note_media: { table: noteMedia, hasUpdatedAt: false },
       };
 
-    for (const tombstone of payload.deletions) {
-      const mapping = tableMap[tombstone.tableName];
-      if (!mapping) continue;
+      // Sort deletions in reverse FK order to avoid FK constraint violations
+      const sortedDeletions = [...payload.deletions].sort((a, b) => {
+        const aIndex = DELETION_ORDER.indexOf(a.tableName);
+        const bIndex = DELETION_ORDER.indexOf(b.tableName);
+        const aOrder = aIndex === -1 ? DELETION_ORDER.length : aIndex;
+        const bOrder = bIndex === -1 ? DELETION_ORDER.length : bIndex;
+        return aOrder - bOrder;
+      });
 
-      const deletedAtDate = new Date(tombstone.deletedAt);
+      for (const tombstone of sortedDeletions) {
+        const mapping = tableMap[tombstone.tableName];
+        if (!mapping) continue;
 
-      // Look up entity by ID
-      const existing = await this.db
-        .select()
-        .from(mapping.table)
-        .where(eq(mapping.table.id, tombstone.entityId))
-        .get();
+        const deletedAtDate = new Date(tombstone.deletedAt);
 
-      if (existing && mapping.hasUpdatedAt) {
-        const existingRecord = existing as Record<string, unknown>;
-        const existingUpdatedAt = existingRecord.updatedAt;
-        const existingMs =
-          existingUpdatedAt instanceof Date
-            ? existingUpdatedAt.getTime()
-            : typeof existingUpdatedAt === "number"
-              ? existingUpdatedAt
-              : 0;
-        if (existingMs <= deletedAtDate.getTime()) {
+        // Look up entity by ID
+        const existing = await this.db
+          .select()
+          .from(mapping.table)
+          .where(eq(mapping.table.id, tombstone.entityId))
+          .get();
+
+        if (existing && mapping.hasUpdatedAt) {
+          const existingRecord = existing as Record<string, unknown>;
+          const existingUpdatedAt = existingRecord.updatedAt;
+          const existingMs =
+            existingUpdatedAt instanceof Date
+              ? existingUpdatedAt.getTime()
+              : typeof existingUpdatedAt === "number"
+                ? existingUpdatedAt
+                : 0;
+          if (existingMs <= deletedAtDate.getTime()) {
+            await this.db
+              .delete(mapping.table)
+              .where(eq(mapping.table.id, tombstone.entityId))
+              .run();
+          }
+          // If updatedAt > deletedAt, entity was modified after delete — skip
+        } else if (existing) {
+          // Tables without updatedAt (reviewLogs, media, noteMedia) — always delete
           await this.db
             .delete(mapping.table)
             .where(eq(mapping.table.id, tombstone.entityId))
             .run();
         }
-        // If updatedAt > deletedAt, entity was modified after delete — skip
-      } else if (existing) {
-        // Tables without updatedAt (reviewLogs, media, noteMedia) — always delete
+
+        // Write tombstone to server regardless
         await this.db
-          .delete(mapping.table)
-          .where(eq(mapping.table.id, tombstone.entityId))
+          .insert(deletions)
+          .values({
+            tableName: tombstone.tableName,
+            entityId: tombstone.entityId,
+            userId,
+            deletedAt: deletedAtDate,
+          })
           .run();
       }
 
-      // Write tombstone to server regardless
-      await this.db
-        .insert(deletions)
-        .values({
-          tableName: tombstone.tableName,
-          entityId: tombstone.entityId,
-          userId,
-          deletedAt: deletedAtDate,
-        })
-        .run();
-    }
+      await this.db.run(sql`COMMIT`);
 
-    return {
-      conflicts,
-      mediaToUpload,
-      pushedAt: Date.now(),
-    };
+      return {
+        conflicts,
+        mediaToUpload,
+        pushedAt: Date.now(),
+      };
+    } catch (err) {
+      await this.db.run(sql`ROLLBACK`);
+      throw err;
+    }
   }
 }
