@@ -17,11 +17,9 @@ export const Route = createFileRoute("/api/cards/bury")({
         if (!Array.isArray(body.cardIds) || body.cardIds.length === 0) {
           return Response.json({ error: "cardIds required" }, { status: 400 });
         }
-        if (body.bury === false) {
-          await cardService.unburyCards(body.cardIds, session.user.id);
-        } else {
-          await cardService.buryCards(body.cardIds, session.user.id);
-        }
+        await (body.bury === false
+          ? cardService.unburyCards(body.cardIds, session.user.id)
+          : cardService.buryCards(body.cardIds, session.user.id));
         return Response.json({ success: true });
       },
     },
