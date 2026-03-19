@@ -289,6 +289,7 @@ export class MediaService {
     }
 
     // Add new references
+    let inserted = false;
     for (const mediaId of currentMediaIds) {
       if (!existingMediaIds.has(mediaId)) {
         await this.db
@@ -296,19 +297,12 @@ export class MediaService {
           .values({ noteId, mediaId })
           .onConflictDoNothing()
           .run();
+        inserted = true;
       }
     }
 
-    // Bump parent note updatedAt after noteMedia insert
-    if (currentMediaIds.size > 0) {
-      await this.db
-        .update(notes)
-        .set({ updatedAt: new Date() })
-        .where(eq(notes.id, noteId))
-        .run();
-    }
-
     // Remove stale references and clean up orphans
+    let deleted = false;
     for (const ref of existingRefs) {
       if (!currentMediaIds.has(ref.mediaId)) {
         await this.db
@@ -320,6 +314,7 @@ export class MediaService {
             ),
           )
           .run();
+        deleted = true;
 
         // Check if media is now orphaned
         const remaining = await this.db
@@ -348,8 +343,8 @@ export class MediaService {
       }
     }
 
-    // Bump parent note updatedAt after noteMedia delete
-    if (existingRefs.some((ref) => !currentMediaIds.has(ref.mediaId))) {
+    // Bump parent note updatedAt only when actual changes were made
+    if (inserted || deleted) {
       await this.db
         .update(notes)
         .set({ updatedAt: new Date() })
