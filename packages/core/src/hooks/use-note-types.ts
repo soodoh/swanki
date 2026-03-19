@@ -8,8 +8,8 @@ export type NoteTypeField = {
 };
 
 export type CardTemplate = {
-  id: number;
-  noteTypeId: number;
+  id: string;
+  noteTypeId: string;
   name: string;
   ordinal: number;
   questionTemplate: string;
@@ -17,7 +17,7 @@ export type CardTemplate = {
 };
 
 export type NoteType = {
-  id: number;
+  id: string;
   userId: string;
   name: string;
   fields: NoteTypeField[];
@@ -41,7 +41,7 @@ export function useNoteTypes(): UseQueryResult<NoteTypeWithTemplates[]> {
 }
 
 export function useNoteType(
-  id: number | undefined,
+  id: string | undefined,
 ): UseQueryResult<NoteTypeWithTemplates> {
   const transport = useTransport();
 
@@ -54,7 +54,7 @@ export function useNoteType(
 }
 
 export function useSampleNote(
-  noteTypeId: number | undefined,
+  noteTypeId: string | undefined,
 ): UseQueryResult<Record<string, string> | undefined> {
   const transport = useTransport();
 
@@ -98,7 +98,7 @@ export function useUpdateNoteType(): UseMutationResult<
   NoteType,
   Error,
   {
-    id: number;
+    id: string;
     name?: string;
     fields?: NoteTypeField[];
     css?: string;
@@ -109,7 +109,7 @@ export function useUpdateNoteType(): UseMutationResult<
 
   return useMutation({
     mutationFn: (data: {
-      id: number;
+      id: string;
       name?: string;
       fields?: NoteTypeField[];
       css?: string;
@@ -126,12 +126,12 @@ export function useUpdateNoteType(): UseMutationResult<
   });
 }
 
-export function useDeleteNoteType(): UseMutationResult<void, Error, number> {
+export function useDeleteNoteType(): UseMutationResult<void, Error, string> {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: number) =>
+    mutationFn: (id: string) =>
       transport.mutate<void>(`/api/note-types/${id}`, "DELETE"),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["note-types"] });
@@ -143,7 +143,7 @@ export function useCreateTemplate(): UseMutationResult<
   CardTemplate,
   Error,
   {
-    noteTypeId: number;
+    noteTypeId: string;
     name: string;
     questionTemplate: string;
     answerTemplate: string;
@@ -154,7 +154,7 @@ export function useCreateTemplate(): UseMutationResult<
 
   return useMutation({
     mutationFn: (data: {
-      noteTypeId: number;
+      noteTypeId: string;
       name: string;
       questionTemplate: string;
       answerTemplate: string;
@@ -173,8 +173,8 @@ export function useUpdateTemplate(): UseMutationResult<
   CardTemplate,
   Error,
   {
-    templateId: number;
-    noteTypeId: number;
+    templateId: string;
+    noteTypeId: string;
     questionTemplate?: string;
     answerTemplate?: string;
   }
@@ -184,8 +184,8 @@ export function useUpdateTemplate(): UseMutationResult<
 
   return useMutation({
     mutationFn: (data: {
-      templateId: number;
-      noteTypeId: number;
+      templateId: string;
+      noteTypeId: string;
       questionTemplate?: string;
       answerTemplate?: string;
     }) => {
@@ -208,13 +208,13 @@ export function useUpdateTemplate(): UseMutationResult<
 export function useDeleteTemplate(): UseMutationResult<
   void,
   Error,
-  { templateId: number; noteTypeId: number }
+  { templateId: string; noteTypeId: string }
 > {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { templateId: number; noteTypeId: number }) =>
+    mutationFn: (data: { templateId: string; noteTypeId: string }) =>
       transport.mutate<void>(
         `/api/note-types/templates/${data.templateId}`,
         "DELETE",

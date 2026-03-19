@@ -14,7 +14,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   authSignIn: () => ipcRenderer.invoke("auth:sign-in"),
   authSignOut: () => ipcRenderer.invoke("auth:sign-out"),
   authStatus: () => ipcRenderer.invoke("auth:status"),
+  authCompleteSignIn: (data: { strategy: "merge" | "replace" }) =>
+    ipcRenderer.invoke("auth:complete-sign-in", data),
   // Sync
   syncNow: () => ipcRenderer.invoke("sync:now"),
   syncStatus: () => ipcRenderer.invoke("sync:status"),
+  // Settings
+  settingsGet: () => ipcRenderer.invoke("settings:get"),
+  settingsUpdate: (data: { cloudServerUrl: string }) =>
+    ipcRenderer.invoke("settings:update", data),
 });

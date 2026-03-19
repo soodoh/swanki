@@ -11,13 +11,13 @@ type Note = typeof notes.$inferSelect;
 type NoteType = typeof noteTypes.$inferSelect;
 type CardTemplate = typeof cardTemplates.$inferSelect;
 export type BrowseNote = {
-  noteId: number;
-  noteTypeId: number;
+  noteId: string;
+  noteTypeId: string;
   noteTypeName: string;
   fields: Record<string, string>;
   tags: string;
   deckName: string;
-  deckId: number;
+  deckId: string;
   cardCount: number;
   earliestDue: string | undefined;
   states: number[];
@@ -38,7 +38,7 @@ export type NoteDetail = {
   noteType: NoteType;
   templates: CardTemplate[];
   deckName: string;
-  deckId: number;
+  deckId: string;
 };
 
 export type SearchOptions = {
@@ -206,7 +206,7 @@ export class BrowseService {
         fields: notes.fields,
         tags: notes.tags,
         deckName: sql<string>`min(${decks.name})`,
-        deckId: sql<number>`min(${decks.id})`,
+        deckId: sql<string>`min(${decks.id})`,
         cardCount: sql<number>`count(${cards.id})`,
         earliestDue: sql<string>`min(${cards.due})`,
         states: sql<string>`group_concat(distinct ${cards.state})`,
@@ -254,7 +254,7 @@ export class BrowseService {
 
   async getNoteDetail(
     userId: string,
-    noteId: number,
+    noteId: string,
   ): Promise<NoteDetail | undefined> {
     const note = await this.db
       .select()
@@ -291,7 +291,7 @@ export class BrowseService {
       .get();
 
     let deckName = "";
-    let deckId = 0;
+    let deckId = "";
     if (firstCard) {
       const deck = await this.db
         .select()

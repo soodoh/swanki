@@ -3,13 +3,13 @@ import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 import { useTransport } from "../transport";
 
 export type BrowseNote = {
-  noteId: number;
-  noteTypeId: number;
+  noteId: string;
+  noteTypeId: string;
   noteTypeName: string;
   fields: Record<string, string>;
   tags: string;
   deckName: string;
-  deckId: number;
+  deckId: string;
   cardCount: number;
   earliestDue: string | undefined;
   states: number[];
@@ -27,28 +27,28 @@ export type BrowseSearchResult = {
 
 export type NoteDetail = {
   note: {
-    id: number;
+    id: string;
     userId: string;
-    noteTypeId: number;
+    noteTypeId: string;
     fields: Record<string, string>;
     tags: string | undefined;
     createdAt: string;
     updatedAt: string;
   };
   noteType: {
-    id: number;
+    id: string;
     name: string;
     fields: string;
     css: string;
   };
   templates: Array<{
-    id: number;
+    id: string;
     name: string;
     questionTemplate: string;
     answerTemplate: string;
   }>;
   deckName: string;
-  deckId: number;
+  deckId: string;
 };
 
 export type BrowseOptions = {
@@ -87,7 +87,7 @@ export function useBrowse(
 }
 
 export function useNoteDetail(
-  noteId: number | undefined,
+  noteId: string | undefined,
 ): UseQueryResult<NoteDetail> {
   const transport = useTransport();
 
@@ -105,9 +105,9 @@ export function useUpdateNote(): UseMutationResult<
   unknown,
   Error,
   {
-    noteId: number;
+    noteId: string;
     fields?: Record<string, string>;
-    deckId?: number;
+    deckId?: string;
     suspend?: boolean;
     bury?: boolean;
   }
@@ -116,7 +116,8 @@ export function useUpdateNote(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data) => transport.mutate<unknown>("/api/browse", "PATCH", data),
+    mutationFn: (data) =>
+      transport.mutate<unknown>("/api/browse", "PATCH", data),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["browse"] });
       void queryClient.invalidateQueries({
@@ -130,12 +131,12 @@ export function useUpdateNote(): UseMutationResult<
   });
 }
 
-export function useDeleteNote(): UseMutationResult<unknown, Error, number> {
+export function useDeleteNote(): UseMutationResult<unknown, Error, string> {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (noteId: number) =>
+    mutationFn: (noteId: string) =>
       transport.mutate<unknown>("/api/browse", "DELETE", { noteId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["browse"] });

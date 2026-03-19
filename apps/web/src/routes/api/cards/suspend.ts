@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/cards/suspend")({
       POST: async ({ request }) => {
         const session = await requireSession(request);
         const body = (await request.json()) as {
-          cardIds?: number[];
+          cardIds?: string[];
           suspend?: boolean;
         };
         if (!Array.isArray(body.cardIds) || body.cardIds.length === 0) {
@@ -23,7 +23,11 @@ export const Route = createFileRoute("/api/cards/suspend")({
             { status: 400 },
           );
         }
-        await cardService.suspendCards(body.cardIds, session.user.id, body.suspend);
+        await cardService.suspendCards(
+          body.cardIds,
+          session.user.id,
+          body.suspend,
+        );
         return Response.json({ success: true });
       },
     },

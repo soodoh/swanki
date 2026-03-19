@@ -10,10 +10,7 @@ export const Route = createFileRoute("/api/cards/$cardId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const cardId = Number(params.cardId);
-        if (Number.isNaN(cardId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const cardId = params.cardId;
         const result = await cardService.getById(cardId, session.user.id);
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });

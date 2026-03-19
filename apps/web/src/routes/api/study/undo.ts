@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/study/undo")({
     handlers: {
       POST: async ({ request }) => {
         const session = await requireSession(request);
-        const body = (await request.json()) as { cardId?: number };
+        const body = (await request.json()) as { cardId?: string };
 
         if (!body.cardId) {
           return Response.json(

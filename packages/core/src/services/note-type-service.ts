@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import type { AppDb } from "../db/index";
-import { noteTypes, cardTemplates, notes } from "../db/schema";
+import { noteTypes, cardTemplates, notes, deletions } from "../db/schema";
 
 type Db = AppDb;
 
@@ -45,7 +45,7 @@ export class NoteTypeService {
   }
 
   async addTemplate(
-    noteTypeId: number,
+    noteTypeId: string,
     userId: string,
     data: {
       name: string;
@@ -74,6 +74,7 @@ export class NoteTypeService {
     const ordinal =
       existing.length > 0 ? Math.max(...existing.map((t) => t.ordinal)) + 1 : 0;
 
+    const now = new Date();
     const template = await this.db
       .insert(cardTemplates)
       .values({
@@ -82,6 +83,7 @@ export class NoteTypeService {
         ordinal,
         questionTemplate: data.questionTemplate,
         answerTemplate: data.answerTemplate,
+        updatedAt: now,
       })
       .returning()
       .get();
@@ -90,7 +92,7 @@ export class NoteTypeService {
   }
 
   async getFirstNoteFields(
-    noteTypeId: number,
+    noteTypeId: string,
     userId: string,
   ): Promise<Record<string, string> | undefined> {
     const row = await this.db
@@ -103,7 +105,7 @@ export class NoteTypeService {
   }
 
   async getById(
-    id: number,
+    id: string,
     userId: string,
   ): Promise<NoteTypeWithTemplates | undefined> {
     const noteType = await this.db
@@ -148,7 +150,7 @@ export class NoteTypeService {
   }
 
   async updateTemplate(
-    templateId: number,
+    templateId: string,
     userId: string,
     data: { questionTemplate?: string; answerTemplate?: string },
   ): Promise<CardTemplate | undefined> {
@@ -166,7 +168,9 @@ export class NoteTypeService {
       return undefined;
     }
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
     if (data.questionTemplate !== undefined) {
       updateData.questionTemplate = data.questionTemplate;
     }
@@ -187,7 +191,7 @@ export class NoteTypeService {
       .get();
   }
 
-  async deleteTemplate(templateId: number, userId: string): Promise<void> {
+  async deleteTemplate(templateId: string, userId: string): Promise<void> {
     // Verify ownership: template -> noteType -> user
     const existing = await this.db
       .select()
@@ -206,10 +210,19 @@ export class NoteTypeService {
       .delete(cardTemplates)
       .where(eq(cardTemplates.id, templateId))
       .run();
+
+    await this.db
+      .insert(deletions)
+      .values({
+        tableName: "card_templates",
+        entityId: templateId,
+        userId,
+      })
+      .run();
   }
 
   async update(
-    id: number,
+    id: string,
     userId: string,
     data: {
       name?: string;
@@ -253,7 +266,7 @@ export class NoteTypeService {
       .get();
   }
 
-  async delete(id: number, userId: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const existing = await this.db
       .select()
       .from(noteTypes)
@@ -277,16 +290,33 @@ export class NoteTypeService {
       );
     }
 
-    // Delete all templates first
+    // Collect templates before deleting them
+    const templatesToDelete = await this.db
+      .select({ id: cardTemplates.id })
+      .from(cardTemplates)
+      .where(eq(cardTemplates.noteTypeId, id))
+      .all();
+
+    // Delete all templates and write tombstones
     await this.db
       .delete(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, id))
       .run();
+    for (const tmpl of templatesToDelete) {
+      await this.db
+        .insert(deletions)
+        .values({ tableName: "card_templates", entityId: tmpl.id, userId })
+        .run();
+    }
 
-    // Delete the note type
+    // Delete the note type and write tombstone
     await this.db
       .delete(noteTypes)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
+      .run();
+    await this.db
+      .insert(deletions)
+      .values({ tableName: "note_types", entityId: id, userId })
       .run();
   }
 }

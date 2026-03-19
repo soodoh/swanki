@@ -3,10 +3,10 @@ import type { UseQueryResult, UseMutationResult } from "@tanstack/react-query";
 import { useTransport } from "../transport";
 
 export type CardWithNote = {
-  id: number;
-  noteId: number;
-  deckId: number;
-  templateId: number;
+  id: string;
+  noteId: string;
+  deckId: string;
+  templateId: string;
   ordinal: number;
   due: string;
   stability: number | undefined;
@@ -29,8 +29,8 @@ export type CardCounts = {
 };
 
 export type StudyCardTemplate = {
-  id: number;
-  noteTypeId: number;
+  id: string;
+  noteTypeId: string;
   questionTemplate: string;
   answerTemplate: string;
 };
@@ -38,8 +38,8 @@ export type StudyCardTemplate = {
 export type StudySession = {
   cards: CardWithNote[];
   counts: CardCounts;
-  templates: Record<number, StudyCardTemplate>;
-  css: Record<number, string>;
+  templates: Record<string, StudyCardTemplate>;
+  css: Record<string, string>;
 };
 
 export type IntervalPreview = {
@@ -52,16 +52,16 @@ export type IntervalPreview = {
 };
 
 type ReviewInput = {
-  cardId: number;
+  cardId: string;
   rating: number;
   timeTakenMs: number;
 };
 
 type UndoInput = {
-  cardId: number;
+  cardId: string;
 };
 
-export function useStudySession(deckId: number): UseQueryResult<StudySession> {
+export function useStudySession(deckId: string): UseQueryResult<StudySession> {
   const transport = useTransport();
 
   return useQuery<StudySession>({
@@ -105,8 +105,8 @@ export function useUndoReview(): UseMutationResult<unknown, Error, UndoInput> {
   });
 }
 
-type SuspendInput = { cardIds: number[]; suspend: boolean };
-type BuryInput = { cardIds: number[]; bury?: boolean };
+type SuspendInput = { cardIds: string[]; suspend: boolean };
+type BuryInput = { cardIds: string[]; bury?: boolean };
 
 export function useSuspendCards(): UseMutationResult<
   unknown,
@@ -141,7 +141,7 @@ export function useBuryCard(): UseMutationResult<unknown, Error, BuryInput> {
 }
 
 export function useIntervalPreviews(
-  cardId: number | undefined,
+  cardId: string | undefined,
 ): UseQueryResult<Record<number, IntervalPreview>> {
   const transport = useTransport();
 

@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/note-types/templates/")({
         const session = await requireSession(request);
         const userId = session.user.id;
         const body = (await request.json()) as {
-          noteTypeId: number;
+          noteTypeId: string;
           name: string;
           questionTemplate: string;
           answerTemplate: string;

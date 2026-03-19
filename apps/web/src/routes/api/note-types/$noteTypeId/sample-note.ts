@@ -12,10 +12,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/sample-note")(
         GET: async ({ request, params }) => {
           const session = await requireSession(request);
           // oxlint-disable-next-line typescript/no-unsafe-member-access -- TanStack server handler params are untyped
-          const noteTypeId = Number(params.noteTypeId);
-          if (Number.isNaN(noteTypeId)) {
-            return Response.json({ error: "Invalid ID" }, { status: 400 });
-          }
+          const noteTypeId = params.noteTypeId;
           const fields = await noteTypeService.getFirstNoteFields(
             noteTypeId,
             session.user.id,

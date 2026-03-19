@@ -19,8 +19,8 @@ export type CardCounts = {
 export type TodayReviewData = {
   newStudied: number;
   reviewStudied: number;
-  reviewedNoteIds: Set<number>;
-  reviewedCardIds: Set<number>;
+  reviewedNoteIds: Set<string>;
+  reviewedCardIds: Set<string>;
 };
 
 export class CardService {
@@ -31,7 +31,7 @@ export class CardService {
 
   async getTodayReviewData(
     userId: string,
-    deckIds: number[],
+    deckIds: string[],
   ): Promise<TodayReviewData> {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -54,10 +54,10 @@ export class CardService {
       )
       .all();
 
-    const newCardIds = new Set<number>();
-    const reviewCardIds = new Set<number>();
-    const reviewedNoteIds = new Set<number>();
-    const reviewedCardIds = new Set<number>();
+    const newCardIds = new Set<string>();
+    const reviewCardIds = new Set<string>();
+    const reviewedNoteIds = new Set<string>();
+    const reviewedCardIds = new Set<string>();
 
     for (const row of rows) {
       reviewedCardIds.add(row.cardId);
@@ -81,7 +81,7 @@ export class CardService {
 
   async getDueCards(
     userId: string,
-    deckId: number,
+    deckId: string,
     options?: { includeChildren?: boolean },
   ): Promise<CardWithNote[]> {
     const now = new Date();
@@ -197,7 +197,7 @@ export class CardService {
     return [...learningCards, ...limitedReviews, ...limitedNew];
   }
 
-  async getById(id: number, userId: string): Promise<CardWithNote | undefined> {
+  async getById(id: string, userId: string): Promise<CardWithNote | undefined> {
     const row = await this.db
       .select({
         card: cards,
@@ -219,8 +219,8 @@ export class CardService {
   }
 
   async moveToDeck(
-    cardIds: number[],
-    deckId: number,
+    cardIds: string[],
+    deckId: string,
     userId: string,
   ): Promise<void> {
     if (cardIds.length === 0) {
@@ -248,7 +248,7 @@ export class CardService {
 
   async getDueCounts(
     userId: string,
-    deckId: number,
+    deckId: string,
     options?: { includeChildren?: boolean },
   ): Promise<CardCounts> {
     const dueCards = await this.getDueCards(userId, deckId, options);
@@ -266,7 +266,7 @@ export class CardService {
     return counts;
   }
 
-  async getCounts(userId: string, deckId: number): Promise<CardCounts> {
+  async getCounts(userId: string, deckId: string): Promise<CardCounts> {
     const rows = await this.db
       .select({
         state: cards.state,
@@ -296,7 +296,7 @@ export class CardService {
 
   async getPendingLearningCount(
     userId: string,
-    deckIds: number[],
+    deckIds: string[],
   ): Promise<number> {
     if (deckIds.length === 0) {
       return 0;
@@ -319,16 +319,16 @@ export class CardService {
   }
 
   async getDescendantDeckIds(
-    parentId: number,
+    parentId: string,
     userId: string,
-  ): Promise<number[]> {
+  ): Promise<string[]> {
     const children = await this.db
       .select({ id: decks.id })
       .from(decks)
       .where(and(eq(decks.parentId, parentId), eq(decks.userId, userId)))
       .all();
 
-    const result: number[] = [];
+    const result: string[] = [];
     for (const child of children) {
       result.push(child.id);
       const grandchildren = await this.getDescendantDeckIds(child.id, userId);
@@ -339,7 +339,7 @@ export class CardService {
   }
 
   async suspendCards(
-    cardIds: number[],
+    cardIds: string[],
     userId: string,
     suspend: boolean,
   ): Promise<void> {
@@ -359,7 +359,7 @@ export class CardService {
       .run();
   }
 
-  async buryCards(cardIds: number[], userId: string): Promise<void> {
+  async buryCards(cardIds: string[], userId: string): Promise<void> {
     if (cardIds.length === 0) return;
     const userCards = await this.db
       .select({ cardId: cards.id })
@@ -378,7 +378,7 @@ export class CardService {
       .run();
   }
 
-  async unburyCards(cardIds: number[], userId: string): Promise<void> {
+  async unburyCards(cardIds: string[], userId: string): Promise<void> {
     if (cardIds.length === 0) return;
     const userCards = await this.db
       .select({ cardId: cards.id })

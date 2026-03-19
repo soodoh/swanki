@@ -13,10 +13,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const deckId = Number(params.deckId);
-        if (Number.isNaN(deckId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const deckId = params.deckId;
         const deck = await deckService.getById(deckId, session.user.id);
         if (!deck) {
           return Response.json({ error: "Not found" }, { status: 404 });
@@ -25,14 +22,11 @@ export const Route = createFileRoute("/api/decks/$deckId")({
       },
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
-        const deckId = Number(params.deckId);
-        if (Number.isNaN(deckId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const deckId = params.deckId;
         const body = (await request.json()) as {
           name?: string;
           description?: string;
-          parentId?: number | undefined;
+          parentId?: string | undefined;
           settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
         };
         const deck = await deckService.update(deckId, session.user.id, body);
@@ -43,10 +37,7 @@ export const Route = createFileRoute("/api/decks/$deckId")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
-        const deckId = Number(params.deckId);
-        if (Number.isNaN(deckId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const deckId = params.deckId;
         await deckService.delete(deckId, session.user.id);
         return new Response(undefined, { status: 204 });
       },

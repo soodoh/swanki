@@ -18,8 +18,8 @@ type NoteTableProps = {
   total: number;
   page: number;
   limit: number;
-  selectedNoteId: number | undefined;
-  onSelectNote: (noteId: number) => void;
+  selectedNoteId: string | undefined;
+  onSelectNote: (noteId: string) => void;
   sortBy: BrowseOptions["sortBy"];
   sortDir: BrowseOptions["sortDir"];
   onSortChange: (
