@@ -302,13 +302,64 @@ export function registerIpcHandlers(
         return { ok: true };
       }
 
+      // Card suspend / bury
+      if (endpoint === "/api/cards/suspend" && method === "POST") {
+        await cardService.suspendCards(
+          data.cardIds as number[],
+          userId,
+          data.suspend as boolean,
+        );
+        return { success: true };
+      }
+      if (endpoint === "/api/cards/bury" && method === "POST") {
+        if (data.bury === false) {
+          await cardService.unburyCards(data.cardIds as number[], userId);
+        } else {
+          await cardService.buryCards(data.cardIds as number[], userId);
+        }
+        return { success: true };
+      }
+
       // Browse mutations
       if (endpoint === "/api/browse" && method === "PATCH") {
-        return await noteService.update(
+        const noteData = await noteService.getById(
           data.noteId as number,
           userId,
-          data as { fields?: Record<string, string>; tags?: string },
         );
+        if (noteData) {
+          if (data.fields || data.tags) {
+            await noteService.update(
+              data.noteId as number,
+              userId,
+              data as { fields?: Record<string, string>; tags?: string },
+            );
+          }
+          if (data.deckId) {
+            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            await cardService.moveToDeck(
+              cardIds,
+              data.deckId as number,
+              userId,
+            );
+          }
+          if (typeof data.suspend === "boolean") {
+            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            await cardService.suspendCards(
+              cardIds,
+              userId,
+              data.suspend as boolean,
+            );
+          }
+          if (typeof data.bury === "boolean") {
+            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            if (data.bury) {
+              await cardService.buryCards(cardIds, userId);
+            } else {
+              await cardService.unburyCards(cardIds, userId);
+            }
+          }
+        }
+        return { success: true };
       }
       if (endpoint === "/api/browse" && method === "DELETE") {
         await noteService.delete(data.noteId as number, userId);

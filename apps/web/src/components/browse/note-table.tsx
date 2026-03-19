@@ -184,6 +184,11 @@ export function NoteTable({
                         {STATE_LABELS[s] ?? "Unknown"}
                       </Badge>
                     ))}
+                    {note.suspended && (
+                      <Badge variant="secondary" className="text-xs">
+                        Suspended
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

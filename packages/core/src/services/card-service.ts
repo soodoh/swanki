@@ -1,4 +1,4 @@
-import { eq, and, lte, gt, inArray, sql, gte } from "drizzle-orm";
+import { eq, and, lte, gt, isNull, or, inArray, sql, gte } from "drizzle-orm";
 import type { AppDb } from "../db/index";
 import { cards, notes, decks, reviewLogs } from "../db/schema";
 
@@ -135,6 +135,8 @@ export class CardService {
           eq(notes.userId, userId),
           inArray(cards.deckId, deckIds),
           lte(cards.due, now),
+          eq(cards.suspended, 0),
+          or(isNull(cards.buriedUntil), lte(cards.buriedUntil, now)),
         ),
       )
       .all();
@@ -334,5 +336,62 @@ export class CardService {
     }
 
     return result;
+  }
+
+  async suspendCards(
+    cardIds: number[],
+    userId: string,
+    suspend: boolean,
+  ): Promise<void> {
+    if (cardIds.length === 0) return;
+    const userCards = await this.db
+      .select({ cardId: cards.id })
+      .from(cards)
+      .innerJoin(notes, eq(cards.noteId, notes.id))
+      .where(and(inArray(cards.id, cardIds), eq(notes.userId, userId)))
+      .all();
+    const validCardIds = userCards.map((c) => c.cardId);
+    if (validCardIds.length === 0) return;
+    await this.db
+      .update(cards)
+      .set({ suspended: suspend ? 1 : 0, updatedAt: new Date() })
+      .where(inArray(cards.id, validCardIds))
+      .run();
+  }
+
+  async buryCards(cardIds: number[], userId: string): Promise<void> {
+    if (cardIds.length === 0) return;
+    const userCards = await this.db
+      .select({ cardId: cards.id })
+      .from(cards)
+      .innerJoin(notes, eq(cards.noteId, notes.id))
+      .where(and(inArray(cards.id, cardIds), eq(notes.userId, userId)))
+      .all();
+    const validCardIds = userCards.map((c) => c.cardId);
+    if (validCardIds.length === 0) return;
+    const tomorrow = new Date();
+    tomorrow.setHours(24, 0, 0, 0); // next midnight
+    await this.db
+      .update(cards)
+      .set({ buriedUntil: tomorrow, updatedAt: new Date() })
+      .where(inArray(cards.id, validCardIds))
+      .run();
+  }
+
+  async unburyCards(cardIds: number[], userId: string): Promise<void> {
+    if (cardIds.length === 0) return;
+    const userCards = await this.db
+      .select({ cardId: cards.id })
+      .from(cards)
+      .innerJoin(notes, eq(cards.noteId, notes.id))
+      .where(and(inArray(cards.id, cardIds), eq(notes.userId, userId)))
+      .all();
+    const validCardIds = userCards.map((c) => c.cardId);
+    if (validCardIds.length === 0) return;
+    await this.db
+      .update(cards)
+      .set({ buriedUntil: null, updatedAt: new Date() })
+      .where(inArray(cards.id, validCardIds))
+      .run();
   }
 }

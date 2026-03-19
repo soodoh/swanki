@@ -113,6 +113,8 @@ export const cards = sqliteTable(
     lapses: integer("lapses").default(0),
     state: integer("state").default(0), // 0=new, 1=learning, 2=review, 3=relearning
     lastReview: integer("last_review", { mode: "timestamp" }),
+    suspended: integer("suspended").default(0).notNull(), // 0=active, 1=suspended
+    buriedUntil: integer("buried_until", { mode: "timestamp" }), // null=not buried; auto-clears when past
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

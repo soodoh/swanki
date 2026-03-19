@@ -105,6 +105,41 @@ export function useUndoReview(): UseMutationResult<unknown, Error, UndoInput> {
   });
 }
 
+type SuspendInput = { cardIds: number[]; suspend: boolean };
+type BuryInput = { cardIds: number[]; bury?: boolean };
+
+export function useSuspendCards(): UseMutationResult<
+  unknown,
+  Error,
+  SuspendInput
+> {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SuspendInput) =>
+      transport.mutate("/api/cards/suspend", "POST", input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["study-session"] });
+      void queryClient.invalidateQueries({ queryKey: ["browse"] });
+      void queryClient.invalidateQueries({ queryKey: ["deck-counts"] });
+    },
+  });
+}
+
+export function useBuryCard(): UseMutationResult<unknown, Error, BuryInput> {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BuryInput) =>
+      transport.mutate("/api/cards/bury", "POST", input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["study-session"] });
+      void queryClient.invalidateQueries({ queryKey: ["browse"] });
+      void queryClient.invalidateQueries({ queryKey: ["deck-counts"] });
+    },
+  });
+}
+
 export function useIntervalPreviews(
   cardId: number | undefined,
 ): UseQueryResult<Record<number, IntervalPreview>> {
