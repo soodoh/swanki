@@ -210,6 +210,15 @@ export class NoteTypeService {
       .delete(cardTemplates)
       .where(eq(cardTemplates.id, templateId))
       .run();
+
+    await this.db
+      .insert(deletions)
+      .values({
+        tableName: "card_templates",
+        entityId: templateId,
+        userId,
+      })
+      .run();
   }
 
   async update(
