@@ -322,7 +322,10 @@ export function registerIpcHandlers(
 
       // Browse mutations
       if (endpoint === "/api/browse" && method === "PATCH") {
-        const noteData = await noteService.getById(data.noteId as number, userId);
+        const noteData = await noteService.getById(
+          data.noteId as number,
+          userId,
+        );
         if (noteData) {
           if (data.fields || data.tags) {
             await noteService.update(
@@ -333,11 +336,19 @@ export function registerIpcHandlers(
           }
           if (data.deckId) {
             const cardIds = noteData.cards.map((c: { id: number }) => c.id);
-            await cardService.moveToDeck(cardIds, data.deckId as number, userId);
+            await cardService.moveToDeck(
+              cardIds,
+              data.deckId as number,
+              userId,
+            );
           }
           if (typeof data.suspend === "boolean") {
             const cardIds = noteData.cards.map((c: { id: number }) => c.id);
-            await cardService.suspendCards(cardIds, userId, data.suspend as boolean);
+            await cardService.suspendCards(
+              cardIds,
+              userId,
+              data.suspend as boolean,
+            );
           }
           if (typeof data.bury === "boolean") {
             const cardIds = noteData.cards.map((c: { id: number }) => c.id);
