@@ -302,6 +302,24 @@ export function registerIpcHandlers(
         return { ok: true };
       }
 
+      // Card suspend / bury
+      if (endpoint === "/api/cards/suspend" && method === "POST") {
+        await cardService.suspendCards(
+          data.cardIds as number[],
+          userId,
+          data.suspend as boolean,
+        );
+        return { success: true };
+      }
+      if (endpoint === "/api/cards/bury" && method === "POST") {
+        if (data.bury === false) {
+          await cardService.unburyCards(data.cardIds as number[], userId);
+        } else {
+          await cardService.buryCards(data.cardIds as number[], userId);
+        }
+        return { success: true };
+      }
+
       // Browse mutations
       if (endpoint === "/api/browse" && method === "PATCH") {
         return await noteService.update(
