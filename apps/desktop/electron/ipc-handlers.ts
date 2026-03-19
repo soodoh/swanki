@@ -322,11 +322,33 @@ export function registerIpcHandlers(
 
       // Browse mutations
       if (endpoint === "/api/browse" && method === "PATCH") {
-        return await noteService.update(
-          data.noteId as number,
-          userId,
-          data as { fields?: Record<string, string>; tags?: string },
-        );
+        const noteData = await noteService.getById(data.noteId as number, userId);
+        if (noteData) {
+          if (data.fields || data.tags) {
+            await noteService.update(
+              data.noteId as number,
+              userId,
+              data as { fields?: Record<string, string>; tags?: string },
+            );
+          }
+          if (data.deckId) {
+            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            await cardService.moveToDeck(cardIds, data.deckId as number, userId);
+          }
+          if (typeof data.suspend === "boolean") {
+            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            await cardService.suspendCards(cardIds, userId, data.suspend as boolean);
+          }
+          if (typeof data.bury === "boolean") {
+            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            if (data.bury) {
+              await cardService.buryCards(cardIds, userId);
+            } else {
+              await cardService.unburyCards(cardIds, userId);
+            }
+          }
+        }
+        return { success: true };
       }
       if (endpoint === "/api/browse" && method === "DELETE") {
         await noteService.delete(data.noteId as number, userId);

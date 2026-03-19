@@ -135,6 +135,10 @@ export function BrowsePage(): React.ReactElement {
               setSelectedNoteId(undefined);
             }
           }}
+          suspended={
+            data?.notes.find((n) => n.noteId === selectedNoteId)?.suspended ??
+            false
+          }
         />
       )}
     </div>

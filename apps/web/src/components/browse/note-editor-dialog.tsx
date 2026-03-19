@@ -52,10 +52,12 @@ export function NoteEditorDialog({
   noteId,
   open,
   onOpenChange,
+  suspended = false,
 }: {
   noteId: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  suspended?: boolean;
 }): React.ReactElement {
   const { data: noteDetail, isLoading, error } = useNoteDetail(noteId);
   const noteTypeId = noteDetail?.noteType?.id;
@@ -163,6 +165,30 @@ export function NoteEditorDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Suspend / Bury actions */}
+                  <div className="flex gap-2 border-t pt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateNote.isPending}
+                      onClick={() => {
+                        updateNote.mutate({ noteId, suspend: !suspended });
+                      }}
+                    >
+                      {suspended ? "Unsuspend Note" : "Suspend Note"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateNote.isPending}
+                      onClick={() => {
+                        updateNote.mutate({ noteId, bury: true });
+                      }}
+                    >
+                      Bury Note
+                    </Button>
                   </div>
 
                   {/* Note fields */}
