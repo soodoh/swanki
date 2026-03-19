@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import type { AppDb } from "../db/index";
-import { noteTypes, cardTemplates, notes } from "../db/schema";
+import { noteTypes, cardTemplates, notes, deletions } from "../db/schema";
 
 type Db = AppDb;
 
@@ -281,16 +281,33 @@ export class NoteTypeService {
       );
     }
 
-    // Delete all templates first
+    // Collect templates before deleting them
+    const templatesToDelete = await this.db
+      .select({ id: cardTemplates.id })
+      .from(cardTemplates)
+      .where(eq(cardTemplates.noteTypeId, id))
+      .all();
+
+    // Delete all templates and write tombstones
     await this.db
       .delete(cardTemplates)
       .where(eq(cardTemplates.noteTypeId, id))
       .run();
+    for (const tmpl of templatesToDelete) {
+      await this.db
+        .insert(deletions)
+        .values({ tableName: "card_templates", entityId: tmpl.id, userId })
+        .run();
+    }
 
-    // Delete the note type
+    // Delete the note type and write tombstone
     await this.db
       .delete(noteTypes)
       .where(and(eq(noteTypes.id, id), eq(noteTypes.userId, userId)))
+      .run();
+    await this.db
+      .insert(deletions)
+      .values({ tableName: "note_types", entityId: id, userId })
       .run();
   }
 }

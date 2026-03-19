@@ -9,6 +9,7 @@ import {
   reviewLogs,
   noteMedia,
   media,
+  deletions,
 } from "../db/schema";
 import type { AppFileSystem } from "../filesystem";
 
@@ -121,8 +122,14 @@ export class DeckService {
         .where(inArray(reviewLogs.cardId, cardIds))
         .run();
 
-      // Delete the cards
+      // Delete the cards and write tombstones
       await this.db.delete(cards).where(inArray(cards.id, cardIds)).run();
+      for (const cardId of cardIds) {
+        await this.db
+          .insert(deletions)
+          .values({ tableName: "cards", entityId: cardId, userId })
+          .run();
+      }
 
       // Find orphaned notes (notes with no remaining cards)
       const orphanedNoteIds: string[] = [];
@@ -140,17 +147,24 @@ export class DeckService {
       if (orphanedNoteIds.length > 0) {
         // Collect media IDs referenced by orphaned notes
         const orphanedRefs = await this.db
-          .select({ mediaId: noteMedia.mediaId })
+          .select({ mediaId: noteMedia.mediaId, id: noteMedia.id })
           .from(noteMedia)
           .where(inArray(noteMedia.noteId, orphanedNoteIds))
           .all();
         const mediaIds = [...new Set(orphanedRefs.map((r) => r.mediaId))];
+        const noteMediaIds = orphanedRefs.map((r) => r.id);
 
-        // Delete noteMedia entries for orphaned notes
+        // Delete noteMedia entries for orphaned notes and write tombstones
         await this.db
           .delete(noteMedia)
           .where(inArray(noteMedia.noteId, orphanedNoteIds))
           .run();
+        for (const noteMediaId of noteMediaIds) {
+          await this.db
+            .insert(deletions)
+            .values({ tableName: "note_media", entityId: noteMediaId, userId })
+            .run();
+        }
 
         // Collect note type IDs from orphaned notes before deleting them
         const orphanedNoteTypeIds = [
@@ -165,11 +179,17 @@ export class DeckService {
           ),
         ];
 
-        // Delete orphaned notes
+        // Delete orphaned notes and write tombstones
         await this.db
           .delete(notes)
           .where(inArray(notes.id, orphanedNoteIds))
           .run();
+        for (const noteId of orphanedNoteIds) {
+          await this.db
+            .insert(deletions)
+            .values({ tableName: "notes", entityId: noteId, userId })
+            .run();
+        }
 
         // Clean up note types that no longer have any notes
         for (const noteTypeId of orphanedNoteTypeIds) {
@@ -180,13 +200,35 @@ export class DeckService {
             .get();
 
           if (!stillUsed) {
+            // Collect templates before deleting
+            const templatesToDelete = await this.db
+              .select({ id: cardTemplates.id })
+              .from(cardTemplates)
+              .where(eq(cardTemplates.noteTypeId, noteTypeId))
+              .all();
+
             await this.db
               .delete(cardTemplates)
               .where(eq(cardTemplates.noteTypeId, noteTypeId))
               .run();
+            for (const tmpl of templatesToDelete) {
+              await this.db
+                .insert(deletions)
+                .values({
+                  tableName: "card_templates",
+                  entityId: tmpl.id,
+                  userId,
+                })
+                .run();
+            }
+
             await this.db
               .delete(noteTypes)
               .where(eq(noteTypes.id, noteTypeId))
+              .run();
+            await this.db
+              .insert(deletions)
+              .values({ tableName: "note_types", entityId: noteTypeId, userId })
               .run();
           }
         }
@@ -219,6 +261,10 @@ export class DeckService {
                 // File may already be gone
               }
               await this.db.delete(media).where(eq(media.id, mediaId)).run();
+              await this.db
+                .insert(deletions)
+                .values({ tableName: "media", entityId: mediaId, userId })
+                .run();
             }
           }
         }
@@ -232,10 +278,14 @@ export class DeckService {
       .where(and(eq(decks.parentId, id), eq(decks.userId, userId)))
       .run();
 
-    // Delete the deck
+    // Delete the deck and write tombstone
     await this.db
       .delete(decks)
       .where(and(eq(decks.id, id), eq(decks.userId, userId)))
+      .run();
+    await this.db
+      .insert(deletions)
+      .values({ tableName: "decks", entityId: id, userId })
       .run();
   }
 }
