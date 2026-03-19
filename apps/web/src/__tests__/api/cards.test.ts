@@ -424,4 +424,161 @@ describe("CardService", () => {
       });
     });
   });
+
+  describe("suspend and bury", () => {
+    it("excludes suspended cards from getDueCards", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+      // Set card to due and suspended
+      db.update(cards)
+        .set({ due: pastDate, state: 0, suspended: 1 })
+        .where(eq(cards.deckId, deckId))
+        .run();
+
+      const due = await cardService.getDueCards(userId, deckId);
+      expect(due).toHaveLength(0);
+    });
+
+    it("excludes buried cards from getDueCards", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+      const futureBury = new Date(Date.now() + 86_400_000); // tomorrow
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+      db.update(cards)
+        .set({ due: pastDate, state: 0, buriedUntil: futureBury })
+        .where(eq(cards.deckId, deckId))
+        .run();
+
+      const due = await cardService.getDueCards(userId, deckId);
+      expect(due).toHaveLength(0);
+    });
+
+    it("includes cards whose buriedUntil has passed", async () => {
+      const pastDate = new Date(Date.now() - 60_000);
+      const pastBury = new Date(Date.now() - 1000); // already past
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+      db.update(cards)
+        .set({ due: pastDate, state: 0, buriedUntil: pastBury })
+        .where(eq(cards.deckId, deckId))
+        .run();
+
+      const due = await cardService.getDueCards(userId, deckId);
+      expect(due).toHaveLength(1);
+    });
+
+    it("suspendCards sets suspended=1 for owned cards", async () => {
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+      const allCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.deckId, deckId))
+        .all();
+      const cardId = allCards[0].id;
+
+      await cardService.suspendCards([cardId], userId, true);
+
+      const updated = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.id, cardId))
+        .get();
+      expect(updated!.suspended).toBe(1);
+
+      // Unsuspend
+      await cardService.suspendCards([cardId], userId, false);
+      const restored = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.id, cardId))
+        .get();
+      expect(restored!.suspended).toBe(0);
+    });
+
+    it("buryCards sets buriedUntil to next midnight", async () => {
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+      const allCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.deckId, deckId))
+        .all();
+      const cardId = allCards[0].id;
+
+      const before = Date.now();
+      await cardService.buryCards([cardId], userId);
+
+      const updated = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.id, cardId))
+        .get();
+      expect(updated!.buriedUntil).not.toBeNull();
+      expect(updated!.buriedUntil!.getTime()).toBeGreaterThan(before);
+    });
+
+    it("unburyCards clears buriedUntil", async () => {
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+      const allCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.deckId, deckId))
+        .all();
+      const cardId = allCards[0].id;
+
+      await cardService.buryCards([cardId], userId);
+      await cardService.unburyCards([cardId], userId);
+
+      const updated = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.id, cardId))
+        .get();
+      expect(updated!.buriedUntil).toBeNull();
+    });
+
+    it("suspendCards ignores cards from another user", async () => {
+      await noteService.create(userId, {
+        noteTypeId,
+        deckId,
+        fields: { Front: "Q1", Back: "A1" },
+      });
+      const allCards = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.deckId, deckId))
+        .all();
+      const cardId = allCards[0].id;
+
+      await cardService.suspendCards([cardId], "other-user", true);
+
+      const updated = await db
+        .select()
+        .from(cards)
+        .where(eq(cards.id, cardId))
+        .get();
+      expect(updated!.suspended).toBe(0); // unchanged
+    });
+  });
 });
