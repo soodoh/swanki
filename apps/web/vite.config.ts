@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       tsconfigPaths(),
       tanstackStart(),
-      nitro({ preset: "node-server" }),
+      nitro({ preset: "bun" }),
       viteReact(),
     ],
   };

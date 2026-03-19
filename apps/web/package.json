@@ -4,13 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "dev": "bun --bun vite dev",
+    "build": "bun --bun vite build",
+    "start": "bun .output/server/index.mjs",
     "lint": "bun x oxlint -c oxlint.config.mjs . && prettier --check .",
     "lint:fix": "bun x oxlint -c oxlint.config.mjs --fix . && prettier --write .",
-    "test": "node ../../scripts/rebuild-sqlite.mjs && vitest",
-    "test:run": "node ../../scripts/rebuild-sqlite.mjs && vitest run",
+    "test": "bun --bun vitest",
+    "test:run": "bun --bun vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "postinstall": "cp node_modules/sql.js/dist/sql-wasm.wasm public/sql-wasm.wasm 2>/dev/null || true"
