@@ -41,12 +41,13 @@ import {
   getCloudServerUrl,
 } from "./auth";
 import {
-  syncPull,
+  syncCycle,
   getSyncStatus,
   startPeriodicSync,
   stopPeriodicSync,
   setCloudServerUrl,
   getLastSyncTime,
+  scheduleSyncAfterMutation,
 } from "./sync";
 
 export function registerIpcHandlers(
@@ -230,325 +231,285 @@ export function registerIpcHandlers(
     },
   );
 
-  // Mutation handler
-  ipcMain.handle(
-    "db:mutate",
-    async (
-      _event,
-      {
-        endpoint,
-        method,
-        body,
-      }: { endpoint: string; method: string; body?: unknown },
-    ) => {
-      const data = body as Record<string, unknown>;
+  // Mutation handler — wraps all mutation logic and triggers debounced sync on success
+  async function handleMutation(
+    endpoint: string,
+    method: string,
+    body?: unknown,
+  ): Promise<unknown> {
+    const data = body as Record<string, unknown>;
 
-      // Deck mutations
-      if (endpoint === "/api/decks" && method === "POST") {
-        return await deckService.create(
-          userId,
-          data as { name: string; parentId?: string },
-        );
-      }
-      const deckMatch = endpoint.match(/^\/api\/decks\/([^/]+)$/);
-      if (deckMatch && method === "PUT") {
-        return await deckService.update(deckMatch[1], userId, data);
-      }
-      if (deckMatch && method === "DELETE") {
-        return await deckService.delete(deckMatch[1], userId);
-      }
-
-      // Study mutations
-      if (endpoint === "/api/study/review" && method === "POST") {
-        return await studyService.submitReview(
-          userId,
-          data.cardId as string,
-          data.rating as number,
-          data.timeTakenMs as number,
-        );
-      }
-      if (endpoint === "/api/study/undo" && method === "POST") {
-        return await studyService.undoLastReview(userId, data.cardId as string);
-      }
-
-      // Note mutations
-      if (endpoint === "/api/notes" && method === "POST") {
-        return await noteService.create(
-          userId,
-          data as {
-            noteTypeId: string;
-            deckId: string;
-            fields: Record<string, string>;
-            tags?: string;
-          },
-        );
-      }
-      const noteMatch = endpoint.match(/^\/api\/notes\/([^/]+)$/);
-      if (noteMatch && method === "PUT") {
-        return await noteService.update(noteMatch[1], userId, data);
-      }
-      if (noteMatch && method === "DELETE") {
-        await noteService.delete(noteMatch[1], userId);
-        return { ok: true };
-      }
-
-      // Card suspend / bury
-      if (endpoint === "/api/cards/suspend" && method === "POST") {
-        await cardService.suspendCards(
-          data.cardIds as string[],
-          userId,
-          data.suspend as boolean,
-        );
-        return { success: true };
-      }
-      if (endpoint === "/api/cards/bury" && method === "POST") {
-        if (data.bury === false) {
-          await cardService.unburyCards(data.cardIds as string[], userId);
-        } else {
-          await cardService.buryCards(data.cardIds as string[], userId);
-        }
-        return { success: true };
-      }
-
-      // Browse mutations
-      if (endpoint === "/api/browse" && method === "PATCH") {
-        const noteData = await noteService.getById(
-          data.noteId as string,
-          userId,
-        );
-        if (noteData) {
-          if (data.fields || data.tags) {
-            await noteService.update(
-              data.noteId as string,
-              userId,
-              data as { fields?: Record<string, string>; tags?: string },
-            );
-          }
-          if (data.deckId) {
-            const cardIds = noteData.cards.map((c: { id: string }) => c.id);
-            await cardService.moveToDeck(
-              cardIds,
-              data.deckId as string,
-              userId,
-            );
-          }
-          if (typeof data.suspend === "boolean") {
-            const cardIds = noteData.cards.map((c: { id: string }) => c.id);
-            await cardService.suspendCards(
-              cardIds,
-              userId,
-              data.suspend as boolean,
-            );
-          }
-          if (typeof data.bury === "boolean") {
-            const cardIds = noteData.cards.map((c: { id: string }) => c.id);
-            if (data.bury) {
-              await cardService.buryCards(cardIds, userId);
-            } else {
-              await cardService.unburyCards(cardIds, userId);
-            }
-          }
-        }
-        return { success: true };
-      }
-      if (endpoint === "/api/browse" && method === "DELETE") {
-        await noteService.delete(data.noteId as string, userId);
-        return { ok: true };
-      }
-
-      // Note type mutations
-      if (endpoint === "/api/note-types" && method === "POST") {
-        return await noteTypeService.create(
-          userId,
-          data as {
-            name: string;
-            fields: { name: string; ordinal: number }[];
-            css?: string;
-          },
-        );
-      }
-      const ntMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
-      if (ntMatch && method === "PUT") {
-        return await noteTypeService.update(ntMatch[1], userId, data);
-      }
-      if (ntMatch && method === "DELETE") {
-        await noteTypeService.delete(ntMatch[1], userId);
-        return { ok: true };
-      }
-
-      // Template mutations
-      if (endpoint === "/api/note-types/templates" && method === "POST") {
-        return await noteTypeService.addTemplate(
-          data.noteTypeId as string,
-          userId,
-          data as {
-            name: string;
-            questionTemplate: string;
-            answerTemplate: string;
-          },
-        );
-      }
-      const tplMatch = endpoint.match(
-        /^\/api\/note-types\/templates\/([^/]+)$/,
+    // Deck mutations
+    if (endpoint === "/api/decks" && method === "POST") {
+      return await deckService.create(
+        userId,
+        data as { name: string; parentId?: string },
       );
-      if (tplMatch && method === "PUT") {
-        return await noteTypeService.updateTemplate(tplMatch[1], userId, data);
-      }
-      if (tplMatch && method === "DELETE") {
-        await noteTypeService.deleteTemplate(tplMatch[1], userId);
-        return { ok: true };
-      }
+    }
+    const deckMatch = endpoint.match(/^\/api\/decks\/([^/]+)$/);
+    if (deckMatch && method === "PUT") {
+      return await deckService.update(deckMatch[1], userId, data);
+    }
+    if (deckMatch && method === "DELETE") {
+      return await deckService.delete(deckMatch[1], userId);
+    }
 
-      // Import: preview (merge stats)
-      if (endpoint === "/api/import/preview" && method === "POST") {
-        const fileId = data.fileId as string;
-        const mergeMode = data.mergeMode as string | undefined;
-        if (!fileId) {
-          throw new Error("fileId is required");
-        }
-        const filePath = getUploadedFilePath(fileId);
-        if (!filePath) {
-          throw new Error("Upload not found or expired");
-        }
-        const ext = filePath.slice(filePath.lastIndexOf("."));
-        const format = detectFormat(`file${ext}`);
+    // Study mutations
+    if (endpoint === "/api/study/review" && method === "POST") {
+      return await studyService.submitReview(
+        userId,
+        data.cardId as string,
+        data.rating as number,
+        data.timeTakenMs as number,
+      );
+    }
+    if (endpoint === "/api/study/undo" && method === "POST") {
+      return await studyService.undoLastReview(userId, data.cardId as string);
+    }
 
-        const fileData = readFileSync(filePath);
-        const buffer = fileData.buffer.slice(
-          fileData.byteOffset,
-          fileData.byteOffset + fileData.byteLength,
+    // Note mutations
+    if (endpoint === "/api/notes" && method === "POST") {
+      return await noteService.create(
+        userId,
+        data as {
+          noteTypeId: string;
+          deckId: string;
+          fields: Record<string, string>;
+          tags?: string;
+        },
+      );
+    }
+    const noteMatch = endpoint.match(/^\/api\/notes\/([^/]+)$/);
+    if (noteMatch && method === "PUT") {
+      return await noteService.update(noteMatch[1], userId, data);
+    }
+    if (noteMatch && method === "DELETE") {
+      await noteService.delete(noteMatch[1], userId);
+      return { ok: true };
+    }
+
+    // Card suspend / bury
+    if (endpoint === "/api/cards/suspend" && method === "POST") {
+      await cardService.suspendCards(
+        data.cardIds as string[],
+        userId,
+        data.suspend as boolean,
+      );
+      return { success: true };
+    }
+    if (endpoint === "/api/cards/bury" && method === "POST") {
+      if (data.bury === false) {
+        await cardService.unburyCards(data.cardIds as string[], userId);
+      } else {
+        await cardService.buryCards(data.cardIds as string[], userId);
+      }
+      return { success: true };
+    }
+
+    // Browse mutations
+    if (endpoint === "/api/browse" && method === "PATCH") {
+      const noteData = await noteService.getById(data.noteId as string, userId);
+      if (noteData) {
+        if (data.fields || data.tags) {
+          await noteService.update(
+            data.noteId as string,
+            userId,
+            data as { fields?: Record<string, string>; tags?: string },
+          );
+        }
+        if (data.deckId) {
+          const cardIds = noteData.cards.map((c: { id: string }) => c.id);
+          await cardService.moveToDeck(cardIds, data.deckId as string, userId);
+        }
+        if (typeof data.suspend === "boolean") {
+          const cardIds = noteData.cards.map((c: { id: string }) => c.id);
+          await cardService.suspendCards(
+            cardIds,
+            userId,
+            data.suspend as boolean,
+          );
+        }
+        if (typeof data.bury === "boolean") {
+          const cardIds = noteData.cards.map((c: { id: string }) => c.id);
+          if (data.bury) {
+            await cardService.buryCards(cardIds, userId);
+          } else {
+            await cardService.unburyCards(cardIds, userId);
+          }
+        }
+      }
+      return { success: true };
+    }
+    if (endpoint === "/api/browse" && method === "DELETE") {
+      await noteService.delete(data.noteId as string, userId);
+      return { ok: true };
+    }
+
+    // Note type mutations
+    if (endpoint === "/api/note-types" && method === "POST") {
+      return await noteTypeService.create(
+        userId,
+        data as {
+          name: string;
+          fields: { name: string; ordinal: number }[];
+          css?: string;
+        },
+      );
+    }
+    const ntMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
+    if (ntMatch && method === "PUT") {
+      return await noteTypeService.update(ntMatch[1], userId, data);
+    }
+    if (ntMatch && method === "DELETE") {
+      await noteTypeService.delete(ntMatch[1], userId);
+      return { ok: true };
+    }
+
+    // Template mutations
+    if (endpoint === "/api/note-types/templates" && method === "POST") {
+      return await noteTypeService.addTemplate(
+        data.noteTypeId as string,
+        userId,
+        data as {
+          name: string;
+          questionTemplate: string;
+          answerTemplate: string;
+        },
+      );
+    }
+    const tplMatch = endpoint.match(/^\/api\/note-types\/templates\/([^/]+)$/);
+    if (tplMatch && method === "PUT") {
+      return await noteTypeService.updateTemplate(tplMatch[1], userId, data);
+    }
+    if (tplMatch && method === "DELETE") {
+      await noteTypeService.deleteTemplate(tplMatch[1], userId);
+      return { ok: true };
+    }
+
+    // Import: preview (merge stats)
+    if (endpoint === "/api/import/preview" && method === "POST") {
+      const fileId = data.fileId as string;
+      const mergeMode = data.mergeMode as string | undefined;
+      if (!fileId) {
+        throw new Error("fileId is required");
+      }
+      const filePath = getUploadedFilePath(fileId);
+      if (!filePath) {
+        throw new Error("Upload not found or expired");
+      }
+      const ext = filePath.slice(filePath.lastIndexOf("."));
+      const format = detectFormat(`file${ext}`);
+
+      const fileData = readFileSync(filePath);
+      const buffer = fileData.buffer.slice(
+        fileData.byteOffset,
+        fileData.byteOffset + fileData.byteLength,
+      );
+
+      if (format === "crowdanki") {
+        const { json } = parseCrowdAnkiZip(buffer);
+        const crowdAnkiData = parseCrowdAnki(json);
+
+        // Compute merge stats
+        const existingNotes = db
+          .select({ ankiGuid: notes.ankiGuid, fields: notes.fields })
+          .from(notes)
+          .where(eq(notes.userId, userId))
+          .all();
+        const existingMap = new Map<string, Record<string, string>>();
+        for (const n of existingNotes) {
+          if (n.ankiGuid) existingMap.set(n.ankiGuid, n.fields);
+        }
+
+        const modelMap = new Map(
+          crowdAnkiData.noteModels.map((m) => [m.uuid, m]),
         );
+        const allNotes = (function collectAll(
+          d: typeof crowdAnkiData,
+        ): typeof crowdAnkiData.notes {
+          const result = [...d.notes];
+          for (const child of d.children) result.push(...collectAll(child));
+          return result;
+        })(crowdAnkiData);
 
-        if (format === "crowdanki") {
-          const { json } = parseCrowdAnkiZip(buffer);
-          const crowdAnkiData = parseCrowdAnki(json);
-
-          // Compute merge stats
-          const existingNotes = db
-            .select({ ankiGuid: notes.ankiGuid, fields: notes.fields })
-            .from(notes)
-            .where(eq(notes.userId, userId))
-            .all();
-          const existingMap = new Map<string, Record<string, string>>();
-          for (const n of existingNotes) {
-            if (n.ankiGuid) existingMap.set(n.ankiGuid, n.fields);
-          }
-
-          const modelMap = new Map(
-            crowdAnkiData.noteModels.map((m) => [m.uuid, m]),
-          );
-          const allNotes = (function collectAll(
-            d: typeof crowdAnkiData,
-          ): typeof crowdAnkiData.notes {
-            const result = [...d.notes];
-            for (const child of d.children) result.push(...collectAll(child));
-            return result;
-          })(crowdAnkiData);
-
-          let newNotes = 0,
-            updatedNotes = 0,
-            unchangedNotes = 0;
-          for (const note of allNotes) {
-            if (!note.guid || !existingMap.has(note.guid)) {
-              newNotes++;
-            } else {
-              const model = modelMap.get(note.noteModelUuid);
-              const incomingFields: Record<string, string> = {};
-              if (model) {
-                for (const field of model.fields) {
-                  incomingFields[field.name] = note.fields[field.ordinal] ?? "";
-                }
+        let newNotes = 0,
+          updatedNotes = 0,
+          unchangedNotes = 0;
+        for (const note of allNotes) {
+          if (!note.guid || !existingMap.has(note.guid)) {
+            newNotes++;
+          } else {
+            const model = modelMap.get(note.noteModelUuid);
+            const incomingFields: Record<string, string> = {};
+            if (model) {
+              for (const field of model.fields) {
+                incomingFields[field.name] = note.fields[field.ordinal] ?? "";
               }
-              const strippedFields: Record<string, string> = {};
-              for (const key of Object.keys(incomingFields)) {
-                strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
-              }
-              const storedFields = existingMap.get(note.guid)!;
-              const fieldsMatch =
-                Object.keys(storedFields).length ===
-                  Object.keys(strippedFields).length &&
-                Object.keys(storedFields).every(
-                  (k) => (storedFields[k] ?? "") === (strippedFields[k] ?? ""),
-                );
-              if (fieldsMatch) unchangedNotes++;
-              else updatedNotes++;
             }
+            const strippedFields: Record<string, string> = {};
+            for (const key of Object.keys(incomingFields)) {
+              strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
+            }
+            const storedFields = existingMap.get(note.guid)!;
+            const fieldsMatch =
+              Object.keys(storedFields).length ===
+                Object.keys(strippedFields).length &&
+              Object.keys(storedFields).every(
+                (k) => (storedFields[k] ?? "") === (strippedFields[k] ?? ""),
+              );
+            if (fieldsMatch) unchangedNotes++;
+            else updatedNotes++;
           }
-          return { mergeStats: { newNotes, updatedNotes, unchangedNotes } };
+        }
+        return { mergeStats: { newNotes, updatedNotes, unchangedNotes } };
+      }
+
+      // APKG/COLPKG
+      const apkgData = parseApkg(buffer, { skipMedia: true });
+      if (mergeMode === "merge") {
+        const existingNotes = db
+          .select({ ankiGuid: notes.ankiGuid, fields: notes.fields })
+          .from(notes)
+          .where(eq(notes.userId, userId))
+          .all();
+        const existingMap = new Map<string, Record<string, string>>();
+        for (const n of existingNotes) {
+          if (n.ankiGuid) existingMap.set(n.ankiGuid, n.fields);
         }
 
-        // APKG/COLPKG
-        const apkgData = parseApkg(buffer, { skipMedia: true });
-        if (mergeMode === "merge") {
-          const existingNotes = db
-            .select({ ankiGuid: notes.ankiGuid, fields: notes.fields })
-            .from(notes)
-            .where(eq(notes.userId, userId))
-            .all();
-          const existingMap = new Map<string, Record<string, string>>();
-          for (const n of existingNotes) {
-            if (n.ankiGuid) existingMap.set(n.ankiGuid, n.fields);
-          }
-
-          const noteTypeById = new Map(
-            apkgData.noteTypes.map((nt) => [nt.id, nt]),
-          );
-          let newNotes = 0,
-            updatedNotes = 0,
-            unchangedNotes = 0;
-          for (const ankiNote of apkgData.notes) {
-            if (!ankiNote.guid || !existingMap.has(ankiNote.guid)) {
-              newNotes++;
-            } else {
-              const nt = noteTypeById.get(ankiNote.modelId);
-              const incomingFields: Record<string, string> = {};
-              if (nt) {
-                for (const field of nt.fields) {
-                  incomingFields[field.name] =
-                    ankiNote.fields[field.ordinal] ?? "";
-                }
+        const noteTypeById = new Map(
+          apkgData.noteTypes.map((nt) => [nt.id, nt]),
+        );
+        let newNotes = 0,
+          updatedNotes = 0,
+          unchangedNotes = 0;
+        for (const ankiNote of apkgData.notes) {
+          if (!ankiNote.guid || !existingMap.has(ankiNote.guid)) {
+            newNotes++;
+          } else {
+            const nt = noteTypeById.get(ankiNote.modelId);
+            const incomingFields: Record<string, string> = {};
+            if (nt) {
+              for (const field of nt.fields) {
+                incomingFields[field.name] =
+                  ankiNote.fields[field.ordinal] ?? "";
               }
-              const strippedFields: Record<string, string> = {};
-              for (const key of Object.keys(incomingFields)) {
-                strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
-              }
-              const storedFields = existingMap.get(ankiNote.guid)!;
-              const fieldsMatch =
-                Object.keys(storedFields).length ===
-                  Object.keys(strippedFields).length &&
-                Object.keys(storedFields).every(
-                  (k) => (storedFields[k] ?? "") === (strippedFields[k] ?? ""),
-                );
-              if (fieldsMatch) unchangedNotes++;
-              else updatedNotes++;
             }
+            const strippedFields: Record<string, string> = {};
+            for (const key of Object.keys(incomingFields)) {
+              strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
+            }
+            const storedFields = existingMap.get(ankiNote.guid)!;
+            const fieldsMatch =
+              Object.keys(storedFields).length ===
+                Object.keys(strippedFields).length &&
+              Object.keys(storedFields).every(
+                (k) => (storedFields[k] ?? "") === (strippedFields[k] ?? ""),
+              );
+            if (fieldsMatch) unchangedNotes++;
+            else updatedNotes++;
           }
-          return {
-            decks: apkgData.decks.map((d) => ({ name: d.name })),
-            noteTypes: apkgData.noteTypes.map((nt) => ({
-              name: nt.name,
-              fields: nt.fields,
-              templates: nt.templates.map((tmpl) => ({
-                name: tmpl.name,
-                questionFormat: tmpl.questionFormat,
-                answerFormat: tmpl.answerFormat,
-                ordinal: tmpl.ordinal,
-              })),
-              css: nt.css,
-            })),
-            sampleNotes: [],
-            totalCards: apkgData.cards.length,
-            totalNotes: apkgData.notes.length,
-            totalMedia: apkgData._unzipped
-              ? countMedia(apkgData._unzipped)
-              : apkgData.media.length,
-            mergeStats: { newNotes, updatedNotes, unchangedNotes },
-          };
         }
-
-        const totalMedia = apkgData._unzipped
-          ? countMedia(apkgData._unzipped)
-          : apkgData.media.length;
         return {
           decks: apkgData.decks.map((d) => ({ name: d.name })),
           noteTypes: apkgData.noteTypes.map((nt) => ({
@@ -565,179 +526,220 @@ export function registerIpcHandlers(
           sampleNotes: [],
           totalCards: apkgData.cards.length,
           totalNotes: apkgData.notes.length,
-          totalMedia,
+          totalMedia: apkgData._unzipped
+            ? countMedia(apkgData._unzipped)
+            : apkgData.media.length,
+          mergeStats: { newNotes, updatedNotes, unchangedNotes },
         };
       }
 
-      // Import: start async import (APKG/COLPKG)
-      if (endpoint === "/api/import/start" && method === "POST") {
-        const fileId = data.fileId as string;
-        const mergeMode = data.mergeMode as string | undefined;
-        if (!fileId) {
-          throw new Error("fileId is required");
-        }
-        const filePath = getUploadedFilePath(fileId);
-        if (!filePath) {
-          throw new Error("Upload not found or expired");
-        }
+      const totalMedia = apkgData._unzipped
+        ? countMedia(apkgData._unzipped)
+        : apkgData.media.length;
+      return {
+        decks: apkgData.decks.map((d) => ({ name: d.name })),
+        noteTypes: apkgData.noteTypes.map((nt) => ({
+          name: nt.name,
+          fields: nt.fields,
+          templates: nt.templates.map((tmpl) => ({
+            name: tmpl.name,
+            questionFormat: tmpl.questionFormat,
+            answerFormat: tmpl.answerFormat,
+            ordinal: tmpl.ordinal,
+          })),
+          css: nt.css,
+        })),
+        sampleNotes: [],
+        totalCards: apkgData.cards.length,
+        totalNotes: apkgData.notes.length,
+        totalMedia,
+      };
+    }
 
-        const jobId = createJob();
-        const merge = mergeMode === "merge";
-
-        // Process asynchronously
-        setTimeout(() => {
-          void (async () => {
-            try {
-              updateJob(jobId, {
-                phase: "parsing",
-                progress: 0,
-                detail: "Reading and parsing file...",
-              });
-
-              const fileData = readFileSync(filePath);
-              const buffer = fileData.buffer.slice(
-                fileData.byteOffset,
-                fileData.byteOffset + fileData.byteLength,
-              );
-              const apkgData = parseApkg(buffer);
-
-              updateJob(jobId, {
-                phase: "media",
-                progress: 0,
-                detail: `Importing ${apkgData.media.length} media files...`,
-              });
-
-              const { mapping: mediaMapping, warnings: mediaWarnings } =
-                await mediaService.importBatch(userId, apkgData.media);
-              const mediaCount = mediaMapping.size;
-
-              updateJob(jobId, {
-                phase: "notes",
-                progress: 0,
-                detail: "Importing notes and cards...",
-              });
-
-              const result = await importService.importFromApkgBatched(
-                userId,
-                apkgData,
-                mediaMapping,
-                merge,
-                (phase, progress, detail) => {
-                  updateJob(jobId, {
-                    phase: phase as "notes" | "cards",
-                    progress,
-                    detail,
-                  });
-                },
-              );
-
-              updateJob(jobId, {
-                status: "complete",
-                phase: "cleanup",
-                progress: 100,
-                detail: "Import complete!",
-                result: { ...result, mediaWarnings, mediaCount },
-              });
-
-              deleteUploadedFile(fileId);
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : "Import failed";
-              updateJob(jobId, {
-                status: "error",
-                phase: "cleanup",
-                progress: 0,
-                detail: message,
-                error: message,
-              });
-            }
-          })();
-        }, 0);
-
-        return { jobId };
+    // Import: start async import (APKG/COLPKG)
+    if (endpoint === "/api/import/start" && method === "POST") {
+      const fileId = data.fileId as string;
+      const mergeMode = data.mergeMode as string | undefined;
+      if (!fileId) {
+        throw new Error("fileId is required");
+      }
+      const filePath = getUploadedFilePath(fileId);
+      if (!filePath) {
+        throw new Error("Upload not found or expired");
       }
 
-      // Import: sync import (CSV/TXT/CrowdAnki via fileId)
-      if (
-        (endpoint === "/api/import/" || endpoint === "/api/import") &&
-        method === "POST"
-      ) {
-        const fileId = data.fileId as string;
-        if (!fileId) {
-          throw new Error("fileId is required");
-        }
-        const filePath = getUploadedFilePath(fileId);
-        if (!filePath) {
-          throw new Error("Upload not found or expired");
-        }
-        const ext = filePath.slice(filePath.lastIndexOf("."));
-        const format = detectFormat(`file${ext}`);
-        if (!format) {
-          throw new Error(`Unsupported file format: ${ext}`);
-        }
+      const jobId = createJob();
+      const merge = mergeMode === "merge";
 
-        const fileData = readFileSync(filePath);
-        const buffer = fileData.buffer.slice(
-          fileData.byteOffset,
-          fileData.byteOffset + fileData.byteLength,
-        );
+      // Process asynchronously
+      setTimeout(() => {
+        void (async () => {
+          try {
+            updateJob(jobId, {
+              phase: "parsing",
+              progress: 0,
+              detail: "Reading and parsing file...",
+            });
 
-        if (format === "apkg" || format === "colpkg") {
-          const apkgData = parseApkg(buffer);
-          const mergeMode = data.mergeMode as string | undefined;
-          const { mapping: mediaMapping, warnings: mediaWarnings } =
-            await mediaService.importBatch(userId, apkgData.media);
-          const mediaCount = mediaMapping.size;
-          const result = await importService.importFromApkg(
-            userId,
-            apkgData,
-            mediaMapping,
-            mergeMode === "merge",
-          );
-          deleteUploadedFile(fileId);
-          return { ...result, mediaWarnings, mediaCount };
-        }
+            const fileData = readFileSync(filePath);
+            const buffer = fileData.buffer.slice(
+              fileData.byteOffset,
+              fileData.byteOffset + fileData.byteLength,
+            );
+            const apkgData = parseApkg(buffer);
 
-        if (format === "csv" || format === "txt") {
-          const text = fileData.toString("utf-8");
-          const delimiter = format === "txt" ? "\t" : ",";
-          const parsed = parseCsv(text, { delimiter, hasHeader: true });
-          const filename = filePath.slice(filePath.lastIndexOf("/") + 1);
-          const deckName =
-            filename
-              .replace(/\.(csv|txt)$/i, "")
-              .replace(/^[a-f0-9-]+\./, "") || "Import";
-          const result = await importService.importFromCsv(userId, {
-            headers: parsed.headers,
-            rows: parsed.rows,
-            deckName,
-          });
-          deleteUploadedFile(fileId);
-          return result;
-        }
+            updateJob(jobId, {
+              phase: "media",
+              progress: 0,
+              detail: `Importing ${apkgData.media.length} media files...`,
+            });
 
-        // CrowdAnki (ZIP)
-        const { json, mediaEntries } = parseCrowdAnkiZip(buffer);
+            const { mapping: mediaMapping, warnings: mediaWarnings } =
+              await mediaService.importBatch(userId, apkgData.media);
+            const mediaCount = mediaMapping.size;
+
+            updateJob(jobId, {
+              phase: "notes",
+              progress: 0,
+              detail: "Importing notes and cards...",
+            });
+
+            const result = await importService.importFromApkgBatched(
+              userId,
+              apkgData,
+              mediaMapping,
+              merge,
+              (phase, progress, detail) => {
+                updateJob(jobId, {
+                  phase: phase as "notes" | "cards",
+                  progress,
+                  detail,
+                });
+              },
+            );
+
+            updateJob(jobId, {
+              status: "complete",
+              phase: "cleanup",
+              progress: 100,
+              detail: "Import complete!",
+              result: { ...result, mediaWarnings, mediaCount },
+            });
+
+            deleteUploadedFile(fileId);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Import failed";
+            updateJob(jobId, {
+              status: "error",
+              phase: "cleanup",
+              progress: 0,
+              detail: message,
+              error: message,
+            });
+          }
+        })();
+      }, 0);
+
+      return { jobId };
+    }
+
+    // Import: sync import (CSV/TXT/CrowdAnki via fileId)
+    if (
+      (endpoint === "/api/import/" || endpoint === "/api/import") &&
+      method === "POST"
+    ) {
+      const fileId = data.fileId as string;
+      if (!fileId) {
+        throw new Error("fileId is required");
+      }
+      const filePath = getUploadedFilePath(fileId);
+      if (!filePath) {
+        throw new Error("Upload not found or expired");
+      }
+      const ext = filePath.slice(filePath.lastIndexOf("."));
+      const format = detectFormat(`file${ext}`);
+      if (!format) {
+        throw new Error(`Unsupported file format: ${ext}`);
+      }
+
+      const fileData = readFileSync(filePath);
+      const buffer = fileData.buffer.slice(
+        fileData.byteOffset,
+        fileData.byteOffset + fileData.byteLength,
+      );
+
+      if (format === "apkg" || format === "colpkg") {
+        const apkgData = parseApkg(buffer);
+        const mergeMode = data.mergeMode as string | undefined;
         const { mapping: mediaMapping, warnings: mediaWarnings } =
-          await mediaService.importBatch(
-            userId,
-            mediaEntries.map((e, i) => ({
-              filename: e.filename,
-              index: String(i),
-              data: e.data,
-            })),
-          );
+          await mediaService.importBatch(userId, apkgData.media);
         const mediaCount = mediaMapping.size;
-        const result = await importService.importFromCrowdAnki(
+        const result = await importService.importFromApkg(
           userId,
-          json,
+          apkgData,
           mediaMapping,
+          mergeMode === "merge",
         );
         deleteUploadedFile(fileId);
         return { ...result, mediaWarnings, mediaCount };
       }
 
-      throw new Error(`Unknown mutation: ${method} ${endpoint}`);
+      if (format === "csv" || format === "txt") {
+        const text = fileData.toString("utf-8");
+        const delimiter = format === "txt" ? "\t" : ",";
+        const parsed = parseCsv(text, { delimiter, hasHeader: true });
+        const filename = filePath.slice(filePath.lastIndexOf("/") + 1);
+        const deckName =
+          filename.replace(/\.(csv|txt)$/i, "").replace(/^[a-f0-9-]+\./, "") ||
+          "Import";
+        const result = await importService.importFromCsv(userId, {
+          headers: parsed.headers,
+          rows: parsed.rows,
+          deckName,
+        });
+        deleteUploadedFile(fileId);
+        return result;
+      }
+
+      // CrowdAnki (ZIP)
+      const { json, mediaEntries } = parseCrowdAnkiZip(buffer);
+      const { mapping: mediaMapping, warnings: mediaWarnings } =
+        await mediaService.importBatch(
+          userId,
+          mediaEntries.map((e, i) => ({
+            filename: e.filename,
+            index: String(i),
+            data: e.data,
+          })),
+        );
+      const mediaCount = mediaMapping.size;
+      const result = await importService.importFromCrowdAnki(
+        userId,
+        json,
+        mediaMapping,
+      );
+      deleteUploadedFile(fileId);
+      return { ...result, mediaWarnings, mediaCount };
+    }
+
+    throw new Error(`Unknown mutation: ${method} ${endpoint}`);
+  }
+
+  ipcMain.handle(
+    "db:mutate",
+    async (
+      _event,
+      {
+        endpoint,
+        method,
+        body,
+      }: { endpoint: string; method: string; body?: unknown },
+    ) => {
+      const result = await handleMutation(endpoint, method, body);
+      // Trigger debounced sync after every successful mutation
+      scheduleSyncAfterMutation(db, rawDb);
+      return result;
     },
   );
 
@@ -765,8 +767,8 @@ export function registerIpcHandlers(
   ipcMain.handle("auth:sign-in", async () => {
     const token = await openAuthWindow(mainWindow);
     if (token) {
-      // Trigger initial full sync after sign-in
-      void syncPull(db, rawDb).then(() => {
+      // Trigger initial full sync cycle after sign-in
+      void syncCycle(db, rawDb).then(() => {
         startPeriodicSync(db, rawDb);
       });
       return { signedIn: true };
@@ -789,7 +791,7 @@ export function registerIpcHandlers(
 
   // Sync handlers
   ipcMain.handle("sync:now", async () => {
-    await syncPull(db, rawDb);
+    await syncCycle(db, rawDb);
     return { status: getSyncStatus() };
   });
 
