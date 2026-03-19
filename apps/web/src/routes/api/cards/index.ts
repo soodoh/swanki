@@ -11,18 +11,13 @@ export const Route = createFileRoute("/api/cards/")({
       GET: async ({ request }) => {
         const session = await requireSession(request);
         const url = new URL(request.url);
-        const deckIdParam = url.searchParams.get("deckId");
+        const deckId = url.searchParams.get("deckId");
 
-        if (!deckIdParam) {
+        if (!deckId) {
           return Response.json(
             { error: "deckId query parameter is required" },
             { status: 400 },
           );
-        }
-
-        const deckId = Number(deckIdParam);
-        if (Number.isNaN(deckId)) {
-          return Response.json({ error: "Invalid deckId" }, { status: 400 });
         }
 
         const counts = url.searchParams.get("counts");

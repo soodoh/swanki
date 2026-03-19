@@ -45,7 +45,7 @@ export class NoteTypeService {
   }
 
   async addTemplate(
-    noteTypeId: number,
+    noteTypeId: string,
     userId: string,
     data: {
       name: string;
@@ -74,6 +74,7 @@ export class NoteTypeService {
     const ordinal =
       existing.length > 0 ? Math.max(...existing.map((t) => t.ordinal)) + 1 : 0;
 
+    const now = new Date();
     const template = await this.db
       .insert(cardTemplates)
       .values({
@@ -82,6 +83,7 @@ export class NoteTypeService {
         ordinal,
         questionTemplate: data.questionTemplate,
         answerTemplate: data.answerTemplate,
+        updatedAt: now,
       })
       .returning()
       .get();
@@ -90,7 +92,7 @@ export class NoteTypeService {
   }
 
   async getFirstNoteFields(
-    noteTypeId: number,
+    noteTypeId: string,
     userId: string,
   ): Promise<Record<string, string> | undefined> {
     const row = await this.db
@@ -103,7 +105,7 @@ export class NoteTypeService {
   }
 
   async getById(
-    id: number,
+    id: string,
     userId: string,
   ): Promise<NoteTypeWithTemplates | undefined> {
     const noteType = await this.db
@@ -148,7 +150,7 @@ export class NoteTypeService {
   }
 
   async updateTemplate(
-    templateId: number,
+    templateId: string,
     userId: string,
     data: { questionTemplate?: string; answerTemplate?: string },
   ): Promise<CardTemplate | undefined> {
@@ -166,7 +168,9 @@ export class NoteTypeService {
       return undefined;
     }
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
     if (data.questionTemplate !== undefined) {
       updateData.questionTemplate = data.questionTemplate;
     }
@@ -187,7 +191,7 @@ export class NoteTypeService {
       .get();
   }
 
-  async deleteTemplate(templateId: number, userId: string): Promise<void> {
+  async deleteTemplate(templateId: string, userId: string): Promise<void> {
     // Verify ownership: template -> noteType -> user
     const existing = await this.db
       .select()
@@ -209,7 +213,7 @@ export class NoteTypeService {
   }
 
   async update(
-    id: number,
+    id: string,
     userId: string,
     data: {
       name?: string;
@@ -253,7 +257,7 @@ export class NoteTypeService {
       .get();
   }
 
-  async delete(id: number, userId: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const existing = await this.db
       .select()
       .from(noteTypes)

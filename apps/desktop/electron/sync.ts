@@ -48,6 +48,8 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   mimeType: "mime_type",
   mediaId: "media_id",
   ankiGuid: "anki_guid",
+  suspended: "suspended",
+  buriedUntil: "buried_until",
 };
 
 function toSnake(key: string): string {
@@ -82,6 +84,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "ordinal",
     "questionTemplate",
     "answerTemplate",
+    "updatedAt",
   ],
   notes: [
     "id",
@@ -108,6 +111,8 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "lapses",
     "state",
     "lastReview",
+    "suspended",
+    "buriedUntil",
     "createdAt",
     "updatedAt",
   ],
@@ -125,7 +130,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     "reviewedAt",
     "timeTakenMs",
   ],
-  media: ["id", "userId", "filename", "hash", "mimeType", "size", "createdAt"],
+  media: ["id", "userId", "filename", "mimeType", "size", "createdAt"],
   noteMedia: ["id", "noteId", "mediaId"],
 };
 
@@ -136,6 +141,7 @@ const TIMESTAMP_COLUMNS = new Set([
   "due",
   "last_review",
   "reviewed_at",
+  "buried_until",
 ]);
 
 /** Convert a server timestamp value to a unix-epoch-seconds integer. */

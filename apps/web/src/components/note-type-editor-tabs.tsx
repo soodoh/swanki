@@ -68,7 +68,7 @@ export function NameEditor({
   onSave,
 }: {
   name: string;
-  noteTypeId: number;
+  noteTypeId: string;
   onSave: ReturnType<typeof useUpdateNoteType>;
 }): React.ReactElement {
   const [editName, setEditName] = useState(name);
@@ -168,7 +168,7 @@ export function FieldsTab({
   onSave,
 }: {
   fields: NoteTypeField[];
-  noteTypeId: number;
+  noteTypeId: string;
   onSave: ReturnType<typeof useUpdateNoteType>;
 }): React.ReactElement {
   const [localFields, setLocalFields] = useState<NoteTypeField[]>(fields);
@@ -304,7 +304,7 @@ export function CardsTab({
   onSaveCss,
 }: {
   templates: CardTemplate[];
-  noteTypeId: number;
+  noteTypeId: string;
   css: string;
   fieldNames: string[];
   previewFields: Record<string, string> | undefined;
@@ -352,7 +352,7 @@ export function CardsTab({
     setExpandedId(created.id);
   }
 
-  async function handleDelete(templateId: number): Promise<void> {
+  async function handleDelete(templateId: string): Promise<void> {
     await deleteTemplate.mutateAsync({ templateId, noteTypeId });
     if (expandedId === templateId) {
       setExpandedId(undefined);
@@ -523,7 +523,7 @@ function TemplateAccordionItem({
   deleteIsPending,
 }: {
   template: CardTemplate;
-  noteTypeId: number;
+  noteTypeId: string;
   fieldNames: string[];
   sampleFields: Record<string, string>;
   localCss: string;

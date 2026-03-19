@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import type { AppDb } from "../db/index";
-import { media, noteMedia } from "../db/schema";
+import { media, noteMedia, notes } from "../db/schema";
 import type { AppFileSystem } from "../filesystem";
 
 type Db = AppDb;
@@ -77,11 +77,11 @@ export class MediaService {
     const hashArray = [...new Uint8Array(hashBuffer)];
     const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
-    // Check for duplicates by hash
+    // Check for duplicates by id (which is now the content hash)
     const existing = await this.db
       .select()
       .from(media)
-      .where(eq(media.hash, hash))
+      .where(eq(media.id, hash))
       .get();
 
     if (existing) {
@@ -105,9 +105,9 @@ export class MediaService {
     const record = await this.db
       .insert(media)
       .values({
+        id: hash,
         userId,
         filename,
-        hash,
         mimeType,
         size: bytes.length,
         createdAt: now,
@@ -120,7 +120,11 @@ export class MediaService {
   async importBatch(
     userId: string,
     entries: Array<{ filename: string; index: string; data: Uint8Array }>,
-  ): Promise<{ mapping: Map<string, string>; warnings: string[] }> {
+  ): Promise<{
+    mapping: Map<string, string>;
+    warnings: string[];
+    mediaCount: number;
+  }> {
     await this.ensureMediaDir();
 
     const mapping = new Map<string, string>();
@@ -153,7 +157,7 @@ export class MediaService {
       fileOnly?: boolean; // true when DB record exists but file is missing
     };
     const pendingWrites: PendingWrite[] = [];
-    const seenHashes = new Map<string, string>(); // hash → filename (in-batch dedup)
+    const seenHashes = new Map<string, string>(); // hash -> filename (in-batch dedup)
 
     for (let i = 0; i < nonEmpty.length; i += 1) {
       const entry = nonEmpty[i];
@@ -169,7 +173,7 @@ export class MediaService {
       const existing = await this.db
         .select()
         .from(media)
-        .where(eq(media.hash, hash))
+        .where(eq(media.id, hash))
         .get();
 
       if (existing) {
@@ -226,9 +230,9 @@ export class MediaService {
           await this.db
             .insert(media)
             .values({
+              id: hash,
               userId,
               filename,
-              hash,
               mimeType,
               size: entry.data.length,
               createdAt: new Date(),
@@ -261,7 +265,7 @@ export class MediaService {
   }
 
   async reconcileNoteReferences(
-    noteId: number,
+    noteId: string,
     currentFilenames: string[],
   ): Promise<void> {
     const existingRefs = await this.db
@@ -272,7 +276,7 @@ export class MediaService {
 
     const existingMediaIds = new Set(existingRefs.map((r) => r.mediaId));
 
-    const currentMediaIds = new Set<number>();
+    const currentMediaIds = new Set<string>();
     for (const filename of currentFilenames) {
       const record = await this.db
         .select()
@@ -293,6 +297,15 @@ export class MediaService {
           .onConflictDoNothing()
           .run();
       }
+    }
+
+    // Bump parent note updatedAt after noteMedia insert
+    if (currentMediaIds.size > 0) {
+      await this.db
+        .update(notes)
+        .set({ updatedAt: new Date() })
+        .where(eq(notes.id, noteId))
+        .run();
     }
 
     // Remove stale references and clean up orphans
@@ -333,6 +346,15 @@ export class MediaService {
           }
         }
       }
+    }
+
+    // Bump parent note updatedAt after noteMedia delete
+    if (existingRefs.some((ref) => !currentMediaIds.has(ref.mediaId))) {
+      await this.db
+        .update(notes)
+        .set({ updatedAt: new Date() })
+        .where(eq(notes.id, noteId))
+        .run();
     }
   }
 }

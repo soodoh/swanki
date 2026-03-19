@@ -141,20 +141,14 @@ export function registerIpcHandlers(
       }
 
       // Study queries
-      const studyMatch = endpoint.match(/^\/api\/study\/(\d+)$/);
+      const studyMatch = endpoint.match(/^\/api\/study\/([^/]+)$/);
       if (studyMatch) {
-        return await studyService.getStudySession(
-          userId,
-          parseInt(studyMatch[1]),
-        );
+        return await studyService.getStudySession(userId, studyMatch[1]);
       }
 
-      const previewMatch = endpoint.match(/^\/api\/study\/preview\/(\d+)$/);
+      const previewMatch = endpoint.match(/^\/api\/study\/preview\/([^/]+)$/);
       if (previewMatch) {
-        return await studyService.getIntervalPreviews(
-          userId,
-          parseInt(previewMatch[1]),
-        );
+        return await studyService.getIntervalPreviews(userId, previewMatch[1]);
       }
 
       // Card counts
@@ -163,17 +157,14 @@ export function registerIpcHandlers(
         params?.counts === "true" &&
         params?.deckId
       ) {
-        return await cardService.getDueCounts(userId, parseInt(params.deckId), {
+        return await cardService.getDueCounts(userId, params.deckId, {
           includeChildren: true,
         });
       }
 
       // Browse queries
       if (endpoint === "/api/browse" && params?.noteId) {
-        return await browseService.getNoteDetail(
-          userId,
-          parseInt(params.noteId),
-        );
+        return await browseService.getNoteDetail(userId, params.noteId);
       }
       if (endpoint === "/api/browse") {
         return await browseService.search(userId, params?.q ?? "", {
@@ -209,21 +200,18 @@ export function registerIpcHandlers(
         return await noteTypeService.listByUser(userId);
       }
       const sampleNoteMatch = endpoint.match(
-        /^\/api\/note-types\/(\d+)\/sample-note$/,
+        /^\/api\/note-types\/([^/]+)\/sample-note$/,
       );
       if (sampleNoteMatch) {
         const fields = await noteTypeService.getFirstNoteFields(
-          parseInt(sampleNoteMatch[1]),
+          sampleNoteMatch[1],
           userId,
         );
         return { fields };
       }
-      const noteTypeIdMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
+      const noteTypeIdMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
       if (noteTypeIdMatch) {
-        return await noteTypeService.getById(
-          parseInt(noteTypeIdMatch[1]),
-          userId,
-        );
+        return await noteTypeService.getById(noteTypeIdMatch[1], userId);
       }
 
       // Import status polling
@@ -257,28 +245,28 @@ export function registerIpcHandlers(
       if (endpoint === "/api/decks" && method === "POST") {
         return await deckService.create(
           userId,
-          data as { name: string; parentId?: number },
+          data as { name: string; parentId?: string },
         );
       }
-      const deckMatch = endpoint.match(/^\/api\/decks\/(\d+)$/);
+      const deckMatch = endpoint.match(/^\/api\/decks\/([^/]+)$/);
       if (deckMatch && method === "PUT") {
-        return await deckService.update(parseInt(deckMatch[1]), userId, data);
+        return await deckService.update(deckMatch[1], userId, data);
       }
       if (deckMatch && method === "DELETE") {
-        return await deckService.delete(parseInt(deckMatch[1]), userId);
+        return await deckService.delete(deckMatch[1], userId);
       }
 
       // Study mutations
       if (endpoint === "/api/study/review" && method === "POST") {
         return await studyService.submitReview(
           userId,
-          data.cardId as number,
+          data.cardId as string,
           data.rating as number,
           data.timeTakenMs as number,
         );
       }
       if (endpoint === "/api/study/undo" && method === "POST") {
-        return await studyService.undoLastReview(userId, data.cardId as number);
+        return await studyService.undoLastReview(userId, data.cardId as string);
       }
 
       // Note mutations
@@ -286,26 +274,26 @@ export function registerIpcHandlers(
         return await noteService.create(
           userId,
           data as {
-            noteTypeId: number;
-            deckId: number;
+            noteTypeId: string;
+            deckId: string;
             fields: Record<string, string>;
             tags?: string;
           },
         );
       }
-      const noteMatch = endpoint.match(/^\/api\/notes\/(\d+)$/);
+      const noteMatch = endpoint.match(/^\/api\/notes\/([^/]+)$/);
       if (noteMatch && method === "PUT") {
-        return await noteService.update(parseInt(noteMatch[1]), userId, data);
+        return await noteService.update(noteMatch[1], userId, data);
       }
       if (noteMatch && method === "DELETE") {
-        await noteService.delete(parseInt(noteMatch[1]), userId);
+        await noteService.delete(noteMatch[1], userId);
         return { ok: true };
       }
 
       // Card suspend / bury
       if (endpoint === "/api/cards/suspend" && method === "POST") {
         await cardService.suspendCards(
-          data.cardIds as number[],
+          data.cardIds as string[],
           userId,
           data.suspend as boolean,
         );
@@ -313,9 +301,9 @@ export function registerIpcHandlers(
       }
       if (endpoint === "/api/cards/bury" && method === "POST") {
         if (data.bury === false) {
-          await cardService.unburyCards(data.cardIds as number[], userId);
+          await cardService.unburyCards(data.cardIds as string[], userId);
         } else {
-          await cardService.buryCards(data.cardIds as number[], userId);
+          await cardService.buryCards(data.cardIds as string[], userId);
         }
         return { success: true };
       }
@@ -323,27 +311,27 @@ export function registerIpcHandlers(
       // Browse mutations
       if (endpoint === "/api/browse" && method === "PATCH") {
         const noteData = await noteService.getById(
-          data.noteId as number,
+          data.noteId as string,
           userId,
         );
         if (noteData) {
           if (data.fields || data.tags) {
             await noteService.update(
-              data.noteId as number,
+              data.noteId as string,
               userId,
               data as { fields?: Record<string, string>; tags?: string },
             );
           }
           if (data.deckId) {
-            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            const cardIds = noteData.cards.map((c: { id: string }) => c.id);
             await cardService.moveToDeck(
               cardIds,
-              data.deckId as number,
+              data.deckId as string,
               userId,
             );
           }
           if (typeof data.suspend === "boolean") {
-            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            const cardIds = noteData.cards.map((c: { id: string }) => c.id);
             await cardService.suspendCards(
               cardIds,
               userId,
@@ -351,7 +339,7 @@ export function registerIpcHandlers(
             );
           }
           if (typeof data.bury === "boolean") {
-            const cardIds = noteData.cards.map((c: { id: number }) => c.id);
+            const cardIds = noteData.cards.map((c: { id: string }) => c.id);
             if (data.bury) {
               await cardService.buryCards(cardIds, userId);
             } else {
@@ -362,7 +350,7 @@ export function registerIpcHandlers(
         return { success: true };
       }
       if (endpoint === "/api/browse" && method === "DELETE") {
-        await noteService.delete(data.noteId as number, userId);
+        await noteService.delete(data.noteId as string, userId);
         return { ok: true };
       }
 
@@ -377,19 +365,19 @@ export function registerIpcHandlers(
           },
         );
       }
-      const ntMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
+      const ntMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
       if (ntMatch && method === "PUT") {
-        return await noteTypeService.update(parseInt(ntMatch[1]), userId, data);
+        return await noteTypeService.update(ntMatch[1], userId, data);
       }
       if (ntMatch && method === "DELETE") {
-        await noteTypeService.delete(parseInt(ntMatch[1]), userId);
+        await noteTypeService.delete(ntMatch[1], userId);
         return { ok: true };
       }
 
       // Template mutations
       if (endpoint === "/api/note-types/templates" && method === "POST") {
         return await noteTypeService.addTemplate(
-          data.noteTypeId as number,
+          data.noteTypeId as string,
           userId,
           data as {
             name: string;
@@ -398,16 +386,14 @@ export function registerIpcHandlers(
           },
         );
       }
-      const tplMatch = endpoint.match(/^\/api\/note-types\/templates\/(\d+)$/);
+      const tplMatch = endpoint.match(
+        /^\/api\/note-types\/templates\/([^/]+)$/,
+      );
       if (tplMatch && method === "PUT") {
-        return await noteTypeService.updateTemplate(
-          parseInt(tplMatch[1]),
-          userId,
-          data,
-        );
+        return await noteTypeService.updateTemplate(tplMatch[1], userId, data);
       }
       if (tplMatch && method === "DELETE") {
-        await noteTypeService.deleteTemplate(parseInt(tplMatch[1]), userId);
+        await noteTypeService.deleteTemplate(tplMatch[1], userId);
         return { ok: true };
       }
 

@@ -10,10 +10,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const noteTypeId = Number(params.noteTypeId);
-        if (Number.isNaN(noteTypeId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const noteTypeId = params.noteTypeId;
         const result = await noteTypeService.getById(
           noteTypeId,
           session.user.id,
@@ -25,10 +22,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/")({
       },
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
-        const noteTypeId = Number(params.noteTypeId);
-        if (Number.isNaN(noteTypeId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const noteTypeId = params.noteTypeId;
         const body = (await request.json()) as {
           name?: string;
           fields?: Array<{ name: string; ordinal: number }>;
@@ -46,10 +40,7 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
-        const noteTypeId = Number(params.noteTypeId);
-        if (Number.isNaN(noteTypeId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const noteTypeId = params.noteTypeId;
         try {
           await noteTypeService.delete(noteTypeId, session.user.id);
           return new Response(undefined, { status: 204 });

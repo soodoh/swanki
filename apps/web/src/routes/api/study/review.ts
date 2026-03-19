@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/study/review")({
       POST: async ({ request }) => {
         const session = await requireSession(request);
         const body = (await request.json()) as {
-          cardId?: number;
+          cardId?: string;
           rating?: number;
           timeTakenMs?: number;
         };

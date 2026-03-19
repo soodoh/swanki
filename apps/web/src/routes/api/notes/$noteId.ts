@@ -15,10 +15,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
     handlers: {
       GET: async ({ request, params }) => {
         const session = await requireSession(request);
-        const noteId = Number(params.noteId);
-        if (Number.isNaN(noteId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const noteId = params.noteId;
         const result = await noteService.getById(noteId, session.user.id);
         if (!result) {
           return Response.json({ error: "Not found" }, { status: 404 });
@@ -27,10 +24,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
       },
       PUT: async ({ request, params }) => {
         const session = await requireSession(request);
-        const noteId = Number(params.noteId);
-        if (Number.isNaN(noteId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const noteId = params.noteId;
         const body = (await request.json()) as {
           fields?: Record<string, string>;
           tags?: string;
@@ -48,10 +42,7 @@ export const Route = createFileRoute("/api/notes/$noteId")({
       },
       DELETE: async ({ request, params }) => {
         const session = await requireSession(request);
-        const noteId = Number(params.noteId);
-        if (Number.isNaN(noteId)) {
-          return Response.json({ error: "Invalid ID" }, { status: 400 });
-        }
+        const noteId = params.noteId;
         // Verify ownership before cleaning up media references
         const existing = await noteService.getById(noteId, session.user.id);
         if (!existing) {

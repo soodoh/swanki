@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/decks/")({
         const session = await requireSession(request);
         const body = (await request.json()) as {
           name: string;
-          parentId?: number;
+          parentId?: string;
         };
         const deck = await deckService.create(session.user.id, body);
         return Response.json(deck, { status: 201 });

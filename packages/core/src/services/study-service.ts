@@ -32,8 +32,8 @@ function deriveCounts(dueCards: CardWithNote[]): CardCounts {
 }
 
 export type StudyCardTemplate = {
-  id: number;
-  noteTypeId: number;
+  id: string;
+  noteTypeId: string;
   questionTemplate: string;
   answerTemplate: string;
 };
@@ -41,8 +41,8 @@ export type StudyCardTemplate = {
 export type StudySession = {
   cards: CardWithNote[];
   counts: CardCounts;
-  templates: Record<number, StudyCardTemplate>;
-  css: Record<number, string>;
+  templates: Record<string, StudyCardTemplate>;
+  css: Record<string, string>;
 };
 
 export type ReviewResult = {
@@ -66,7 +66,7 @@ export class StudyService {
     this.cardService = new CardService(db);
   }
 
-  async getStudySession(userId: string, deckId: number): Promise<StudySession> {
+  async getStudySession(userId: string, deckId: string): Promise<StudySession> {
     const dueCards = await this.cardService.getDueCards(userId, deckId, {
       includeChildren: true,
     });
@@ -88,7 +88,7 @@ export class StudyService {
     const templateIds = [...new Set(dueCards.map((c) => c.templateId))];
 
     // Fetch templates
-    const templateMap: Record<number, StudyCardTemplate> = {};
+    const templateMap: Record<string, StudyCardTemplate> = {};
     if (templateIds.length > 0) {
       const templates = await this.db
         .select()
@@ -108,7 +108,7 @@ export class StudyService {
 
     // Collect unique note IDs to find note types for CSS
     const noteIds = [...new Set(dueCards.map((c) => c.noteId))];
-    const cssMap: Record<number, string> = {};
+    const cssMap: Record<string, string> = {};
     if (noteIds.length > 0) {
       const noteRows = await this.db
         .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
@@ -140,7 +140,7 @@ export class StudyService {
 
   async getCustomSession(
     userId: string,
-    deckId: number,
+    deckId: string,
     options: CustomStudyOptions,
   ): Promise<StudySession> {
     const now = new Date();
@@ -234,7 +234,7 @@ export class StudyService {
 
     // Collect templates
     const templateIds = [...new Set(allCards.map((c) => c.templateId))];
-    const templateMap: Record<number, StudyCardTemplate> = {};
+    const templateMap: Record<string, StudyCardTemplate> = {};
     if (templateIds.length > 0) {
       const templates = await this.db
         .select()
@@ -254,7 +254,7 @@ export class StudyService {
 
     // Collect CSS
     const noteIds = [...new Set(allCards.map((c) => c.noteId))];
-    const cssMap: Record<number, string> = {};
+    const cssMap: Record<string, string> = {};
     if (noteIds.length > 0) {
       const noteRows = await this.db
         .select({ noteId: notes.id, noteTypeId: notes.noteTypeId })
@@ -294,7 +294,7 @@ export class StudyService {
 
   async submitReview(
     userId: string,
-    cardId: number,
+    cardId: string,
     rating: Grade,
     timeTakenMs: number,
   ): Promise<ReviewResult> {
@@ -356,7 +356,7 @@ export class StudyService {
 
   async undoLastReview(
     userId: string,
-    cardId: number,
+    cardId: string,
   ): Promise<CardWithNote | undefined> {
     // Verify the card belongs to the user
     const cardWithNote = await this.cardService.getById(cardId, userId);
@@ -408,7 +408,7 @@ export class StudyService {
 
   async getIntervalPreviews(
     userId: string,
-    cardId: number,
+    cardId: string,
   ): Promise<Record<number, IntervalPreview> | undefined> {
     const cardWithNote = await this.cardService.getById(cardId, userId);
     if (!cardWithNote) {
