@@ -1,5 +1,6 @@
-import { app, BrowserWindow, protocol, net } from "electron";
+import { app, BrowserWindow, protocol } from "electron";
 import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 import { db, rawSqlite, mediaDir } from "./db";
 import { getOrCreateLocalUser } from "./local-user";
 import { loadWindowState, saveWindowState } from "./window-state";
@@ -35,15 +36,62 @@ app.whenReady().then(() => {
   // Initialise auto-updater (no-op in dev)
   initAutoUpdater();
 
-  // Register media protocol
-  protocol.handle("swanki-media", (request) => {
+  const MIME_TYPES: Record<string, string> = {
+    mp3: "audio/mpeg",
+    ogg: "audio/ogg",
+    wav: "audio/wav",
+    mp4: "video/mp4",
+    webm: "video/webm",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    svg: "image/svg+xml",
+  };
+
+  // Serve local media files via a custom protocol with correct MIME types and
+  // Range support (required for audio/video seeking).
+  // net.fetch("file://") doesn't set Content-Type, causing MEDIA_ERR_SRC_NOT_SUPPORTED
+  // for audio elements, so we read the file directly and set headers ourselves.
+  protocol.handle("swanki-media", async (request) => {
     const filename = decodeURIComponent(
       request.url.replace("swanki-media://media/", ""),
     );
     const filePath = join(mediaDir, filename);
+    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+    const contentType = MIME_TYPES[ext] ?? "application/octet-stream";
+
+    let fileBytes: Buffer;
+    try {
+      fileBytes = await readFile(filePath);
+    } catch {
+      return new Response(null, { status: 404 });
+    }
+
     const rangeHeader = request.headers.get("Range");
-    return net.fetch("file://" + filePath, {
-      ...(rangeHeader ? { headers: { Range: rangeHeader } } : {}),
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+      if (match) {
+        const start = parseInt(match[1]);
+        const end = match[2] ? parseInt(match[2]) : fileBytes.length - 1;
+        const chunk = fileBytes.slice(start, end + 1);
+        return new Response(chunk, {
+          status: 206,
+          headers: {
+            "Content-Type": contentType,
+            "Content-Range": `bytes ${start}-${end}/${fileBytes.length}`,
+            "Accept-Ranges": "bytes",
+          },
+        });
+      }
+    }
+
+    return new Response(fileBytes, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Accept-Ranges": "bytes",
+      },
     });
   });
 
