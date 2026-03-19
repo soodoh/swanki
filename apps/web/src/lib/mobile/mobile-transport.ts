@@ -62,19 +62,19 @@ export class MobileTransport implements AppTransport {
     }
 
     // Study queries
-    const studyMatch = endpoint.match(/^\/api\/study\/(\d+)$/);
+    const studyMatch = endpoint.match(/^\/api\/study\/([^/]+)$/);
     if (studyMatch) {
       return (await this.studyService.getStudySession(
         this.userId,
-        parseInt(studyMatch[1]),
+        studyMatch[1],
       )) as T;
     }
 
-    const previewMatch = endpoint.match(/^\/api\/study\/preview\/(\d+)$/);
+    const previewMatch = endpoint.match(/^\/api\/study\/preview\/([^/]+)$/);
     if (previewMatch) {
       return (await this.studyService.getIntervalPreviews(
         this.userId,
-        parseInt(previewMatch[1]),
+        previewMatch[1],
       )) as T;
     }
 
@@ -84,18 +84,16 @@ export class MobileTransport implements AppTransport {
       params?.counts === "true" &&
       params?.deckId
     ) {
-      return (await this.cardService.getDueCounts(
-        this.userId,
-        parseInt(params.deckId),
-        { includeChildren: true },
-      )) as T;
+      return (await this.cardService.getDueCounts(this.userId, params.deckId, {
+        includeChildren: true,
+      })) as T;
     }
 
     // Browse queries
     if (endpoint === "/api/browse" && params?.noteId) {
       return (await this.browseService.getNoteDetail(
         this.userId,
-        parseInt(params.noteId),
+        params.noteId,
       )) as T;
     }
     if (endpoint === "/api/browse") {
@@ -132,19 +130,19 @@ export class MobileTransport implements AppTransport {
       return (await this.noteTypeService.listByUser(this.userId)) as T;
     }
     const sampleNoteMatch = endpoint.match(
-      /^\/api\/note-types\/(\d+)\/sample-note$/,
+      /^\/api\/note-types\/([^/]+)\/sample-note$/,
     );
     if (sampleNoteMatch) {
       const fields = await this.noteTypeService.getFirstNoteFields(
-        parseInt(sampleNoteMatch[1]),
+        sampleNoteMatch[1],
         this.userId,
       );
       return { fields } as T;
     }
-    const noteTypeIdMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
+    const noteTypeIdMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
     if (noteTypeIdMatch) {
       return (await this.noteTypeService.getById(
-        parseInt(noteTypeIdMatch[1]),
+        noteTypeIdMatch[1],
         this.userId,
       )) as T;
     }
@@ -168,19 +166,19 @@ export class MobileTransport implements AppTransport {
     if (endpoint === "/api/decks" && method === "POST") {
       return (await this.deckService.create(
         this.userId,
-        data as { name: string; parentId?: number },
+        data as { name: string; parentId?: string },
       )) as T;
     }
-    const deckMatch = endpoint.match(/^\/api\/decks\/(\d+)$/);
+    const deckMatch = endpoint.match(/^\/api\/decks\/([^/]+)$/);
     if (deckMatch && method === "PUT") {
       return (await this.deckService.update(
-        parseInt(deckMatch[1]),
+        deckMatch[1],
         this.userId,
         data,
       )) as T;
     }
     if (deckMatch && method === "DELETE") {
-      await this.deckService.delete(parseInt(deckMatch[1]), this.userId);
+      await this.deckService.delete(deckMatch[1], this.userId);
       return { ok: true } as T;
     }
 
@@ -188,7 +186,7 @@ export class MobileTransport implements AppTransport {
     if (endpoint === "/api/study/review" && method === "POST") {
       return (await this.studyService.submitReview(
         this.userId,
-        data.cardId as number,
+        data.cardId as string,
         data.rating as number,
         data.timeTakenMs as number,
       )) as T;
@@ -196,7 +194,7 @@ export class MobileTransport implements AppTransport {
     if (endpoint === "/api/study/undo" && method === "POST") {
       return (await this.studyService.undoLastReview(
         this.userId,
-        data.cardId as number,
+        data.cardId as string,
       )) as T;
     }
 
@@ -205,36 +203,36 @@ export class MobileTransport implements AppTransport {
       return (await this.noteService.create(
         this.userId,
         data as {
-          noteTypeId: number;
-          deckId: number;
+          noteTypeId: string;
+          deckId: string;
           fields: Record<string, string>;
           tags?: string;
         },
       )) as T;
     }
-    const noteMatch = endpoint.match(/^\/api\/notes\/(\d+)$/);
+    const noteMatch = endpoint.match(/^\/api\/notes\/([^/]+)$/);
     if (noteMatch && method === "PUT") {
       return (await this.noteService.update(
-        parseInt(noteMatch[1]),
+        noteMatch[1],
         this.userId,
         data,
       )) as T;
     }
     if (noteMatch && method === "DELETE") {
-      await this.noteService.delete(parseInt(noteMatch[1]), this.userId);
+      await this.noteService.delete(noteMatch[1], this.userId);
       return { ok: true } as T;
     }
 
     // Browse mutations
     if (endpoint === "/api/browse" && method === "PATCH") {
       return (await this.noteService.update(
-        data.noteId as number,
+        data.noteId as string,
         this.userId,
         data as { fields?: Record<string, string>; tags?: string },
       )) as T;
     }
     if (endpoint === "/api/browse" && method === "DELETE") {
-      await this.noteService.delete(data.noteId as number, this.userId);
+      await this.noteService.delete(data.noteId as string, this.userId);
       return { ok: true } as T;
     }
 
@@ -249,23 +247,23 @@ export class MobileTransport implements AppTransport {
         },
       )) as T;
     }
-    const ntMatch = endpoint.match(/^\/api\/note-types\/(\d+)$/);
+    const ntMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
     if (ntMatch && method === "PUT") {
       return (await this.noteTypeService.update(
-        parseInt(ntMatch[1]),
+        ntMatch[1],
         this.userId,
         data,
       )) as T;
     }
     if (ntMatch && method === "DELETE") {
-      await this.noteTypeService.delete(parseInt(ntMatch[1]), this.userId);
+      await this.noteTypeService.delete(ntMatch[1], this.userId);
       return { ok: true } as T;
     }
 
     // Template mutations
     if (endpoint === "/api/note-types/templates" && method === "POST") {
       return (await this.noteTypeService.addTemplate(
-        data.noteTypeId as number,
+        data.noteTypeId as string,
         this.userId,
         data as {
           name: string;
@@ -274,19 +272,16 @@ export class MobileTransport implements AppTransport {
         },
       )) as T;
     }
-    const tplMatch = endpoint.match(/^\/api\/note-types\/templates\/(\d+)$/);
+    const tplMatch = endpoint.match(/^\/api\/note-types\/templates\/([^/]+)$/);
     if (tplMatch && method === "PUT") {
       return (await this.noteTypeService.updateTemplate(
-        parseInt(tplMatch[1]),
+        tplMatch[1],
         this.userId,
         data,
       )) as T;
     }
     if (tplMatch && method === "DELETE") {
-      await this.noteTypeService.deleteTemplate(
-        parseInt(tplMatch[1]),
-        this.userId,
-      );
+      await this.noteTypeService.deleteTemplate(tplMatch[1], this.userId);
       return { ok: true } as T;
     }
 

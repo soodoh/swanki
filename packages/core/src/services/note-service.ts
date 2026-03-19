@@ -1,6 +1,6 @@
 import { eq, and, like } from "drizzle-orm";
 import type { AppDb } from "../db/index";
-import { notes, cards, cardTemplates } from "../db/schema";
+import { notes, cards, cardTemplates, deletions } from "../db/schema";
 
 type Db = AppDb;
 
@@ -21,8 +21,8 @@ export class NoteService {
   async create(
     userId: string,
     data: {
-      noteTypeId: number;
-      deckId: number;
+      noteTypeId: string;
+      deckId: string;
       fields: Record<string, string>;
       tags?: string;
     },
@@ -69,7 +69,7 @@ export class NoteService {
   }
 
   async getById(
-    id: number,
+    id: string,
     userId: string,
   ): Promise<NoteWithCards | undefined> {
     const note = await this.db
@@ -92,7 +92,7 @@ export class NoteService {
   }
 
   async update(
-    id: number,
+    id: string,
     userId: string,
     data: { fields?: Record<string, string>; tags?: string },
   ): Promise<Note | undefined> {
@@ -129,7 +129,7 @@ export class NoteService {
       .get();
   }
 
-  async delete(id: number, userId: string): Promise<void> {
+  async delete(id: string, userId: string): Promise<void> {
     const existing = await this.db
       .select()
       .from(notes)
@@ -140,17 +140,34 @@ export class NoteService {
       return;
     }
 
-    // Delete all cards for this note first
-    await this.db.delete(cards).where(eq(cards.noteId, id)).run();
+    // Collect cards before deleting them
+    const noteCards = await this.db
+      .select({ id: cards.id })
+      .from(cards)
+      .where(eq(cards.noteId, id))
+      .all();
 
-    // Delete the note
+    // Delete all cards for this note first and write tombstones
+    await this.db.delete(cards).where(eq(cards.noteId, id)).run();
+    for (const card of noteCards) {
+      await this.db
+        .insert(deletions)
+        .values({ tableName: "cards", entityId: card.id, userId })
+        .run();
+    }
+
+    // Delete the note and write tombstone
     await this.db
       .delete(notes)
       .where(and(eq(notes.id, id), eq(notes.userId, userId)))
       .run();
+    await this.db
+      .insert(deletions)
+      .values({ tableName: "notes", entityId: id, userId })
+      .run();
   }
 
-  async listByDeck(deckId: number, userId: string): Promise<Note[]> {
+  async listByDeck(deckId: string, userId: string): Promise<Note[]> {
     // Find notes that have cards in the given deck
     const deckCards = await this.db
       .select({ noteId: cards.noteId })

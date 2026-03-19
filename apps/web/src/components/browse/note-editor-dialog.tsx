@@ -36,8 +36,8 @@ import type { DeckTreeNode } from "@/lib/hooks/use-decks";
 
 function flattenDecks(
   nodes: DeckTreeNode[],
-): Array<{ id: number; name: string }> {
-  const result: Array<{ id: number; name: string }> = [];
+): Array<{ id: string; name: string }> {
+  const result: Array<{ id: string; name: string }> = [];
   for (const node of nodes) {
     result.push({ id: node.id, name: node.name });
     if (node.children.length > 0) {
@@ -54,7 +54,7 @@ export function NoteEditorDialog({
   onOpenChange,
   suspended = false,
 }: {
-  noteId: number;
+  noteId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   suspended?: boolean;

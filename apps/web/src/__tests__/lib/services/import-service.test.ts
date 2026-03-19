@@ -127,12 +127,12 @@ describe("importFromApkg noteMedia population", () => {
       execSQL: (sql: string) => rawDb.exec(sql),
     });
 
-    // Insert a mock media record
+    // Insert a mock media record (id is now the content hash)
     db.insert(media)
       .values({
+        id: "abc123",
         userId: "user-1",
         filename: "abc123.jpg",
-        hash: "abc123",
         mimeType: "image/jpeg",
         size: 100,
         createdAt: new Date(),

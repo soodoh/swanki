@@ -31,7 +31,7 @@ export type CsvImportOptions = {
 };
 
 export type ImportResult = {
-  deckId?: number;
+  deckId?: string;
   deckCount?: number;
   noteCount: number;
   cardCount: number;
@@ -70,11 +70,6 @@ export function detectFormat(filename: string): ImportFormat | undefined {
   return FORMAT_MAP[ext];
 }
 
-/**
- * Strip Anki addon markup (script tags, link tags, and surrounding HTML comments)
- * from imported templates. These are injected by addons like Code Highlighter and
- * serve no purpose outside Anki desktop.
- */
 /**
  * Strip CSS rules and directives that shouldn't be imported from Anki decks:
  * - `.card { ... }` rules with hardcoded colors that conflict with the app theme
@@ -125,8 +120,6 @@ export function rewriteMediaUrls(
   text: string,
   mapping: Map<string, string>,
 ): string {
-  // Rewrite <img src="filename"> -> [image:hash.ext]
-  // Supports double quotes, single quotes, and unquoted src values
   let result = replaceGlobal(
     text,
     /<img\s[^>]*src=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*\/?>/gi,
@@ -140,14 +133,11 @@ export function rewriteMediaUrls(
     },
   );
 
-  // Rewrite [sound:filename] -> [audio:hash.ext]
   result = replaceGlobal(result, /\[sound:([^\]]+)\]/g, (match, filename) => {
     const newFilename = mapping.get(filename);
     return newFilename ? `[audio:${newFilename}]` : match;
   });
 
-  // Rewrite <video src="filename"...>...</video> -> [video:hash.ext]
-  // Supports double quotes, single quotes, and unquoted src values
   result = replaceGlobal(
     result,
     /<video\s[^>]*src=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>[\s\S]*?<\/video>/gi,
@@ -170,7 +160,6 @@ export function extractMediaFilenames(
   const filenames: string[] = [];
   const allText = Object.values(fields).join(" ");
 
-  // Match [image:file], [audio:file], [video:file] bracket tags
   const bracketRegex = /\[(?:image|audio|video):([^\]]+)\]/g;
   let match;
   while ((match = bracketRegex.exec(allText)) !== null) {
@@ -180,9 +169,6 @@ export function extractMediaFilenames(
   return [...new Set(filenames)];
 }
 
-/**
- * Strip HTML formatting from field values, keeping only plain text and media refs.
- */
 function convertFieldsToPlainText(
   fields: Record<string, string>,
 ): Record<string, string> {
@@ -210,7 +196,6 @@ export class ImportService {
     const { rows } = options;
 
     if (rows.length === 0) {
-      // Still create the deck, but no notes/cards
       const now = new Date();
       const deck = await this.db
         .insert(decks)
@@ -226,13 +211,11 @@ export class ImportService {
       return { deckId: deck.id, noteCount: 0, cardCount: 0 };
     }
 
-    // Determine field names
     const fieldCount = rows[0].length;
     const fieldNames =
       options.headers ??
       Array.from({ length: fieldCount }, (_, i) => `Field ${i + 1}`);
 
-    // Create deck
     const now = new Date();
     const deck = await this.db
       .insert(decks)
@@ -245,7 +228,6 @@ export class ImportService {
       .returning()
       .get();
 
-    // Create note type
     const fields = fieldNames.map((name, i) => ({ name, ordinal: i }));
     const noteType = await this.db
       .insert(noteTypes)
@@ -259,7 +241,6 @@ export class ImportService {
       .returning()
       .get();
 
-    // Create a basic card template in WYSIWYG format
     const firstField = fieldNames[0];
     const remainingFields = fieldNames.slice(1);
     const answerHtml =
@@ -275,11 +256,11 @@ export class ImportService {
         ordinal: 0,
         questionTemplate: `{{${firstField}}}`,
         answerTemplate: answerHtml,
+        updatedAt: now,
       })
       .returning()
       .get();
 
-    // Create notes and cards
     let noteCount = 0;
     let cardCount = 0;
 
@@ -333,10 +314,8 @@ export class ImportService {
     let noteCount = 0;
     let cardCount = 0;
 
-    // Build a map of model UUID -> our note type ID
-    const modelMap = new Map<string, number>();
+    const modelMap = new Map<string, string>();
 
-    // Create note types from all models in the data
     const now = new Date();
     for (const model of data.noteModels) {
       const fields = model.fields.map((f) => ({
@@ -358,7 +337,6 @@ export class ImportService {
         .get();
       modelMap.set(model.uuid, noteType.id);
 
-      // Create templates -- convert HTML to WYSIWYG JSON
       for (const tmpl of model.templates) {
         await this.db
           .insert(cardTemplates)
@@ -368,12 +346,12 @@ export class ImportService {
             ordinal: tmpl.ordinal,
             questionTemplate: stripAddonMarkup(tmpl.questionFormat),
             answerTemplate: stripAddonMarkup(tmpl.answerFormat),
+            updatedAt: now,
           })
           .run();
       }
     }
 
-    // Recursively create decks and notes
     const importResult = await this.importCrowdAnkiDeck(
       userId,
       data,
@@ -393,8 +371,8 @@ export class ImportService {
   private async importCrowdAnkiDeck(
     userId: string,
     data: CrowdAnkiData,
-    modelMap: Map<string, number>,
-    parentId: number | undefined,
+    modelMap: Map<string, string>,
+    parentId: string | undefined,
     now: Date,
     mediaMapping?: Map<string, string>,
   ): Promise<{ deckCount: number; noteCount: number; cardCount: number }> {
@@ -402,7 +380,6 @@ export class ImportService {
     let noteCount = 0;
     let cardCount = 0;
 
-    // Create deck
     const deck = await this.db
       .insert(decks)
       .values({
@@ -416,14 +393,12 @@ export class ImportService {
       .get();
     deckCount += 1;
 
-    // Create notes for this deck
     for (const crowdAnkiNote of data.notes) {
       const noteTypeId = modelMap.get(crowdAnkiNote.noteModelUuid);
       if (!noteTypeId) {
         continue;
       }
 
-      // Get the note type to map field indices to field names
       const noteType = await this.db
         .select()
         .from(noteTypes)
@@ -443,7 +418,6 @@ export class ImportService {
         rawFields[field.name] = crowdAnkiNote.fields[field.ordinal] ?? "";
       }
 
-      // Rewrite media URLs if mapping is provided
       if (mediaMapping) {
         for (const fieldName of Object.keys(rawFields)) {
           rawFields[fieldName] = rewriteMediaUrls(
@@ -455,7 +429,6 @@ export class ImportService {
 
       const noteFields = convertFieldsToPlainText(rawFields);
 
-      // Skip notes with duplicate ankiGuid (unique constraint)
       if (crowdAnkiNote.guid) {
         const existing = await this.db
           .select({ id: notes.id })
@@ -487,12 +460,10 @@ export class ImportService {
         .get();
       noteCount += 1;
 
-      // Track media references
       if (mediaMapping) {
         await this.linkNoteMedia(note.id, noteFields);
       }
 
-      // Get templates for this note type and create cards
       const templates = await this.db
         .select()
         .from(cardTemplates)
@@ -517,7 +488,6 @@ export class ImportService {
       }
     }
 
-    // Recursively handle children
     for (const child of data.children) {
       const childResult = await this.importCrowdAnkiDeck(
         userId,
@@ -548,13 +518,10 @@ export class ImportService {
     let duplicatesSkipped = 0;
     let notesUpdated = 0;
 
-    // Collect which Anki deck IDs are actually referenced by cards
     const usedDeckIds = new Set(data.cards.map((c) => c.deckId));
 
-    // Create or reuse decks, mapping anki deck id -> our deck id
-    // Anki uses "::" as separator for nested decks (e.g. "Music::Theory::Chords")
-    const hierarchyCache = new Map<string, number>();
-    const deckMap = new Map<number, number>();
+    const hierarchyCache = new Map<string, string>();
+    const deckMap = new Map<number, string>();
     for (const ankiDeck of data.decks) {
       if (!usedDeckIds.has(ankiDeck.id)) {
         continue;
@@ -569,9 +536,8 @@ export class ImportService {
       deckMap.set(ankiDeck.id, leafDeckId);
     }
 
-    // Create or reuse note types, mapping anki model id -> our note type id
-    const noteTypeMap = new Map<number, number>();
-    const templateMap = new Map<string, number>();
+    const noteTypeMap = new Map<number, string>();
+    const templateMap = new Map<string, string>();
     for (const ankiNoteType of data.noteTypes) {
       if (merge) {
         const existing = await this.db
@@ -586,7 +552,6 @@ export class ImportService {
           .get();
         if (existing) {
           noteTypeMap.set(ankiNoteType.id, existing.id);
-          // Load existing templates for this note type
           const existingTemplates = await this.db
             .select()
             .from(cardTemplates)
@@ -618,7 +583,6 @@ export class ImportService {
         .get();
       noteTypeMap.set(ankiNoteType.id, noteType.id);
 
-      // Create templates -- convert HTML to WYSIWYG JSON
       for (const tmpl of ankiNoteType.templates) {
         const tmplRow = await this.db
           .insert(cardTemplates)
@@ -628,6 +592,7 @@ export class ImportService {
             ordinal: tmpl.ordinal,
             questionTemplate: stripAddonMarkup(tmpl.questionFormat),
             answerTemplate: stripAddonMarkup(tmpl.answerFormat),
+            updatedAt: now,
           })
           .returning()
           .get();
@@ -635,8 +600,7 @@ export class ImportService {
       }
     }
 
-    // Create notes, mapping anki note id -> our note id
-    const noteMap = new Map<number, number>();
+    const noteMap = new Map<number, string>();
     const skippedNoteIds = new Set<number>();
     for (const ankiNote of data.notes) {
       const noteTypeId = noteTypeMap.get(ankiNote.modelId);
@@ -644,7 +608,6 @@ export class ImportService {
         continue;
       }
 
-      // Check for existing note by ankiGuid (unique constraint prevents duplicates)
       if (ankiNote.guid) {
         const existing = await this.db
           .select()
@@ -655,13 +618,11 @@ export class ImportService {
           .get();
         if (existing) {
           if (!merge) {
-            // Without merge, just skip existing notes (unique constraint prevents duplicates)
             skippedNoteIds.add(ankiNote.id);
             duplicatesSkipped += 1;
             continue;
           }
 
-          // Build the incoming field dict with media URLs rewritten and HTML stripped
           const ankiNoteType = data.noteTypes.find(
             (nt) => nt.id === ankiNote.modelId,
           );
@@ -679,18 +640,14 @@ export class ImportService {
               );
             }
           }
-          // Strip HTML from fields -- fields store plain text + media refs
           const plainFields = convertFieldsToPlainText(incomingFields);
 
-          // Compare rewritten+stripped fields against stored fields
           if (fieldsEqual(existing.fields, plainFields)) {
-            // Unchanged -- skip
             skippedNoteIds.add(ankiNote.id);
             duplicatesSkipped += 1;
             continue;
           }
 
-          // Changed -- update existing note with plain text fields
           await this.db
             .update(notes)
             .set({
@@ -701,7 +658,6 @@ export class ImportService {
             .where(eq(notes.id, existing.id))
             .run();
 
-          // Re-link media
           if (mediaMapping) {
             await this.db
               .delete(noteMedia)
@@ -710,7 +666,6 @@ export class ImportService {
             await this.linkNoteMedia(existing.id, plainFields);
           }
 
-          // Map anki note ID to existing DB note ID (cards already exist)
           noteMap.set(ankiNote.id, existing.id);
           skippedNoteIds.add(ankiNote.id);
           notesUpdated += 1;
@@ -718,7 +673,6 @@ export class ImportService {
         }
       }
 
-      // Get the note type fields to map indices to names
       const ankiNoteType = data.noteTypes.find(
         (nt) => nt.id === ankiNote.modelId,
       );
@@ -729,7 +683,6 @@ export class ImportService {
         }
       }
 
-      // Rewrite media URLs if mapping is provided
       if (mediaMapping) {
         for (const fieldName of Object.keys(noteFields)) {
           noteFields[fieldName] = rewriteMediaUrls(
@@ -739,7 +692,6 @@ export class ImportService {
         }
       }
 
-      // Strip HTML from fields -- fields store plain text + media refs
       const plainNoteFields = convertFieldsToPlainText(noteFields);
 
       const note = await this.db
@@ -757,7 +709,6 @@ export class ImportService {
         .get();
       noteMap.set(ankiNote.id, note.id);
 
-      // Track media references
       if (mediaMapping) {
         await this.linkNoteMedia(note.id, plainNoteFields);
       }
@@ -765,7 +716,6 @@ export class ImportService {
       noteCount += 1;
     }
 
-    // Create cards (skip cards for duplicate notes)
     for (const ankiCard of data.cards) {
       if (skippedNoteIds.has(ankiCard.noteId)) {
         continue;
@@ -777,7 +727,6 @@ export class ImportService {
         continue;
       }
 
-      // Find the note for this card
       const ankiNote = data.notes.find((n) => n.id === ankiCard.noteId);
       if (!ankiNote) {
         continue;
@@ -788,7 +737,6 @@ export class ImportService {
         continue;
       }
 
-      // Look up the correct template by note type and ordinal
       const templateId = templateMap.get(`${noteTypeId}:${ankiCard.ordinal}`);
       if (!templateId) {
         continue;
@@ -826,9 +774,8 @@ export class ImportService {
     fullName: string,
     merge: boolean,
     now: Date,
-    hierarchyCache: Map<string, number>,
-  ): Promise<number> {
-    // Anki uses "::" in older format and U+001F (unit separator) in newer format
+    hierarchyCache: Map<string, string>,
+  ): Promise<string> {
     // oxlint-disable-next-line eslint(no-control-regex), unicorn(prefer-string-replace-all) -- intentionally matching Anki's U+001F separator
     const normalized = fullName.replace(/\u001F/g, "::");
     const segments = normalized
@@ -839,7 +786,7 @@ export class ImportService {
       segments.push(fullName);
     }
 
-    let currentParentId: number | undefined;
+    let currentParentId: string | undefined;
     let pathKey = "";
 
     for (const segment of segments) {
@@ -892,7 +839,7 @@ export class ImportService {
   }
 
   private async linkNoteMedia(
-    noteId: number,
+    noteId: string,
     noteFields: Record<string, string>,
   ): Promise<void> {
     const mediaFilenames = extractMediaFilenames(noteFields);
@@ -928,10 +875,9 @@ export class ImportService {
 
     onProgress?.("notes", 0, "Creating decks and note types...");
 
-    // === Create decks (same logic as importFromApkg) ===
     const usedDeckIds = new Set(data.cards.map((c) => c.deckId));
-    const hierarchyCache = new Map<string, number>();
-    const deckMap = new Map<number, number>();
+    const hierarchyCache = new Map<string, string>();
+    const deckMap = new Map<number, string>();
     for (const ankiDeck of data.decks) {
       if (!usedDeckIds.has(ankiDeck.id)) {
         continue;
@@ -946,9 +892,8 @@ export class ImportService {
       deckMap.set(ankiDeck.id, leafDeckId);
     }
 
-    // === Create note types ===
-    const noteTypeMap = new Map<number, number>();
-    const templateMap = new Map<string, number>();
+    const noteTypeMap = new Map<number, string>();
+    const templateMap = new Map<string, string>();
     for (const ankiNoteType of data.noteTypes) {
       if (merge) {
         const existing = await this.db
@@ -1003,6 +948,7 @@ export class ImportService {
             ordinal: tmpl.ordinal,
             questionTemplate: stripAddonMarkup(tmpl.questionFormat),
             answerTemplate: stripAddonMarkup(tmpl.answerFormat),
+            updatedAt: now,
           })
           .returning()
           .get();
@@ -1010,11 +956,10 @@ export class ImportService {
       }
     }
 
-    // === Bulk duplicate check (single SELECT instead of per-note) ===
     onProgress?.("notes", 2, "Checking for duplicates...");
     const existingByGuid = new Map<
       string,
-      { id: number; fields: Record<string, string> }
+      { id: string; fields: Record<string, string> }
     >();
     const allExisting = await this.db
       .select({
@@ -1031,18 +976,16 @@ export class ImportService {
       }
     }
 
-    // === Build O(1) lookup maps ===
     const noteTypeById = new Map(data.noteTypes.map((nt) => [nt.id, nt]));
     const noteById = new Map(data.notes.map((n) => [n.id, n]));
 
-    // === Classify notes into insert / update / skip ===
     type NoteInsertItem = {
       ankiId: number;
       values: typeof notes.$inferInsert;
       fields: Record<string, string>;
     };
     type NoteUpdateItem = {
-      existingId: number;
+      existingId: string;
       ankiId: number;
       fields: Record<string, string>;
       tags: string;
@@ -1051,7 +994,7 @@ export class ImportService {
     const toInsert: NoteInsertItem[] = [];
     const toUpdate: NoteUpdateItem[] = [];
     const skippedNoteIds = new Set<number>();
-    const noteMap = new Map<number, number>();
+    const noteMap = new Map<number, string>();
     let duplicatesSkipped = 0;
     let notesUpdated = 0;
 
@@ -1123,11 +1066,10 @@ export class ImportService {
       });
     }
 
-    // === Pre-compute card insert values ===
     type CardInsertItem = {
       ankiNoteId: number;
-      deckId: number;
-      templateId: number;
+      deckId: string;
+      templateId: string;
       ordinal: number;
       state: number;
       reps: number;
@@ -1170,7 +1112,6 @@ export class ImportService {
       });
     }
 
-    // === Transaction: batch insert/update ===
     onProgress?.(
       "notes",
       5,
@@ -1179,7 +1120,6 @@ export class ImportService {
 
     await this.rawDb.execSQL("BEGIN TRANSACTION");
     try {
-      // Batch insert new notes
       for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
         const batch = toInsert.slice(i, i + BATCH_SIZE);
         const inserted = await this.db
@@ -1204,7 +1144,6 @@ export class ImportService {
         });
       }
 
-      // Batch update existing notes (merge mode)
       for (const upd of toUpdate) {
         await this.db
           .update(notes)
@@ -1213,14 +1152,12 @@ export class ImportService {
           .run();
       }
 
-      // Batch link media references
       if (mediaMapping) {
         const allMediaRecords = await this.db.select().from(media).all();
         const mediaByFilename = new Map(
           allMediaRecords.map((m) => [m.filename, m.id]),
         );
 
-        // Delete existing media links for updated notes
         for (const upd of toUpdate) {
           await this.db
             .delete(noteMedia)
@@ -1228,8 +1165,7 @@ export class ImportService {
             .run();
         }
 
-        // Collect all media links
-        const noteMediaValues: Array<{ noteId: number; mediaId: number }> = [];
+        const noteMediaValues: Array<{ noteId: string; mediaId: string }> = [];
         for (const item of toInsert) {
           const noteId = noteMap.get(item.ankiId);
           if (!noteId) {
@@ -1253,7 +1189,6 @@ export class ImportService {
           }
         }
 
-        // Batch insert noteMedia
         for (let i = 0; i < noteMediaValues.length; i += BATCH_SIZE) {
           const batch = noteMediaValues.slice(i, i + BATCH_SIZE);
           await this.db
@@ -1264,7 +1199,6 @@ export class ImportService {
         }
       }
 
-      // Batch insert cards
       onProgress?.("cards", 0, `Creating ${cardInserts.length} cards...`);
       for (let i = 0; i < cardInserts.length; i += BATCH_SIZE) {
         const batch = cardInserts.slice(i, i + BATCH_SIZE);

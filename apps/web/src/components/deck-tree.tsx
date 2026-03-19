@@ -65,7 +65,7 @@ function CountCell({
   );
 }
 
-function DeckCountBadges({ deckId }: { deckId: number }): React.ReactElement {
+function DeckCountBadges({ deckId }: { deckId: string }): React.ReactElement {
   const { data: counts } = useDeckCounts(deckId);
 
   const n = counts?.new ?? 0;
