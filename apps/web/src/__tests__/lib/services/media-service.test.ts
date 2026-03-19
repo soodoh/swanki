@@ -4,11 +4,10 @@ import { MediaService } from "@/lib/services/media-service";
 import { media, noteMedia } from "@/db/schema";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import type * as schema from "@/db/schema";
+import type { AppDb } from "@swanki/core/db";
 import { nodeFs } from "@swanki/core/node-filesystem";
 
-type Db = BetterSQLite3Database<typeof schema>;
+type Db = AppDb;
 
 describe("MediaService.importBatch", () => {
   let db: Db;

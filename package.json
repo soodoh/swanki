@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "turbo dev",
-    "dev:web": "node scripts/rebuild-sqlite.mjs; turbo dev --filter=web",
+    "dev:web": "turbo dev --filter=web",
     "dev:docs": "turbo dev --filter=docs",
     "dev:mobile": "cd apps/web && BETTER_AUTH_SECRET=mobile-dev-dummy BETTER_AUTH_URL=http://localhost:3000 vite dev --config vite.config.mobile.ts",
     "build:mobile": "cd apps/web && mkdir -p data && BETTER_AUTH_SECRET=mobile-build-dummy BETTER_AUTH_URL=http://localhost:3000 vite build --config vite.config.mobile.ts",
@@ -29,6 +29,7 @@
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@commitlint/types": "^20.5.0",
+    "bun-types": "^1.3.11",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "oxlint": "^1.55.0",

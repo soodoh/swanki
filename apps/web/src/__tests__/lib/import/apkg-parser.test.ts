@@ -1,5 +1,6 @@
+/// <reference types="bun-types" />
 import { describe, it, expect, expectTypeOf } from "vitest";
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import { zipSync, strToU8 } from "fflate";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";

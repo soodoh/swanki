@@ -1,1 +1,1 @@
-export * from "@swanki/core/import/apkg-parser";
+export * from "@swanki/core/import/apkg-parser-bun";
