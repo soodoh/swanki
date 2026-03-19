@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Undo2, PartyPopper } from "lucide-react";
+import { ArrowLeft, Undo2, PartyPopper, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CardDisplay } from "@/components/study/card-display";
@@ -11,8 +11,16 @@ import {
   useSubmitReview,
   useUndoReview,
   useIntervalPreviews,
+  useSuspendCards,
+  useBuryCard,
 } from "@/lib/hooks/use-study";
 import type { CardWithNote } from "@/lib/hooks/use-study";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { renderTemplate } from "@/lib/template-renderer";
 
 export const Route = createFileRoute("/_authenticated/study/$deckId")({
@@ -27,6 +35,8 @@ export function StudyPage(): React.ReactElement {
   const { data: session, isLoading, error, refetch } = useStudySession(deckId);
   const submitReview = useSubmitReview();
   const undoReview = useUndoReview();
+  const suspendCards = useSuspendCards();
+  const buryCard = useBuryCard();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -100,6 +110,29 @@ export function StudyPage(): React.ReactElement {
     setLastReviewedCardId(undefined);
     setCurrentIndex(0);
   }, [lastReviewedCardId, undoReview, refetch]);
+
+  const handleSuspend = useCallback(async () => {
+    if (!currentCard) {
+      return;
+    }
+    await suspendCards.mutateAsync({
+      cardIds: [currentCard.id],
+      suspend: true,
+    });
+    await refetch();
+    setShowAnswer(false);
+    setCurrentIndex(0);
+  }, [currentCard, suspendCards, refetch]);
+
+  const handleBury = useCallback(async () => {
+    if (!currentCard) {
+      return;
+    }
+    await buryCard.mutateAsync({ cardIds: [currentCard.id], bury: true });
+    await refetch();
+    setShowAnswer(false);
+    setCurrentIndex(0);
+  }, [currentCard, buryCard, refetch]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -259,6 +292,27 @@ export function StudyPage(): React.ReactElement {
               <span className="text-xs text-muted-foreground/60 ml-1">(Z)</span>
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" disabled={!currentCard}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => void handleSuspend()}
+                disabled={suspendCards.isPending}
+              >
+                Suspend Card
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => void handleBury()}
+                disabled={buryCard.isPending}
+              >
+                Bury Card
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
