@@ -21,6 +21,7 @@ export type BrowseNote = {
   cardCount: number;
   earliestDue: string | undefined;
   states: number[];
+  suspended: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -209,6 +210,7 @@ export class BrowseService {
         cardCount: sql<number>`count(${cards.id})`,
         earliestDue: sql<string>`min(${cards.due})`,
         states: sql<string>`group_concat(distinct ${cards.state})`,
+        suspended: sql<number>`min(${cards.suspended})`,
         createdAt: notes.createdAt,
         updatedAt: notes.updatedAt,
       })
@@ -231,6 +233,7 @@ export class BrowseService {
       cardCount: Number(row.cardCount),
       earliestDue: row.earliestDue || undefined,
       states: parseStates(row.states),
+      suspended: Number(row.suspended) === 1,
       createdAt:
         row.createdAt instanceof Date
           ? row.createdAt.toISOString()
