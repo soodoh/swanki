@@ -9,6 +9,23 @@ import { initAutoUpdater } from "./updater";
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
+// Register swanki-media:// as a privileged scheme for proper media streaming.
+// Must be called before app ready.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "swanki-media",
+    privileges: {
+      secure: true,
+      standard: true,
+      supportFetchAPI: true,
+      stream: true,
+    },
+  },
+]);
+
+// Allow audio autoplay without user gesture (Electron apps have no MEI history)
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
 let mainWindow: BrowserWindow | null = null;
 
 // Get or create local user
@@ -24,7 +41,10 @@ app.whenReady().then(() => {
       request.url.replace("swanki-media://media/", ""),
     );
     const filePath = join(mediaDir, filename);
-    return net.fetch("file://" + filePath);
+    const rangeHeader = request.headers.get("Range");
+    return net.fetch("file://" + filePath, {
+      ...(rangeHeader ? { headers: { Range: rangeHeader } } : {}),
+    });
   });
 
   // Restore window state
