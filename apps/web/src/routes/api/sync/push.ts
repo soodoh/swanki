@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "../../../lib/auth-middleware";
 import { SyncService } from "../../../lib/services/sync-service";
+import type { SyncPushRequest } from "@swanki/core/services/sync-types";
 import { db } from "../../../db";
 
 const syncService = new SyncService(db);
@@ -10,7 +11,7 @@ export const Route = createFileRoute("/api/sync/push")({
     handlers: {
       POST: async ({ request }) => {
         const session = await requireSession(request);
-        const body = await request.json();
+        const body = (await request.json()) as SyncPushRequest;
         const result = await syncService.push(session.user.id, body);
         return Response.json(result);
       },
