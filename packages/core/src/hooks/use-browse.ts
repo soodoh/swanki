@@ -13,6 +13,7 @@ export type BrowseNote = {
   cardCount: number;
   earliestDue: string | undefined;
   states: number[];
+  suspended: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -103,22 +104,28 @@ export function useNoteDetail(
 export function useUpdateNote(): UseMutationResult<
   unknown,
   Error,
-  { noteId: number; fields?: Record<string, string>; deckId?: number }
+  {
+    noteId: number;
+    fields?: Record<string, string>;
+    deckId?: number;
+    suspend?: boolean;
+    bury?: boolean;
+  }
 > {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: {
-      noteId: number;
-      fields?: Record<string, string>;
-      deckId?: number;
-    }) => transport.mutate<unknown>("/api/browse", "PATCH", data),
+    mutationFn: (data) => transport.mutate<unknown>("/api/browse", "PATCH", data),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["browse"] });
       void queryClient.invalidateQueries({
         queryKey: ["note-detail", variables.noteId],
       });
+      if (variables.suspend !== undefined || variables.bury !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: ["study-session"] });
+        void queryClient.invalidateQueries({ queryKey: ["deck-counts"] });
+      }
     },
   });
 }
