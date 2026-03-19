@@ -39,15 +39,19 @@ import {
   clearToken,
   isSignedIn,
   getCloudServerUrl,
+  getToken,
 } from "./auth";
 import {
   syncCycle,
+  syncPull,
   getSyncStatus,
   startPeriodicSync,
   stopPeriodicSync,
   setCloudServerUrl,
   getLastSyncTime,
   scheduleSyncAfterMutation,
+  reassignUserId,
+  initMediaDir,
 } from "./sync";
 
 export function registerIpcHandlers(
@@ -57,6 +61,9 @@ export function registerIpcHandlers(
   mediaDir: string,
   mainWindow: BrowserWindow,
 ): void {
+  // Initialise the sync module with the media directory path
+  initMediaDir(mediaDir);
+
   const deckService = new DeckService(db, mediaDir, nodeFs);
   const studyService = new StudyService(db);
   const cardService = new CardService(db);
@@ -766,15 +773,80 @@ export function registerIpcHandlers(
   // Auth handlers
   ipcMain.handle("auth:sign-in", async () => {
     const token = await openAuthWindow(mainWindow);
-    if (token) {
-      // Trigger initial full sync cycle after sign-in
-      void syncCycle(db, rawDb).then(() => {
-        startPeriodicSync(db, rawDb);
-      });
-      return { signedIn: true };
+    if (!token) {
+      return { signedIn: false };
     }
-    return { signedIn: false };
+
+    // Check if any local data exists (decks table)
+    const localDeckCount = (
+      rawDb.prepare("SELECT COUNT(*) as count FROM decks").get() as {
+        count: number;
+      }
+    ).count;
+
+    if (localDeckCount > 0) {
+      // Local data present — ask the user whether to merge or replace
+      return { signedIn: true, hasLocalData: true };
+    }
+
+    // No local data — do a full pull and start periodic sync
+    await syncPull(db, rawDb);
+    startPeriodicSync(db, rawDb);
+    return { signedIn: true, hasLocalData: false };
   });
+
+  ipcMain.handle(
+    "auth:complete-sign-in",
+    async (_event, { strategy }: { strategy: "merge" | "replace" }) => {
+      if (strategy === "merge") {
+        // Fetch the cloud user ID from the session endpoint
+        const serverUrl = getCloudServerUrl();
+        const token = getToken()!;
+        const sessionRes = await fetch(`${serverUrl}/api/auth/get-session`, {
+          headers: { Cookie: `better-auth.session_token=${token}` },
+        });
+        if (!sessionRes.ok) {
+          throw new Error(
+            `Failed to fetch cloud session: ${sessionRes.status}`,
+          );
+        }
+        const session = (await sessionRes.json()) as {
+          user?: { id?: string };
+        };
+        const cloudUserId = session?.user?.id;
+        if (!cloudUserId) {
+          throw new Error("Could not determine cloud user ID from session");
+        }
+
+        // Re-assign all local data to the cloud user ID, then sync
+        reassignUserId(rawDb, userId, cloudUserId);
+        await syncCycle(db, rawDb);
+      } else {
+        // Replace: delete all local data, then pull from cloud
+        const deleteOrder = [
+          "note_media",
+          "review_logs",
+          "cards",
+          "notes",
+          "card_templates",
+          "note_types",
+          "decks",
+          "media",
+          "deletions",
+        ];
+        const deleteAll = rawDb.transaction(() => {
+          for (const table of deleteOrder) {
+            rawDb.prepare(`DELETE FROM ${table}`).run();
+          }
+        });
+        deleteAll();
+        await syncPull(db, rawDb);
+      }
+
+      startPeriodicSync(db, rawDb);
+      return { ok: true };
+    },
+  );
 
   ipcMain.handle("auth:sign-out", () => {
     stopPeriodicSync();

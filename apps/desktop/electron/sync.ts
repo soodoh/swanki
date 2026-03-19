@@ -280,6 +280,18 @@ export function setCloudServerUrl(url: string): void {
   writeSyncState({ cloudServerUrl: url });
 }
 
+// ── Media directory ─────────────────────────────────────────────────
+
+let mediaDirPath: string = "";
+
+/**
+ * Set the media directory path. Must be called during app initialization
+ * before any sync functions run.
+ */
+export function initMediaDir(dir: string): void {
+  mediaDirPath = dir;
+}
+
 // ── Status tracking ─────────────────────────────────────────────────
 
 export type SyncStatus = "idle" | "syncing" | "error";
@@ -542,11 +554,26 @@ export async function syncPush(
   // Store pushedAt as lastPushTime (epoch ms from server)
   setLastPushTime(result.pushedAt);
 
-  // TODO (Task 8): Upload requested media files
-  if (result.mediaToUpload.length > 0) {
-    console.log(
-      `Server requested upload of ${result.mediaToUpload.length} media files`,
-    );
+  // Upload media files requested by the server
+  for (const hash of result.mediaToUpload) {
+    const mediaRecord = rawDb
+      .prepare("SELECT filename FROM media WHERE id = ?")
+      .get(hash) as { filename: string } | undefined;
+    if (mediaRecord) {
+      const filePath = join(mediaDirPath, mediaRecord.filename);
+      if (existsSync(filePath)) {
+        const fileData = readFileSync(filePath);
+        await fetch(`${serverUrl}/api/sync/media/upload`, {
+          method: "POST",
+          headers: {
+            Cookie: `better-auth.session_token=${token}`,
+            "Content-Type": "application/octet-stream",
+            "X-Media-Hash": hash,
+          },
+          body: fileData,
+        });
+      }
+    }
   }
 }
 
@@ -698,6 +725,32 @@ export async function syncPull(
     });
 
     applySync();
+
+    // Download missing media files
+    if (data.media.length > 0 && mediaDirPath) {
+      for (const mediaRow of data.media) {
+        const hash = mediaRow.id as string;
+        const filename = mediaRow.filename as string;
+        const localPath = join(mediaDirPath, filename);
+        if (!existsSync(localPath)) {
+          try {
+            const mediaRes = await fetch(
+              `${serverUrl}/api/sync/media/download?hash=${hash}`,
+              {
+                headers: { Cookie: `better-auth.session_token=${token}` },
+              },
+            );
+            if (mediaRes.ok) {
+              const buffer = Buffer.from(await mediaRes.arrayBuffer());
+              writeFileSync(localPath, buffer);
+            }
+          } catch {
+            // Media download failure doesn't block data sync; retry next cycle
+          }
+        }
+      }
+    }
+
     setLastSyncTime(data.syncedAt);
     setStatus("idle");
   } catch (e) {
@@ -770,4 +823,32 @@ export function stopPeriodicSync(): void {
     clearInterval(syncInterval);
     syncInterval = null;
   }
+}
+
+// ── User ID reassignment (for merge on first sign-in) ────────────────
+
+/**
+ * Reassign all local data from oldUserId to newUserId.
+ * Used during the "merge" flow when signing in for the first time:
+ * local data was created under a temporary local user ID and needs
+ * to be claimed by the cloud account's user ID.
+ */
+export function reassignUserId(
+  rawDb: Database.Database,
+  oldUserId: string,
+  newUserId: string,
+): void {
+  const tables = ["decks", "note_types", "notes", "media", "deletions"];
+  const tx = rawDb.transaction(() => {
+    for (const table of tables) {
+      rawDb
+        .prepare(`UPDATE ${table} SET user_id = ? WHERE user_id = ?`)
+        .run(newUserId, oldUserId);
+    }
+    // Also update the user table so the local user record matches cloud
+    rawDb
+      .prepare(`UPDATE user SET id = ? WHERE id = ?`)
+      .run(newUserId, oldUserId);
+  });
+  tx();
 }
