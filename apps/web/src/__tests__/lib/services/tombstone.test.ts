@@ -6,17 +6,25 @@ import { NoteTypeService } from "@swanki/core/services/note-type-service";
 import { deletions } from "@swanki/core/db/schema";
 import { eq } from "drizzle-orm";
 
+const mockFs = {
+  join: (...parts: string[]) => parts.join("/"),
+  exists: async () => {
+    const result = await Promise.resolve(false as boolean);
+    return result;
+  },
+  unlink: async () => {},
+  readFile: async (): Promise<Buffer> => {
+    const result = await Promise.resolve(Buffer.from(""));
+    return result;
+  },
+  writeFile: async () => {},
+  mkdir: async () => {},
+};
+
 describe("Tombstone tracking", () => {
   it("creates tombstone when deck is deleted", async () => {
     const db = createTestDb();
-    const deckService = new DeckService(db, "/tmp", {
-      join: (...parts: string[]) => parts.join("/"),
-      exists: async () => false,
-      unlink: async () => {},
-      readFile: async () => Buffer.from(""),
-      writeFile: async () => {},
-      mkdir: async () => {},
-    });
+    const deckService = new DeckService(db, "/tmp", mockFs);
 
     const deck = await deckService.create("user1", { name: "Test" });
     await deckService.delete(deck.id, "user1");
@@ -28,21 +36,19 @@ describe("Tombstone tracking", () => {
       .all();
 
     expect(tombstones.length).toBeGreaterThanOrEqual(1);
-    expect(
-      tombstones.some((t) => t.tableName === "decks" && t.entityId === deck.id),
-    ).toBe(true);
+    expect(tombstones).toStrictEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tableName: "decks",
+          entityId: deck.id,
+        }),
+      ]),
+    );
   });
 
   it("creates tombstone for cards and notes when deck with content is deleted", async () => {
     const db = createTestDb();
-    const deckService = new DeckService(db, "/tmp", {
-      join: (...parts: string[]) => parts.join("/"),
-      exists: async () => false,
-      unlink: async () => {},
-      readFile: async () => Buffer.from(""),
-      writeFile: async () => {},
-      mkdir: async () => {},
-    });
+    const deckService = new DeckService(db, "/tmp", mockFs);
     const noteTypeService = new NoteTypeService(db);
     const noteService = new NoteService(db);
 
@@ -74,25 +80,18 @@ describe("Tombstone tracking", () => {
       .where(eq(deletions.userId, "user1"))
       .all();
 
-    expect(
-      tombstones.some((t) => t.tableName === "decks" && t.entityId === deck.id),
-    ).toBe(true);
-    expect(
-      tombstones.some((t) => t.tableName === "notes" && t.entityId === note.id),
-    ).toBe(true);
-    expect(tombstones.some((t) => t.tableName === "cards")).toBe(true);
+    expect(tombstones).toStrictEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ tableName: "decks", entityId: deck.id }),
+        expect.objectContaining({ tableName: "notes", entityId: note.id }),
+        expect.objectContaining({ tableName: "cards" }),
+      ]),
+    );
   });
 
   it("creates tombstone when note is deleted", async () => {
     const db = createTestDb();
-    const deckService = new DeckService(db, "/tmp", {
-      join: (...parts: string[]) => parts.join("/"),
-      exists: async () => false,
-      unlink: async () => {},
-      readFile: async () => Buffer.from(""),
-      writeFile: async () => {},
-      mkdir: async () => {},
-    });
+    const deckService = new DeckService(db, "/tmp", mockFs);
     const noteTypeService = new NoteTypeService(db);
     const noteService = new NoteService(db);
 
@@ -124,10 +123,12 @@ describe("Tombstone tracking", () => {
       .where(eq(deletions.userId, "user1"))
       .all();
 
-    expect(
-      tombstones.some((t) => t.tableName === "notes" && t.entityId === note.id),
-    ).toBe(true);
-    expect(tombstones.some((t) => t.tableName === "cards")).toBe(true);
+    expect(tombstones).toStrictEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ tableName: "notes", entityId: note.id }),
+        expect.objectContaining({ tableName: "cards" }),
+      ]),
+    );
   });
 
   it("creates tombstone when note type is deleted", async () => {
@@ -155,15 +156,17 @@ describe("Tombstone tracking", () => {
       .where(eq(deletions.userId, "user1"))
       .all();
 
-    expect(
-      tombstones.some(
-        (t) => t.tableName === "note_types" && t.entityId === noteType.id,
-      ),
-    ).toBe(true);
-    expect(
-      tombstones.some(
-        (t) => t.tableName === "card_templates" && t.entityId === template!.id,
-      ),
-    ).toBe(true);
+    expect(tombstones).toStrictEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tableName: "note_types",
+          entityId: noteType.id,
+        }),
+        expect.objectContaining({
+          tableName: "card_templates",
+          entityId: template!.id,
+        }),
+      ]),
+    );
   });
 });

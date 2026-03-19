@@ -6,9 +6,15 @@ import type { SyncPushRequest } from "@swanki/core/services/sync-types";
 
 const mockFs = {
   join: (...parts: string[]) => parts.join("/"),
-  exists: async () => false,
+  exists: async () => {
+    const result = await Promise.resolve(false as boolean);
+    return result;
+  },
   unlink: async () => {},
-  readFile: async () => Buffer.from(""),
+  readFile: async (): Promise<Buffer> => {
+    const result = await Promise.resolve(Buffer.from(""));
+    return result;
+  },
   writeFile: async () => {},
   mkdir: async () => {},
 };
@@ -38,11 +44,11 @@ describe("SyncService", () => {
 
       const result = await syncService.pullDelta("user1", beforeDelete);
       expect(result.deletions.length).toBeGreaterThanOrEqual(1);
-      expect(
-        result.deletions.some(
-          (d) => d.tableName === "decks" && d.entityId === deck.id,
-        ),
-      ).toBe(true);
+      expect(result.deletions).toStrictEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ tableName: "decks", entityId: deck.id }),
+        ]),
+      );
     });
 
     it("does not include deletions from before since timestamp", async () => {
@@ -55,7 +61,7 @@ describe("SyncService", () => {
       const afterDelete = Date.now() + 1000;
 
       const result = await syncService.pullDelta("user1", afterDelete);
-      expect(result.deletions.length).toBe(0);
+      expect(result.deletions).toHaveLength(0);
     });
   });
 
@@ -150,7 +156,7 @@ describe("SyncService", () => {
       });
 
       expect(result.conflicts).toHaveLength(1);
-      expect(result.conflicts[0]).toEqual({
+      expect(result.conflicts[0]).toStrictEqual({
         tableName: "decks",
         entityId: "deck-1",
         winner: "client",
@@ -195,7 +201,7 @@ describe("SyncService", () => {
       });
 
       expect(result.conflicts).toHaveLength(1);
-      expect(result.conflicts[0]).toEqual({
+      expect(result.conflicts[0]).toStrictEqual({
         tableName: "decks",
         entityId: "deck-1",
         winner: "server",
@@ -362,7 +368,7 @@ describe("SyncService", () => {
         state: 0,
         due: now,
         stability: 4.5,
-        difficulty: 5.0,
+        difficulty: 5,
         elapsedDays: 0,
         lastElapsedDays: 0,
         scheduledDays: 1,
@@ -404,7 +410,7 @@ describe("SyncService", () => {
         ],
       });
 
-      expect(result.mediaToUpload).toEqual(["hash-abc123"]);
+      expect(result.mediaToUpload).toStrictEqual(["hash-abc123"]);
 
       // Second push should not include it in mediaToUpload
       const result2 = await syncService.push("user1", {
@@ -421,7 +427,7 @@ describe("SyncService", () => {
         ],
       });
 
-      expect(result2.mediaToUpload).toEqual([]);
+      expect(result2.mediaToUpload).toStrictEqual([]);
     });
 
     it("push deletions remove entities with LWW check", async () => {
@@ -530,11 +536,14 @@ describe("SyncService", () => {
 
       // Tombstone should still be recorded in the deletions table for propagation
       const deltaResult = await syncService.pullDelta("user1", earlier - 1000);
-      expect(
-        deltaResult.deletions.some(
-          (d) => d.tableName === "decks" && d.entityId === "deck-1",
-        ),
-      ).toBe(true);
+      expect(deltaResult.deletions).toStrictEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            tableName: "decks",
+            entityId: "deck-1",
+          }),
+        ]),
+      );
     });
   });
 });
