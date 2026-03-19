@@ -55,5 +55,9 @@ apps/web/playwright-report/
 .worktrees/
 
 # Claude/Serena
+.worktrees/
 .serena/
+.playwright-mcp/
+.claude/worktrees/
 .claude/sessions/
+.claude/plans/
