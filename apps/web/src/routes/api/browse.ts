@@ -79,9 +79,11 @@ export const Route = createFileRoute("/api/browse")({
           noteId: number;
           fields?: Record<string, string>;
           deckId?: number;
+          suspend?: boolean;
+          bury?: boolean;
         };
 
-        const { noteId, fields, deckId } = body;
+        const { noteId, fields, deckId, suspend, bury } = body;
         if (!noteId) {
           return Response.json(
             { error: "noteId is required" },
@@ -106,6 +108,18 @@ export const Route = createFileRoute("/api/browse")({
           // Move ALL cards of this note to the new deck
           const cardIds = noteData.cards.map((c) => c.id);
           await cardService.moveToDeck(cardIds, deckId, session.user.id);
+        }
+
+        if (typeof suspend === "boolean") {
+          const cardIds = noteData.cards.map((c) => c.id);
+          await cardService.suspendCards(cardIds, session.user.id, suspend);
+        }
+
+        if (typeof bury === "boolean") {
+          const cardIds = noteData.cards.map((c) => c.id);
+          await (bury
+            ? cardService.buryCards(cardIds, session.user.id)
+            : cardService.unburyCards(cardIds, session.user.id));
         }
 
         return Response.json({ success: true });
