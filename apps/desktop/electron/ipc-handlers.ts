@@ -45,6 +45,8 @@ import {
   getSyncStatus,
   startPeriodicSync,
   stopPeriodicSync,
+  setCloudServerUrl,
+  getLastSyncTime,
 } from "./sync";
 
 export function registerIpcHandlers(
@@ -794,6 +796,24 @@ export function registerIpcHandlers(
   ipcMain.handle("sync:status", () => {
     return { status: getSyncStatus() };
   });
+
+  // Settings handlers
+  ipcMain.handle("settings:get", () => {
+    return {
+      cloudServerUrl: getCloudServerUrl(),
+      signedIn: isSignedIn(),
+      syncStatus: getSyncStatus(),
+      lastSyncTime: getLastSyncTime(),
+    };
+  });
+
+  ipcMain.handle(
+    "settings:update",
+    (_event, { cloudServerUrl }: { cloudServerUrl: string }) => {
+      setCloudServerUrl(cloudServerUrl);
+      return { ok: true };
+    },
+  );
 
   // If already signed in, start periodic sync on launch
   if (isSignedIn()) {

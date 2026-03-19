@@ -13,6 +13,14 @@ interface ElectronAPI {
   // Sync
   syncNow(): Promise<{ status: string }>;
   syncStatus(): Promise<{ status: string }>;
+  // Settings
+  settingsGet(): Promise<{
+    cloudServerUrl: string;
+    signedIn: boolean;
+    syncStatus: string;
+    lastSyncTime: number | null;
+  }>;
+  settingsUpdate(data: { cloudServerUrl: string }): Promise<{ ok: boolean }>;
 }
 
 declare global {

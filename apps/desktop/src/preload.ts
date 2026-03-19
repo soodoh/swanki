@@ -17,4 +17,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Sync
   syncNow: () => ipcRenderer.invoke("sync:now"),
   syncStatus: () => ipcRenderer.invoke("sync:status"),
+  // Settings
+  settingsGet: () => ipcRenderer.invoke("settings:get"),
+  settingsUpdate: (data: { cloudServerUrl: string }) =>
+    ipcRenderer.invoke("settings:update", data),
 });
