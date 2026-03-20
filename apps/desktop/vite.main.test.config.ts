@@ -20,6 +20,8 @@ export default defineConfig({
     "process.env.SWANKI_TEST_DATA_DIR": JSON.stringify(
       resolve(__dirname, ".e2e-test-data"),
     ),
+    "process.env.SWANKI_CLOUD_URL": "undefined",
+    "process.env.PLAYWRIGHT_TEST": JSON.stringify("1"),
   },
   resolve: {
     conditions: ["node"],
