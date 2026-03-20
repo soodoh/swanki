@@ -11,7 +11,6 @@ export const Route = createFileRoute("/api/note-types/$noteTypeId/sample-note")(
       handlers: {
         GET: async ({ request, params }) => {
           const session = await requireSession(request);
-          // oxlint-disable-next-line typescript/no-unsafe-member-access -- TanStack server handler params are untyped
           const noteTypeId = params.noteTypeId;
           const fields = await noteTypeService.getFirstNoteFields(
             noteTypeId,

@@ -56,7 +56,7 @@ describe("ImportService", () => {
     const testDb = createTestDbWithRaw();
     db = testDb.db;
     importService = new ImportService(testDb.db, {
-      execSQL: (sql: string) => testDb.rawDb.exec(sql),
+      execSQL: (sql: string) => testDb.rawDb.run(sql),
     });
   });
 

@@ -1,4 +1,4 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-call, typescript/no-unsafe-member-access, typescript/no-redundant-type-constituents */
+/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-call, typescript/no-unsafe-member-access */
 /**
  * Client-side APKG parser using sql.js (SQLite compiled to WASM).
  * Runs entirely in the browser — no file upload needed for preview.

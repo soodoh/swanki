@@ -49,7 +49,9 @@ export function MobileInitProvider({
 
         const { db, rawDb } = await initMobileDb();
 
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         const transport = new MobileTransport(
           db,
@@ -60,10 +62,14 @@ export function MobileInitProvider({
         );
 
         setState({ status: "ready", transport });
-      } catch (err) {
-        if (cancelled) return;
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
         const message =
-          err instanceof Error ? err.message : "Failed to initialize database";
+          error instanceof Error
+            ? error.message
+            : "Failed to initialize database";
         setState({ status: "error", error: message });
       }
     }

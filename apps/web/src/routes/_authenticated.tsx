@@ -58,10 +58,9 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout(): React.ReactElement {
-  // oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via beforeLoad return
-  const { session } = Route.useRouteContext();
-  // oxlint-disable-next-line typescript/no-unsafe-member-access -- typed via beforeLoad return
-  const user = (session as SessionData).user;
+  // oxlint-disable-next-line typescript-eslint(no-unnecessary-type-assertion) -- conflicts with no-unsafe-assignment without this cast
+  const routeContext = Route.useRouteContext() as { session: SessionData };
+  const user = routeContext.session.user;
 
   // On mobile, MobileInitProvider at the app root already provides
   // TransportProvider and PlatformProvider — just render the shell

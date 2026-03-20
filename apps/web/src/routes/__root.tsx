@@ -16,11 +16,10 @@ const isMobile = import.meta.env.VITE_PLATFORM === "mobile";
 
 // Lazy-load MobileInitProvider — only bundled in mobile builds
 const MobileInitProvider = isMobile
-  ? lazy(() =>
-      import("@/lib/mobile/mobile-init-provider").then((m) => ({
-        default: m.MobileInitProvider,
-      })),
-    )
+  ? lazy(async () => {
+      const m = await import("@/lib/mobile/mobile-init-provider");
+      return { default: m.MobileInitProvider };
+    })
   : null;
 
 export const Route = createRootRoute({
@@ -50,14 +49,14 @@ export const Route = createRootRoute({
 });
 
 // Inline script to handle "system" mode before paint.
-// Content is a hardcoded constant — not user input — so no XSS risk.
-// oxlint-disable-next-line react/no-danger -- hardcoded constant, not user input
 const THEME_INIT_SCRIPT = `(function(){var d=document.documentElement,c=d.classList;if(!c.contains('dark')&&!c.contains('light')){if(window.matchMedia('(prefers-color-scheme:dark)').matches)c.add('dark')}})();`;
 
 function RootComponent(): React.ReactElement {
-  // oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via beforeLoad return
-  const { theme } = Route.useRouteContext();
-  const typedTheme = theme as "light" | "dark" | "system";
+  // oxlint-disable-next-line typescript-eslint(no-unnecessary-type-assertion) -- conflicts with no-unsafe-assignment without this cast
+  const routeContext = Route.useRouteContext() as {
+    theme: "light" | "dark" | "system";
+  };
+  const typedTheme = routeContext.theme;
 
   let htmlClass: string | undefined;
   if (typedTheme === "dark") {

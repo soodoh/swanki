@@ -51,7 +51,7 @@ function createAnkiDb(options?: {
 
   try {
     // Create Anki schema
-    db.exec(`
+    db.run(`
       CREATE TABLE col (
         id integer PRIMARY KEY,
         crt integer NOT NULL,
@@ -69,7 +69,7 @@ function createAnkiDb(options?: {
       );
     `);
 
-    db.exec(`
+    db.run(`
       CREATE TABLE notes (
         id integer PRIMARY KEY,
         guid text NOT NULL,
@@ -85,7 +85,7 @@ function createAnkiDb(options?: {
       );
     `);
 
-    db.exec(`
+    db.run(`
       CREATE TABLE cards (
         id integer PRIMARY KEY,
         nid integer NOT NULL,
@@ -350,31 +350,31 @@ function createNewSchemaAnkiDb(options: {
     const collation = options.useUnicaseCollation ? "COLLATE nocase" : "";
 
     if (options.useProtobufConfig) {
-      sqliteDb.exec(
+      sqliteDb.run(
         `CREATE TABLE notetypes (id integer PRIMARY KEY, name text ${collation}, config blob)`,
       );
-      sqliteDb.exec(
+      sqliteDb.run(
         `CREATE TABLE templates (ntid integer, ord integer, name text, config blob)`,
       );
     } else {
-      sqliteDb.exec(
+      sqliteDb.run(
         `CREATE TABLE notetypes (id integer PRIMARY KEY, name text ${collation}, css text DEFAULT '')`,
       );
-      sqliteDb.exec(
+      sqliteDb.run(
         `CREATE TABLE templates (ntid integer, ord integer, name text, qfmt text, afmt text)`,
       );
     }
 
-    sqliteDb.exec(
+    sqliteDb.run(
       `CREATE TABLE fields (ntid integer, ord integer, name text ${collation})`,
     );
-    sqliteDb.exec(
+    sqliteDb.run(
       `CREATE TABLE decks (id integer PRIMARY KEY, name text ${collation})`,
     );
-    sqliteDb.exec(
+    sqliteDb.run(
       "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
     );
-    sqliteDb.exec(
+    sqliteDb.run(
       "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
     );
 

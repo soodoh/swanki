@@ -21,7 +21,6 @@ export const Route = createFileRoute("/api/media/$filename")({
           return Response.json({ error: "File not found" }, { status: 404 });
         }
 
-        // oxlint-disable-next-line typescript/no-unsafe-call -- existsSync is a typed Node.js API
         if (!existsSync(result.filePath)) {
           return Response.json(
             { error: "File not found on disk" },
@@ -29,7 +28,6 @@ export const Route = createFileRoute("/api/media/$filename")({
           );
         }
 
-        // oxlint-disable-next-line typescript-eslint(no-unsafe-call) -- node:fs is untyped in this project
         const fileBuffer = readFileSync(result.filePath);
         return new Response(fileBuffer, {
           headers: {

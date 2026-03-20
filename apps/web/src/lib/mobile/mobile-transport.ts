@@ -22,6 +22,8 @@ import { UserSettingsService } from "@swanki/core/services/user-settings-service
  * The endpoint routing mirrors apps/desktop/electron/ipc-handlers.ts.
  */
 export class MobileTransport implements AppTransport {
+  private db: AppDb;
+  private userId: string;
   private deckService: DeckService;
   private studyService: StudyService;
   private cardService: CardService;
@@ -34,12 +36,14 @@ export class MobileTransport implements AppTransport {
   private settingsService: UserSettingsService;
 
   constructor(
-    private db: AppDb,
+    db: AppDb,
     rawDb: RawSqliteDb,
-    private userId: string,
+    userId: string,
     mediaDir: string,
     fs: AppFileSystem,
   ) {
+    this.db = db;
+    this.userId = userId;
     this.deckService = new DeckService(db, mediaDir, fs);
     this.studyService = new StudyService(db);
     this.cardService = new CardService(db);
@@ -56,78 +60,122 @@ export class MobileTransport implements AppTransport {
     endpoint: string,
     params?: Record<string, string>,
   ): Promise<T> {
-    // Deck queries
-    if (endpoint === "/api/decks") {
-      return (await this.deckService.getTree(this.userId)) as T;
-    }
+    return ((await this.queryDecks(endpoint)) ??
+      (await this.queryStudy(endpoint)) ??
+      (await this.queryCards(endpoint, params)) ??
+      (await this.queryBrowse(endpoint, params)) ??
+      (await this.queryStats(endpoint, params)) ??
+      (await this.queryNoteTypes(endpoint)) ??
+      (await this.querySettings(endpoint)) ??
+      (() => {
+        throw new Error(`Unknown query endpoint: ${endpoint}`);
+      })()) as T;
+  }
 
-    // Study queries
+  async mutate<T>(
+    endpoint: string,
+    method: "POST" | "PUT" | "PATCH" | "DELETE",
+    body?: unknown,
+  ): Promise<T> {
+    const data = body as Record<string, unknown>;
+    return ((await this.mutateDeck(endpoint, method, data)) ??
+      (await this.mutateStudy(endpoint, method, data)) ??
+      (await this.mutateNote(endpoint, method, data)) ??
+      (await this.mutateBrowse(endpoint, method, data)) ??
+      (await this.mutateNoteType(endpoint, method, data)) ??
+      (await this.mutateTemplate(endpoint, method, data)) ??
+      (await this.mutateSettings(endpoint, method, data)) ??
+      (() => {
+        throw new Error(`Unknown mutation: ${method} ${endpoint}`);
+      })()) as T;
+  }
+
+  // --- Query handlers ---
+
+  private async queryDecks(endpoint: string): Promise<unknown> {
+    if (endpoint === "/api/decks") {
+      return this.deckService.getTree(this.userId);
+    }
+    return undefined;
+  }
+
+  private async queryStudy(endpoint: string): Promise<unknown> {
     const studyMatch = endpoint.match(/^\/api\/study\/([^/]+)$/);
     if (studyMatch) {
-      return (await this.studyService.getStudySession(
-        this.userId,
-        studyMatch[1],
-      )) as T;
+      return this.studyService.getStudySession(this.userId, studyMatch[1]);
     }
-
     const previewMatch = endpoint.match(/^\/api\/study\/preview\/([^/]+)$/);
     if (previewMatch) {
-      return (await this.studyService.getIntervalPreviews(
+      return this.studyService.getIntervalPreviews(
         this.userId,
         previewMatch[1],
-      )) as T;
+      );
     }
+    return undefined;
+  }
 
-    // Card counts
+  private async queryCards(
+    endpoint: string,
+    params?: Record<string, string>,
+  ): Promise<unknown> {
     if (
       endpoint === "/api/cards" &&
       params?.counts === "true" &&
       params?.deckId
     ) {
-      return (await this.cardService.getDueCounts(this.userId, params.deckId, {
+      return this.cardService.getDueCounts(this.userId, params.deckId, {
         includeChildren: true,
-      })) as T;
+      });
     }
+    return undefined;
+  }
 
-    // Browse queries
+  private async queryBrowse(
+    endpoint: string,
+    params?: Record<string, string>,
+  ): Promise<unknown> {
     if (endpoint === "/api/browse" && params?.noteId) {
-      return (await this.browseService.getNoteDetail(
-        this.userId,
-        params.noteId,
-      )) as T;
+      return this.browseService.getNoteDetail(this.userId, params.noteId);
     }
     if (endpoint === "/api/browse") {
-      return (await this.browseService.search(this.userId, params?.q ?? "", {
-        page: parseInt(params?.page ?? "1"),
-        limit: parseInt(params?.limit ?? "50"),
+      return this.browseService.search(this.userId, params?.q ?? "", {
+        page: Number.parseInt(params?.page ?? "1", 10),
+        limit: Number.parseInt(params?.limit ?? "50", 10),
         sortBy: params?.sortBy as "due" | "created" | "updated" | undefined,
         sortDir: params?.sortDir as "asc" | "desc" | undefined,
-      })) as T;
+      });
     }
+    return undefined;
+  }
 
-    // Stats queries
+  private async queryStats(
+    endpoint: string,
+    params?: Record<string, string>,
+  ): Promise<unknown> {
     if (endpoint === "/api/stats" && params?.type === "reviews") {
-      return (await this.statsService.getReviewsPerDay(
+      return this.statsService.getReviewsPerDay(
         this.userId,
-        parseInt(params?.days ?? "30"),
-      )) as T;
+        Number.parseInt(params?.days ?? "30", 10),
+      );
     }
     if (endpoint === "/api/stats" && params?.type === "states") {
-      return (await this.statsService.getCardStates(this.userId)) as T;
+      return this.statsService.getCardStates(this.userId);
     }
     if (endpoint === "/api/stats" && params?.type === "streak") {
-      return (await this.statsService.getStreak(this.userId)) as T;
+      return this.statsService.getStreak(this.userId);
     }
     if (endpoint === "/api/stats" && params?.type === "heatmap") {
-      return (await this.statsService.getHeatmap(
+      return this.statsService.getHeatmap(
         this.userId,
-        parseInt(params?.year ?? String(new Date().getFullYear())),
-      )) as T;
+        Number.parseInt(params?.year ?? String(new Date().getFullYear()), 10),
+      );
     }
+    return undefined;
+  }
 
-    // Note type queries
+  private async queryNoteTypes(endpoint: string): Promise<unknown> {
     if (endpoint === "/api/note-types") {
-      return (await this.noteTypeService.listByUser(this.userId)) as T;
+      return this.noteTypeService.listByUser(this.userId);
     }
     const sampleNoteMatch = endpoint.match(
       /^\/api\/note-types\/([^/]+)\/sample-note$/,
@@ -137,70 +185,75 @@ export class MobileTransport implements AppTransport {
         sampleNoteMatch[1],
         this.userId,
       );
-      return { fields } as T;
+      return { fields };
     }
     const noteTypeIdMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
     if (noteTypeIdMatch) {
-      return (await this.noteTypeService.getById(
-        noteTypeIdMatch[1],
-        this.userId,
-      )) as T;
+      return this.noteTypeService.getById(noteTypeIdMatch[1], this.userId);
     }
-
-    // Settings
-    if (endpoint === "/api/settings/theme") {
-      return (await this.settingsService.getTheme(this.userId)) as T;
-    }
-
-    throw new Error(`Unknown query endpoint: ${endpoint}`);
+    return undefined;
   }
 
-  async mutate<T>(
-    endpoint: string,
-    method: "POST" | "PUT" | "PATCH" | "DELETE",
-    body?: unknown,
-  ): Promise<T> {
-    const data = body as Record<string, unknown>;
+  private async querySettings(endpoint: string): Promise<unknown> {
+    if (endpoint === "/api/settings/theme") {
+      return this.settingsService.getTheme(this.userId);
+    }
+    return undefined;
+  }
 
-    // Deck mutations
+  // --- Mutation handlers ---
+
+  private async mutateDeck(
+    endpoint: string,
+    method: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     if (endpoint === "/api/decks" && method === "POST") {
-      return (await this.deckService.create(
+      return this.deckService.create(
         this.userId,
         data as { name: string; parentId?: string },
-      )) as T;
+      );
     }
     const deckMatch = endpoint.match(/^\/api\/decks\/([^/]+)$/);
     if (deckMatch && method === "PUT") {
-      return (await this.deckService.update(
-        deckMatch[1],
-        this.userId,
-        data,
-      )) as T;
+      return this.deckService.update(deckMatch[1], this.userId, data);
     }
     if (deckMatch && method === "DELETE") {
       await this.deckService.delete(deckMatch[1], this.userId);
-      return { ok: true } as T;
+      return { ok: true };
     }
+    return undefined;
+  }
 
-    // Study mutations
+  private async mutateStudy(
+    endpoint: string,
+    method: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     if (endpoint === "/api/study/review" && method === "POST") {
-      return (await this.studyService.submitReview(
+      return this.studyService.submitReview(
         this.userId,
         data.cardId as string,
         data.rating as number,
         data.timeTakenMs as number,
-      )) as T;
+      );
     }
     if (endpoint === "/api/study/undo" && method === "POST") {
-      return (await this.studyService.undoLastReview(
+      return this.studyService.undoLastReview(
         this.userId,
         data.cardId as string,
-      )) as T;
+      );
     }
+    return undefined;
+  }
 
-    // Note mutations
+  private async mutateNote(
+    endpoint: string,
+    method: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     if (endpoint === "/api/notes" && method === "POST") {
-      return (await this.noteService.create(
+      return this.noteService.create(
         this.userId,
         data as {
           noteTypeId: string;
@@ -208,61 +261,71 @@ export class MobileTransport implements AppTransport {
           fields: Record<string, string>;
           tags?: string;
         },
-      )) as T;
+      );
     }
     const noteMatch = endpoint.match(/^\/api\/notes\/([^/]+)$/);
     if (noteMatch && method === "PUT") {
-      return (await this.noteService.update(
-        noteMatch[1],
-        this.userId,
-        data,
-      )) as T;
+      return this.noteService.update(noteMatch[1], this.userId, data);
     }
     if (noteMatch && method === "DELETE") {
       await this.noteService.delete(noteMatch[1], this.userId);
-      return { ok: true } as T;
+      return { ok: true };
     }
+    return undefined;
+  }
 
-    // Browse mutations
+  private async mutateBrowse(
+    endpoint: string,
+    method: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     if (endpoint === "/api/browse" && method === "PATCH") {
-      return (await this.noteService.update(
+      return this.noteService.update(
         data.noteId as string,
         this.userId,
         data as { fields?: Record<string, string>; tags?: string },
-      )) as T;
+      );
     }
     if (endpoint === "/api/browse" && method === "DELETE") {
       await this.noteService.delete(data.noteId as string, this.userId);
-      return { ok: true } as T;
+      return { ok: true };
     }
+    return undefined;
+  }
 
-    // Note type mutations
+  private async mutateNoteType(
+    endpoint: string,
+    method: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     if (endpoint === "/api/note-types" && method === "POST") {
-      return (await this.noteTypeService.create(
+      return this.noteTypeService.create(
         this.userId,
         data as {
           name: string;
-          fields: { name: string; ordinal: number }[];
+          fields: Array<{ name: string; ordinal: number }>;
           css?: string;
         },
-      )) as T;
+      );
     }
     const ntMatch = endpoint.match(/^\/api\/note-types\/([^/]+)$/);
     if (ntMatch && method === "PUT") {
-      return (await this.noteTypeService.update(
-        ntMatch[1],
-        this.userId,
-        data,
-      )) as T;
+      return this.noteTypeService.update(ntMatch[1], this.userId, data);
     }
     if (ntMatch && method === "DELETE") {
       await this.noteTypeService.delete(ntMatch[1], this.userId);
-      return { ok: true } as T;
+      return { ok: true };
     }
+    return undefined;
+  }
 
-    // Template mutations
+  private async mutateTemplate(
+    endpoint: string,
+    method: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     if (endpoint === "/api/note-types/templates" && method === "POST") {
-      return (await this.noteTypeService.addTemplate(
+      return this.noteTypeService.addTemplate(
         data.noteTypeId as string,
         this.userId,
         data as {
@@ -270,30 +333,35 @@ export class MobileTransport implements AppTransport {
           questionTemplate: string;
           answerTemplate: string;
         },
-      )) as T;
+      );
     }
     const tplMatch = endpoint.match(/^\/api\/note-types\/templates\/([^/]+)$/);
     if (tplMatch && method === "PUT") {
-      return (await this.noteTypeService.updateTemplate(
+      return this.noteTypeService.updateTemplate(
         tplMatch[1],
         this.userId,
         data,
-      )) as T;
+      );
     }
     if (tplMatch && method === "DELETE") {
       await this.noteTypeService.deleteTemplate(tplMatch[1], this.userId);
-      return { ok: true } as T;
+      return { ok: true };
     }
+    return undefined;
+  }
 
-    // Settings mutations
+  private async mutateSettings(
+    endpoint: string,
+    method: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     if (endpoint === "/api/settings/theme" && method === "PUT") {
       await this.settingsService.setTheme(
         this.userId,
         data.theme as "light" | "dark" | "system",
       );
-      return { ok: true } as T;
+      return { ok: true };
     }
-
-    throw new Error(`Unknown mutation: ${method} ${endpoint}`);
+    return undefined;
   }
 }

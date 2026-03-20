@@ -3,10 +3,13 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "@swanki/core/db/schema";
 
-export function createBunDb(path: string) {
+export function createBunDb(path: string): {
+  drizzleDb: ReturnType<typeof drizzle>;
+  rawDb: Database;
+} {
   const sqlite = new Database(path);
-  sqlite.exec("PRAGMA journal_mode = WAL");
-  sqlite.exec("PRAGMA foreign_keys = ON");
+  sqlite.run("PRAGMA journal_mode = WAL");
+  sqlite.run("PRAGMA foreign_keys = ON");
   return { drizzleDb: drizzle(sqlite, { schema }), rawDb: sqlite };
 }
 

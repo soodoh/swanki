@@ -23,12 +23,7 @@ export const Route = createFileRoute("/api/sync/media/download")({
           );
         }
 
-        // oxlint-disable-next-line typescript/await-thenable -- Drizzle ORM returns thenable
-        const record = await db
-          .select()
-          .from(media)
-          .where(eq(media.id, hash))
-          .get();
+        const record = db.select().from(media).where(eq(media.id, hash)).get();
 
         if (!record) {
           return Response.json(
@@ -38,7 +33,6 @@ export const Route = createFileRoute("/api/sync/media/download")({
         }
 
         const filePath = join(mediaDir, record.filename);
-        // oxlint-disable-next-line typescript/no-unsafe-call -- node:fs is untyped in this project
         if (!existsSync(filePath)) {
           return Response.json(
             { error: "File not found on disk" },
@@ -46,7 +40,6 @@ export const Route = createFileRoute("/api/sync/media/download")({
           );
         }
 
-        // oxlint-disable-next-line typescript/no-unsafe-call -- node:fs is untyped in this project
         const fileBuffer = readFileSync(filePath);
         return new Response(fileBuffer, {
           headers: {
