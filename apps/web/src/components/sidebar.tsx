@@ -4,11 +4,13 @@ import {
   ChevronsUpDown,
   Layers,
   LayoutDashboard,
+  LogIn,
   LogOut,
   Search,
   Settings,
   Upload,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -71,6 +73,23 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const platform = usePlatform();
+  const [desktopSignedIn, setDesktopSignedIn] = useState(false);
+
+  useEffect(() => {
+    if (platform === "desktop") {
+      const api = (
+        globalThis as unknown as {
+          electronAPI: {
+            authStatus(): Promise<{ signedIn: boolean }>;
+          };
+        }
+      ).electronAPI;
+      void (async () => {
+        const s = await api.authStatus();
+        setDesktopSignedIn(s.signedIn);
+      })();
+    }
+  }, [platform]);
 
   function isActive(url: string): boolean {
     if (url === "/") {
@@ -79,15 +98,32 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
     return currentPath.startsWith(url);
   }
 
+  async function handleSignIn(): Promise<void> {
+    const result = await (
+      globalThis as unknown as {
+        electronAPI: {
+          authSignIn(): Promise<{ signedIn: boolean }>;
+        };
+      }
+    ).electronAPI.authSignIn();
+    setDesktopSignedIn(result.signedIn);
+  }
+
   async function handleSignOut(): Promise<void> {
-    await (platform === "desktop"
-      ? (
-          globalThis as unknown as {
-            electronAPI: { authSignOut(): Promise<void> };
-          }
-        ).electronAPI.authSignOut()
-      : authClient.signOut());
-    globalThis.location.href = "/login";
+    if (platform === "desktop") {
+      const result = await (
+        globalThis as unknown as {
+          electronAPI: {
+            authSignOut(): Promise<{ signedIn: boolean }>;
+          };
+        }
+      ).electronAPI.authSignOut();
+      setDesktopSignedIn(result.signedIn);
+      globalThis.location.href = "/";
+    } else {
+      await authClient.signOut();
+      globalThis.location.href = "/login";
+    }
   }
 
   return (
@@ -171,10 +207,17 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut />
-                  Sign out
-                </DropdownMenuItem>
+                {platform === "desktop" && !desktopSignedIn ? (
+                  <DropdownMenuItem onClick={handleSignIn}>
+                    <LogIn />
+                    Sign in
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut />
+                    Sign out
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

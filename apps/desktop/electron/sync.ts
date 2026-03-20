@@ -22,9 +22,13 @@ function getAuthCookie(): string | null {
 
 /**
  * Check whether a valid auth session exists.
+ * getCookie() returns "; key=value; ..." format — when signed out the
+ * keys still exist but values are empty (e.g. "session_token=;").
  */
 export function isSignedIn(): boolean {
-  return !!authClient.getCookie();
+  const cookie = authClient.getCookie();
+  if (!cookie) return false;
+  return /session_token=[^;\s]+/.test(cookie);
 }
 
 // ── Sync response/request types ──────────────────────────────────────

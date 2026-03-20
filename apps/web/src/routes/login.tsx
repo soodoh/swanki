@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,16 +15,54 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
 
+type ElectronSearchParams = {
+  client_id?: string;
+  state?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+};
+
 export const Route = createFileRoute("/login")({
   component: LoginPage,
+  validateSearch: (search: Record<string, unknown>): ElectronSearchParams => ({
+    client_id:
+      typeof search.client_id === "string" ? search.client_id : undefined,
+    state: typeof search.state === "string" ? search.state : undefined,
+    code_challenge:
+      typeof search.code_challenge === "string"
+        ? search.code_challenge
+        : undefined,
+    code_challenge_method:
+      typeof search.code_challenge_method === "string"
+        ? search.code_challenge_method
+        : undefined,
+  }),
 });
 
 function LoginPage(): React.ReactElement {
   const navigate = useNavigate();
+  const searchParams: ElectronSearchParams = Route.useSearch();
+  const isElectronFlow = searchParams.client_id === "electron";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Poll for the electron authorization cookie and redirect back to the desktop app
+  useEffect(() => {
+    if (!isElectronFlow) {
+      return;
+    }
+    const id = authClient.ensureElectronRedirect();
+    return () => {
+      clearInterval(id);
+    };
+  }, [isElectronFlow]);
+
+  // Build the query object to forward PKCE params to the sign-in API call
+  const electronQuery = isElectronFlow
+    ? (searchParams as Record<string, string>)
+    : undefined;
 
   async function handleSubmit(
     e: React.SyntheticEvent<HTMLFormElement>,
@@ -36,6 +74,7 @@ function LoginPage(): React.ReactElement {
     const { error: signInError } = await authClient.signIn.email({
       email,
       password,
+      fetchOptions: { query: electronQuery },
     });
 
     if (signInError) {
@@ -44,14 +83,21 @@ function LoginPage(): React.ReactElement {
       return;
     }
 
-    await navigate({ to: "/" });
+    // For electron flow, ensureElectronRedirect handles the redirect
+    if (!isElectronFlow) {
+      await navigate({ to: "/" });
+    }
   }
 
   async function handleSocialLogin(
     provider: "google" | "github",
   ): Promise<void> {
     setError("");
-    await authClient.signIn.social({ provider, callbackURL: "/" });
+    await authClient.signIn.social({
+      provider,
+      callbackURL: "/",
+      fetchOptions: { query: electronQuery },
+    });
   }
 
   return (
@@ -117,7 +163,11 @@ function LoginPage(): React.ReactElement {
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link to="/register" className="text-primary underline">
+            <Link
+              to="/register"
+              search={searchParams as Record<string, string>}
+              className="text-primary underline"
+            >
               Sign up
             </Link>
           </p>

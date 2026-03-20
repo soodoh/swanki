@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,17 +15,53 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
 
+type ElectronSearchParams = {
+  client_id?: string;
+  state?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+};
+
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
+  validateSearch: (search: Record<string, unknown>): ElectronSearchParams => ({
+    client_id:
+      typeof search.client_id === "string" ? search.client_id : undefined,
+    state: typeof search.state === "string" ? search.state : undefined,
+    code_challenge:
+      typeof search.code_challenge === "string"
+        ? search.code_challenge
+        : undefined,
+    code_challenge_method:
+      typeof search.code_challenge_method === "string"
+        ? search.code_challenge_method
+        : undefined,
+  }),
 });
 
 function RegisterPage(): React.ReactElement {
   const navigate = useNavigate();
+  const searchParams: ElectronSearchParams = Route.useSearch();
+  const isElectronFlow = searchParams.client_id === "electron";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isElectronFlow) {
+      return;
+    }
+    const id = authClient.ensureElectronRedirect();
+    return () => {
+      clearInterval(id);
+    };
+  }, [isElectronFlow]);
+
+  const electronQuery = isElectronFlow
+    ? (searchParams as Record<string, string>)
+    : undefined;
 
   async function handleSubmit(
     e: React.SyntheticEvent<HTMLFormElement>,
@@ -38,6 +74,7 @@ function RegisterPage(): React.ReactElement {
       email,
       password,
       name,
+      fetchOptions: { query: electronQuery },
     });
 
     if (signUpError) {
@@ -46,14 +83,20 @@ function RegisterPage(): React.ReactElement {
       return;
     }
 
-    await navigate({ to: "/" });
+    if (!isElectronFlow) {
+      await navigate({ to: "/" });
+    }
   }
 
   async function handleSocialLogin(
     provider: "google" | "github",
   ): Promise<void> {
     setError("");
-    await authClient.signIn.social({ provider, callbackURL: "/" });
+    await authClient.signIn.social({
+      provider,
+      callbackURL: "/",
+      fetchOptions: { query: electronQuery },
+    });
   }
 
   return (
@@ -130,7 +173,11 @@ function RegisterPage(): React.ReactElement {
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary underline">
+            <Link
+              to="/login"
+              search={searchParams as Record<string, string>}
+              className="text-primary underline"
+            >
               Sign in
             </Link>
           </p>

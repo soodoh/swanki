@@ -55,6 +55,7 @@
     "@electron-forge/plugin-fuses": "^7.11.0",
     "@electron-forge/plugin-vite": "^7.11.0",
     "@electron/fuses": "^1.8.0",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-router": "^1.167.1",
@@ -70,7 +71,6 @@
     "tailwindcss": "^4.2.1",
     "typescript": "^5.8.3",
     "vite": "^7.3.1",
-    "vite-tsconfig-paths": "^4.3.2",
-    "@playwright/test": "^1.58.2"
+    "vite-tsconfig-paths": "^4.3.2"
   }
 }
