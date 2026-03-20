@@ -803,7 +803,7 @@ export function registerIpcHandlers(
         const serverUrl = getCloudServerUrl();
         const token = getToken()!;
         const sessionRes = await fetch(`${serverUrl}/api/auth/get-session`, {
-          headers: { Cookie: `better-auth.session_token=${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!sessionRes.ok) {
           throw new Error(

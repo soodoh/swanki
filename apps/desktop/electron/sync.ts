@@ -537,7 +537,7 @@ export async function syncPush(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Cookie: `better-auth.session_token=${token}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
@@ -566,7 +566,7 @@ export async function syncPush(
         await fetch(`${serverUrl}/api/sync/media/upload`, {
           method: "POST",
           headers: {
-            Cookie: `better-auth.session_token=${token}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/octet-stream",
             "X-Media-Hash": hash,
           },
@@ -602,7 +602,7 @@ export async function syncPull(
       : `${serverUrl}/api/sync/pull`;
 
     const res = await fetch(url, {
-      headers: { Cookie: `better-auth.session_token=${token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!res.ok) {
@@ -737,7 +737,7 @@ export async function syncPull(
             const mediaRes = await fetch(
               `${serverUrl}/api/sync/media/download?hash=${hash}`,
               {
-                headers: { Cookie: `better-auth.session_token=${token}` },
+                headers: { Authorization: `Bearer ${token}` },
               },
             );
             if (mediaRes.ok) {
