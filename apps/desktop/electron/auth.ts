@@ -87,6 +87,7 @@ export async function openAuthWindow(
           resolved = true;
           const token = cookies[0].value;
           storeToken(token);
+          if (pollInterval) clearInterval(pollInterval);
           authWin.close();
           resolve(token);
         }
@@ -95,19 +96,24 @@ export async function openAuthWindow(
       }
     };
 
-    // Check for auth cookie after each navigation
+    // Poll for auth cookie every 500ms — handles SPA navigations that
+    // don't trigger did-navigate (e.g. React Router pushState after login)
+    const pollInterval = setInterval(() => {
+      void tryExtractToken();
+    }, 500);
+
+    // Also check on full-page navigations as a fast path
     authWin.webContents.on("did-navigate", async (_e, url) => {
-      // Skip login/register pages — only check post-auth pages
       if (url.includes("/login") || url.includes("/register")) return;
       await tryExtractToken();
     });
 
-    // Also check after in-page navigations (SPA redirects)
     authWin.webContents.on("did-navigate-in-page", async () => {
       await tryExtractToken();
     });
 
     authWin.on("closed", () => {
+      if (pollInterval) clearInterval(pollInterval);
       if (!resolved) {
         resolve(null);
       }
