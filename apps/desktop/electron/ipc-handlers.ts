@@ -34,13 +34,9 @@ import {
 } from "@swanki/core/import/crowdanki-parser";
 import { createJob, updateJob, getJob } from "@swanki/core/import/import-job";
 import { stripHtmlToPlainText } from "@swanki/core/lib/field-converter";
-import {
-  openAuthWindow,
-  clearToken,
-  isSignedIn,
-  getCloudServerUrl,
-  getToken,
-} from "./auth";
+import { getCloudServerUrl } from "./auth";
+import { authClient, waitForAuth } from "./auth-client";
+import { isSignedIn } from "./sync";
 import {
   syncCycle,
   syncPull,
@@ -772,8 +768,13 @@ export function registerIpcHandlers(
 
   // Auth handlers
   ipcMain.handle("auth:sign-in", async () => {
-    const token = await openAuthWindow(mainWindow);
-    if (!token) {
+    // Opens the system browser to the sign-in page.
+    // Authentication completes via deep link callback (swanki:// protocol).
+    const authPromise = waitForAuth();
+    await authClient.requestAuth();
+    const authenticated = await authPromise;
+
+    if (!authenticated || !isSignedIn()) {
       return { signedIn: false };
     }
 
@@ -801,9 +802,9 @@ export function registerIpcHandlers(
       if (strategy === "merge") {
         // Fetch the cloud user ID from the session endpoint
         const serverUrl = getCloudServerUrl();
-        const token = getToken()!;
+        const cookie = authClient.getCookie();
         const sessionRes = await fetch(`${serverUrl}/api/auth/get-session`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Cookie: cookie },
         });
         if (!sessionRes.ok) {
           throw new Error(
@@ -848,13 +849,13 @@ export function registerIpcHandlers(
     },
   );
 
-  ipcMain.handle("auth:sign-out", () => {
+  ipcMain.handle("auth:sign-out", async () => {
     stopPeriodicSync();
-    clearToken();
+    await authClient.signOut();
     return { signedIn: false };
   });
 
-  ipcMain.handle("auth:status", () => {
+  ipcMain.handle("auth:status", async () => {
     return {
       signedIn: isSignedIn(),
       cloudUrl: getCloudServerUrl(),
@@ -872,7 +873,7 @@ export function registerIpcHandlers(
   });
 
   // Settings handlers
-  ipcMain.handle("settings:get", () => {
+  ipcMain.handle("settings:get", async () => {
     return {
       cloudServerUrl: getCloudServerUrl(),
       signedIn: isSignedIn(),

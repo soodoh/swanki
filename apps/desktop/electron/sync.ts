@@ -8,7 +8,24 @@ import type Database from "better-sqlite3";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { app } from "electron";
-import { getToken, getCloudServerUrl, clearToken } from "./auth";
+import { getCloudServerUrl } from "./auth";
+import { authClient } from "./auth-client";
+
+/**
+ * Get the auth cookie string for API requests.
+ * Returns null if no session is stored.
+ */
+function getAuthCookie(): string | null {
+  const cookie = authClient.getCookie();
+  return cookie || null;
+}
+
+/**
+ * Check whether a valid auth session exists.
+ */
+export function isSignedIn(): boolean {
+  return !!authClient.getCookie();
+}
 
 // ── Sync response/request types ──────────────────────────────────────
 
@@ -421,8 +438,8 @@ export async function syncPush(
   _db: AppDb,
   rawDb: Database.Database,
 ): Promise<void> {
-  const token = getToken();
-  if (!token) return; // Not signed in
+  const cookie = getAuthCookie();
+  if (!cookie) return; // Not signed in
 
   const lastPush = getLastPushTime();
   // Convert lastPushTime (epoch ms) to epoch seconds for SQLite comparison.
@@ -537,15 +554,12 @@ export async function syncPush(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      Cookie: cookie,
     },
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
-    if (res.status === 401) {
-      clearToken();
-    }
     throw new Error(`Sync push failed: ${res.status}`);
   }
 
@@ -566,7 +580,7 @@ export async function syncPush(
         await fetch(`${serverUrl}/api/sync/media/upload`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Cookie: cookie,
             "Content-Type": "application/octet-stream",
             "X-Media-Hash": hash,
           },
@@ -589,8 +603,8 @@ export async function syncPull(
   _db: AppDb,
   rawDb: Database.Database,
 ): Promise<void> {
-  const token = getToken();
-  if (!token) return; // Not signed in
+  const cookie = getAuthCookie();
+  if (!cookie) return; // Not signed in
 
   setStatus("syncing");
 
@@ -602,14 +616,10 @@ export async function syncPull(
       : `${serverUrl}/api/sync/pull`;
 
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Cookie: cookie },
     });
 
     if (!res.ok) {
-      if (res.status === 401) {
-        // Token expired or invalid — clear stored credentials
-        clearToken();
-      }
       throw new Error(`Sync pull failed: ${res.status}`);
     }
 
@@ -737,7 +747,7 @@ export async function syncPull(
             const mediaRes = await fetch(
               `${serverUrl}/api/sync/media/download?hash=${hash}`,
               {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { Cookie: cookie },
               },
             );
             if (mediaRes.ok) {
@@ -768,8 +778,7 @@ export async function syncCycle(
   db: AppDb,
   rawDb: Database.Database,
 ): Promise<void> {
-  const token = getToken();
-  if (!token) return;
+  if (!getAuthCookie()) return;
 
   setStatus("syncing");
 
@@ -800,7 +809,7 @@ export function scheduleSyncAfterMutation(
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
-    if (getToken()) void syncCycle(db, rawDb);
+    if (getAuthCookie()) void syncCycle(db, rawDb);
   }, DEBOUNCE_MS);
 }
 
@@ -812,7 +821,7 @@ const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 export function startPeriodicSync(db: AppDb, rawDb: Database.Database): void {
   if (syncInterval) return;
   syncInterval = setInterval(() => {
-    if (getToken()) {
+    if (getAuthCookie()) {
       void syncCycle(db, rawDb);
     }
   }, SYNC_INTERVAL_MS);

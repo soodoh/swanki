@@ -6,12 +6,14 @@ import { getOrCreateLocalUser } from "./local-user";
 import { loadWindowState, saveWindowState } from "./window-state";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { initAutoUpdater } from "./updater";
+import { authClient, resolveAuthWait } from "./auth-client";
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
-// Register swanki-media:// as a privileged scheme for proper media streaming.
-// Must be called before app ready.
+// Register custom protocol schemes as privileged before app ready.
+// Both swanki-media:// (media streaming) and swanki:// (auth deep links)
+// must be registered in a single call.
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "swanki-media",
@@ -22,7 +24,60 @@ protocol.registerSchemesAsPrivileged([
       stream: true,
     },
   },
+  {
+    scheme: "swanki",
+    privileges: {
+      secure: true,
+    },
+  },
 ]);
+
+// Setup auth IPC bridges and CSP (skip scheme registration — done above)
+authClient.setupMain({
+  scheme: false,
+  getWindow: () => mainWindow,
+});
+
+// Register as default handler for swanki:// deep links
+if ((process as NodeJS.Process & { defaultApp?: boolean }).defaultApp) {
+  app.setAsDefaultProtocolClient("swanki", process.execPath, [
+    join(process.argv[1] ?? ""),
+  ]);
+} else {
+  app.setAsDefaultProtocolClient("swanki");
+}
+
+async function handleDeepLinkUrl(url: string): Promise<void> {
+  if (!url.startsWith("swanki://")) return;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hash.startsWith("#token=")) {
+      const result = await authClient.authenticate({
+        token: parsed.hash.substring(7),
+      });
+      resolveAuthWait(!result.error);
+    }
+  } catch {
+    resolveAuthWait(false);
+  }
+}
+
+// Handle deep link auth callbacks on macOS
+app.on("open-url", async (_event, url) => {
+  await handleDeepLinkUrl(url);
+});
+
+// Handle deep links on Windows/Linux via second-instance
+app.on("second-instance", async (_event, commandLine) => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+  const url = commandLine.pop();
+  if (typeof url === "string") {
+    await handleDeepLinkUrl(url);
+  }
+});
 
 // Allow audio autoplay without user gesture (Electron apps have no MEI history)
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");

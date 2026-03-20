@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
-import { bearer } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { electron } from "@better-auth/electron";
 import { db } from "../db";
 import { NoteTypeService } from "./services/note-type-service";
 
@@ -44,7 +44,12 @@ async function createDefaultNoteTypes(userId: string): Promise<void> {
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "sqlite" }),
-  trustedOrigins: ["app://.", "file://"], // Electron desktop app origins
+  trustedOrigins: [
+    "app://.",
+    "file://",
+    "http://localhost:5173", // Electron Vite dev server
+    "swanki:/", // Electron deep link protocol
+  ],
   emailAndPassword: { enabled: true },
   socialProviders: {
     google: {
@@ -56,7 +61,7 @@ export const auth = betterAuth({
       clientSecret: envVars.GITHUB_CLIENT_SECRET ?? "",
     },
   },
-  plugins: [bearer()],
+  plugins: [electron()],
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
