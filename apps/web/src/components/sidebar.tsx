@@ -31,6 +31,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { usePlatform } from "@swanki/core/platform";
 import { authClient } from "@/lib/auth-client";
 
 type NavItem = {
@@ -69,6 +70,7 @@ type AppSidebarProps = {
 export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
+  const platform = usePlatform();
 
   function isActive(url: string): boolean {
     if (url === "/") {
@@ -78,7 +80,13 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
   }
 
   async function handleSignOut(): Promise<void> {
-    await authClient.signOut();
+    await (platform === "desktop"
+      ? (
+          globalThis as unknown as {
+            electronAPI: { authSignOut(): Promise<void> };
+          }
+        ).electronAPI.authSignOut()
+      : authClient.signOut());
     globalThis.location.href = "/login";
   }
 

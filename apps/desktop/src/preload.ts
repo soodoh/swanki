@@ -1,4 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { setupRenderer } from "@better-auth/electron/preload";
+
+// Expose @better-auth/electron IPC bridges (requestAuth, signOut, getUser, etc.)
+setupRenderer();
 
 contextBridge.exposeInMainWorld("electronAPI", {
   platform: process.platform,
@@ -10,7 +14,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onMaximizedChange: (cb: (maximized: boolean) => void) => {
     ipcRenderer.on("window:maximized-changed", (_e, val) => cb(val));
   },
-  // Auth
+  // Auth (IPC handlers in ipc-handlers.ts)
   authSignIn: () => ipcRenderer.invoke("auth:sign-in"),
   authSignOut: () => ipcRenderer.invoke("auth:sign-out"),
   authStatus: () => ipcRenderer.invoke("auth:status"),
