@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,17 +47,9 @@ function LoginPage(): React.ReactElement {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Poll for the electron authorization cookie and redirect back to the desktop app
-  useEffect(() => {
-    if (!isElectronFlow) {
-      return;
-    }
-    const id = authClient.ensureElectronRedirect();
-    return () => {
-      clearInterval(id);
-    };
-  }, [isElectronFlow]);
+  const [electronRedirectUrl, setElectronRedirectUrl] = useState<
+    string | undefined
+  >();
 
   // Build the query object to forward PKCE params to the sign-in API call
   const electronQuery = isElectronFlow
@@ -83,8 +75,23 @@ function LoginPage(): React.ReactElement {
       return;
     }
 
-    // For electron flow, ensureElectronRedirect handles the redirect
-    if (!isElectronFlow) {
+    if (isElectronFlow) {
+      authClient.ensureElectronRedirect();
+      // eslint-disable-next-line unicorn/no-document-cookie -- reading electron auth cookie
+      const cookieMatch = document.cookie.match(
+        /better-auth\.electron=([^;]+)/,
+      );
+      const token = cookieMatch?.[1];
+      if (token) {
+        // eslint-disable-next-line unicorn/no-document-cookie -- clearing electron auth cookie
+        document.cookie =
+          "better-auth.electron=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+        setElectronRedirectUrl(`swanki://auth/callback#token=${token}`);
+      } else {
+        setError("Sign-in succeeded but desktop redirect failed.");
+      }
+      setLoading(false);
+    } else {
       await navigate({ to: "/" });
     }
   }
@@ -98,6 +105,26 @@ function LoginPage(): React.ReactElement {
       callbackURL: "/",
       fetchOptions: { query: electronQuery },
     });
+  }
+
+  if (electronRedirectUrl) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold">
+              Sign-in successful!
+            </CardTitle>
+            <CardDescription>Returning to Swanki...</CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <a href={electronRedirectUrl} className="text-primary underline">
+              Click here if not redirected automatically
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

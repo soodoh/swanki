@@ -4,7 +4,7 @@ import baseConfig from "./vite.renderer.config";
 /**
  * Renderer Vite config for e2e tests.
  *
- * Three changes from the base config:
+ * Two changes from the base config:
  *
  * 1. `cacheDir: ".e2e-vite-cache"` — moves Vite's dep-optimisation cache out
  *    of node_modules/.vite/ into a test-owned directory that global-setup
@@ -12,12 +12,7 @@ import baseConfig from "./vite.renderer.config";
  *    time, so the startup `full-reload` HMR event fires during global-setup
  *    (before Electron connects) rather than mid-test.
  *
- * 2. `optimizeDeps.noDiscovery: true` — disables runtime dep discovery.
- *    Without this, Vite can kick off a second optimisation pass when Electron
- *    requests JS modules not seen during the initial crawl, emitting another
- *    `full-reload` that closes the CDP target.
- *
- * 3. `server.hmr: false` — disables the HMR WebSocket entirely.  Without
+ * 2. `server.hmr: false` — disables the HMR WebSocket entirely.  Without
  *    this, Electron establishes a WS connection to Vite on first window load.
  *    If the dep-optimisation `full-reload` message is queued at that instant
  *    (a narrow race between the filesystem rename and the WS broadcast), the
@@ -29,9 +24,6 @@ export default mergeConfig(
   baseConfig,
   defineConfig({
     cacheDir: ".e2e-vite-cache",
-    optimizeDeps: {
-      noDiscovery: true,
-    },
     server: {
       hmr: false,
     },

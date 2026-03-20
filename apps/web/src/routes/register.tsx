@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -48,16 +48,9 @@ function RegisterPage(): React.ReactElement {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isElectronFlow) {
-      return;
-    }
-    const id = authClient.ensureElectronRedirect();
-    return () => {
-      clearInterval(id);
-    };
-  }, [isElectronFlow]);
+  const [electronRedirectUrl, setElectronRedirectUrl] = useState<
+    string | undefined
+  >();
 
   const electronQuery = isElectronFlow
     ? (searchParams as Record<string, string>)
@@ -83,7 +76,23 @@ function RegisterPage(): React.ReactElement {
       return;
     }
 
-    if (!isElectronFlow) {
+    if (isElectronFlow) {
+      authClient.ensureElectronRedirect();
+      // eslint-disable-next-line unicorn/no-document-cookie -- reading electron auth cookie
+      const cookieMatch = document.cookie.match(
+        /better-auth\.electron=([^;]+)/,
+      );
+      const token = cookieMatch?.[1];
+      if (token) {
+        // eslint-disable-next-line unicorn/no-document-cookie -- clearing electron auth cookie
+        document.cookie =
+          "better-auth.electron=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+        setElectronRedirectUrl(`swanki://auth/callback#token=${token}`);
+      } else {
+        setError("Registration succeeded but desktop redirect failed.");
+      }
+      setLoading(false);
+    } else {
       await navigate({ to: "/" });
     }
   }
@@ -97,6 +106,26 @@ function RegisterPage(): React.ReactElement {
       callbackURL: "/",
       fetchOptions: { query: electronQuery },
     });
+  }
+
+  if (electronRedirectUrl) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold">
+              Account created!
+            </CardTitle>
+            <CardDescription>Returning to Swanki...</CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <a href={electronRedirectUrl} className="text-primary underline">
+              Click here if not redirected automatically
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
