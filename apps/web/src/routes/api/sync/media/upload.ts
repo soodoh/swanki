@@ -22,12 +22,7 @@ export const Route = createFileRoute("/api/sync/media/upload")({
           );
         }
 
-        // oxlint-disable-next-line typescript/await-thenable -- Drizzle ORM returns thenable
-        const record = await db
-          .select()
-          .from(media)
-          .where(eq(media.id, hash))
-          .get();
+        const record = db.select().from(media).where(eq(media.id, hash)).get();
 
         if (!record) {
           return Response.json(
@@ -39,10 +34,8 @@ export const Route = createFileRoute("/api/sync/media/upload")({
         const buffer = await request.arrayBuffer();
         const bytes = new Uint8Array(buffer);
 
-        // oxlint-disable-next-line typescript/no-unsafe-call -- node:fs is untyped in this project
         mkdirSync(mediaDir, { recursive: true });
         const filePath = join(mediaDir, record.filename);
-        // oxlint-disable-next-line typescript/no-unsafe-call -- node:fs is untyped in this project
         writeFileSync(filePath, bytes);
 
         return Response.json({ ok: true });

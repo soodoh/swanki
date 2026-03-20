@@ -1,4 +1,4 @@
-import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Filesystem, Directory } from "@capacitor/filesystem";
 import type { AppFileSystem } from "@swanki/core/filesystem";
 
 /**
@@ -31,9 +31,7 @@ export const capacitorFs: AppFileSystem = {
 
   async writeFile(path: string, data: Uint8Array): Promise<void> {
     // Convert Uint8Array to base64 for Capacitor
-    const binary = Array.from(data)
-      .map((b) => String.fromCharCode(b))
-      .join("");
+    const binary = [...data].map((b) => String.fromCodePoint(b)).join("");
     const base64 = btoa(binary);
 
     await Filesystem.writeFile({

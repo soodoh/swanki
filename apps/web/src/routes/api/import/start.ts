@@ -33,7 +33,6 @@ async function processImport(
       detail: "Reading and parsing file...",
     });
 
-    // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-assignment) -- node:fs is untyped in this project
     const fileData: Buffer = readFileSync(filePath);
     const buffer: ArrayBuffer = fileData.buffer.slice(
       fileData.byteOffset,
@@ -61,7 +60,7 @@ async function processImport(
     });
 
     const importService = new ImportService(db, {
-      execSQL: (sql) => rawSqlite.exec(sql),
+      execSQL: (sql) => rawSqlite.run(sql),
     });
     const result = await importService.importFromApkgBatched(
       userId,
@@ -85,7 +84,6 @@ async function processImport(
       result: {
         ...result,
         mediaWarnings,
-        // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- mediaCount is number from importBatch
         mediaCount,
       },
     });

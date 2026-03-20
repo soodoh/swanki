@@ -1,8 +1,7 @@
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getRouter(): any {
+export function getRouter(): ReturnType<typeof createRouter> {
   const router = createRouter({
     routeTree,
     scrollRestoration: true,

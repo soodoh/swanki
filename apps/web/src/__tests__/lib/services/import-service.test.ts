@@ -124,7 +124,7 @@ describe("importFromApkg noteMedia population", () => {
   it("should create noteMedia records for notes with media references", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
 
     // Insert a mock media record (id is now the content hash)
@@ -261,7 +261,7 @@ describe("importFromApkg merge mode", () => {
   it("should skip unchanged notes on second import with merge=true", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const data = makeApkgData();
 
@@ -298,7 +298,7 @@ describe("importFromApkg merge mode", () => {
   it("should skip duplicate notes on second import with merge=false", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const data = makeApkgData();
 
@@ -327,7 +327,7 @@ describe("importFromApkg merge mode", () => {
   it("should import only new notes when some already exist", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
 
     // First import with 2 notes
@@ -357,7 +357,7 @@ describe("importFromApkg merge update-on-change", () => {
   it("should update notes when fields have changed", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
 
     const data1 = makeApkgData({
@@ -392,7 +392,7 @@ describe("importFromApkg merge update-on-change", () => {
   it("should skip notes when fields are unchanged", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
 
     const data = makeApkgData({
@@ -414,7 +414,7 @@ describe("importFromApkg merge update-on-change", () => {
   it("should handle mix of new, updated, and unchanged notes", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
 
     // Import 2 notes
@@ -454,7 +454,7 @@ describe("importFromApkg merge update-on-change", () => {
   it("should rewrite media URLs in updated fields", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
 
     const data1 = makeApkgData({
@@ -488,7 +488,7 @@ describe("importFromApkg merge update-on-change", () => {
   it("should overwrite locally-edited notes on re-import", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const importService = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const noteService = new NoteService(db);
 
@@ -545,7 +545,7 @@ describe("importFromApkg nested deck hierarchy", () => {
   it("should create nested decks from :: separated names", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const data = makeApkgData({
       noteGuids: ["guid-1"],
@@ -573,7 +573,7 @@ describe("importFromApkg nested deck hierarchy", () => {
   it("should deduplicate shared prefixes across decks", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const data = makeApkgData({
       noteGuids: ["guid-1", "guid-2"],
@@ -604,7 +604,7 @@ describe("importFromApkg nested deck hierarchy", () => {
   it("should create flat deck with no parentId for simple names", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const data = makeApkgData({
       noteGuids: ["guid-1"],
@@ -622,7 +622,7 @@ describe("importFromApkg nested deck hierarchy", () => {
   it("should handle Anki unit separator U+001F in deck names", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const data = makeApkgData({
       noteGuids: ["guid-1"],
@@ -646,7 +646,7 @@ describe("importFromApkg nested deck hierarchy", () => {
   it("should not duplicate decks on merge re-import with hierarchy", async () => {
     const { db, rawDb } = createTestDbWithRaw();
     const service = new ImportService(db, {
-      execSQL: (sql: string) => rawDb.exec(sql),
+      execSQL: (sql: string) => rawDb.run(sql),
     });
     const data = makeApkgData({
       noteGuids: ["guid-1"],

@@ -6,11 +6,8 @@
  * with a simple callback. This bridges the Capacitor SQLite plugin's
  * async native API to Drizzle's query interface.
  */
-import {
-  CapacitorSQLite,
-  SQLiteConnection,
-  type SQLiteDBConnection,
-} from "@capacitor-community/sqlite";
+import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
+import { CapacitorSQLite, SQLiteConnection } from "@capacitor-community/sqlite";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import type { AppDb, RawSqliteDb } from "@swanki/core/db";
 import * as schema from "@swanki/core/db/schema";
@@ -50,17 +47,16 @@ async function applyMigrations(dbConn: SQLiteDBConnection): Promise<void> {
       continue;
     }
 
-    const sql = migrations[hash];
+    const sql = migrations[hash] as string | undefined;
     if (!sql) {
-      console.warn(`Migration SQL not found for: ${hash}`);
       continue;
     }
 
     // Split on semicolons and execute each statement
     const statements = sql
       .split(";")
-      .map((s: string) => s.trim())
-      .filter((s: string) => s.length > 0);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
     for (const statement of statements) {
       await dbConn.run(statement);
@@ -88,19 +84,16 @@ export async function initMobileDb(): Promise<{
   const retCC = await sqlite.checkConnectionsConsistency();
   const retIsConn = await sqlite.isConnection(DB_NAME, false);
 
-  let dbConn: SQLiteDBConnection;
-
-  if (retCC.result && retIsConn.result) {
-    dbConn = await sqlite.retrieveConnection(DB_NAME, false);
-  } else {
-    dbConn = await sqlite.createConnection(
-      DB_NAME,
-      false,
-      "no-encryption",
-      1,
-      false,
-    );
-  }
+  const dbConn: SQLiteDBConnection =
+    retCC.result && retIsConn.result
+      ? await sqlite.retrieveConnection(DB_NAME, false)
+      : await sqlite.createConnection(
+          DB_NAME,
+          false,
+          "no-encryption",
+          1,
+          false,
+        );
 
   await dbConn.open();
 
@@ -135,15 +128,14 @@ export async function initMobileDb(): Promise<{
           typeof rawRows[0] === "object" &&
           !Array.isArray(rawRows[0])
         ) {
-          const objectRows = rawRows as Record<string, unknown>[];
+          const objectRows = rawRows as Array<Record<string, unknown>>;
           const keys = Object.keys(objectRows[0]);
           const arrayRows = objectRows.map((row) => keys.map((k) => row[k]));
           return { rows: arrayRows };
         }
 
         return { rows: rawRows };
-      } catch (e) {
-        console.error("SQLite proxy error:", sql, e);
+      } catch {
         return { rows: [] };
       }
     },

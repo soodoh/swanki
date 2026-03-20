@@ -103,9 +103,7 @@
       "indexes": {
         "account_userId_idx": {
           "name": "account_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -114,12 +112,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -177,9 +171,7 @@
       "indexes": {
         "card_templates_note_type_id_idx": {
           "name": "card_templates_note_type_id_idx",
-          "columns": [
-            "note_type_id"
-          ],
+          "columns": ["note_type_id"],
           "isUnique": false
         }
       },
@@ -329,30 +321,22 @@
       "indexes": {
         "cards_note_id_idx": {
           "name": "cards_note_id_idx",
-          "columns": [
-            "note_id"
-          ],
+          "columns": ["note_id"],
           "isUnique": false
         },
         "cards_deck_id_idx": {
           "name": "cards_deck_id_idx",
-          "columns": [
-            "deck_id"
-          ],
+          "columns": ["deck_id"],
           "isUnique": false
         },
         "cards_due_idx": {
           "name": "cards_due_idx",
-          "columns": [
-            "due"
-          ],
+          "columns": ["due"],
           "isUnique": false
         },
         "cards_state_idx": {
           "name": "cards_state_idx",
-          "columns": [
-            "state"
-          ],
+          "columns": ["state"],
           "isUnique": false
         }
       },
@@ -426,16 +410,12 @@
       "indexes": {
         "decks_user_id_idx": {
           "name": "decks_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         },
         "decks_parent_id_idx": {
           "name": "decks_parent_id_idx",
-          "columns": [
-            "parent_id"
-          ],
+          "columns": ["parent_id"],
           "isUnique": false
         }
       },
@@ -500,16 +480,12 @@
       "indexes": {
         "media_user_id_idx": {
           "name": "media_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         },
         "media_hash_idx": {
           "name": "media_hash_idx",
-          "columns": [
-            "hash"
-          ],
+          "columns": ["hash"],
           "isUnique": false
         }
       },
@@ -546,24 +522,17 @@
       "indexes": {
         "note_media_note_id_idx": {
           "name": "note_media_note_id_idx",
-          "columns": [
-            "note_id"
-          ],
+          "columns": ["note_id"],
           "isUnique": false
         },
         "note_media_media_id_idx": {
           "name": "note_media_media_id_idx",
-          "columns": [
-            "media_id"
-          ],
+          "columns": ["media_id"],
           "isUnique": false
         },
         "note_media_note_media_unique": {
           "name": "note_media_note_media_unique",
-          "columns": [
-            "note_id",
-            "media_id"
-          ],
+          "columns": ["note_id", "media_id"],
           "isUnique": true
         }
       },
@@ -629,9 +598,7 @@
       "indexes": {
         "note_types_user_id_idx": {
           "name": "note_types_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -704,24 +671,17 @@
       "indexes": {
         "notes_user_id_idx": {
           "name": "notes_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         },
         "notes_note_type_id_idx": {
           "name": "notes_note_type_id_idx",
-          "columns": [
-            "note_type_id"
-          ],
+          "columns": ["note_type_id"],
           "isUnique": false
         },
         "notes_anki_guid_idx": {
           "name": "notes_anki_guid_idx",
-          "columns": [
-            "user_id",
-            "anki_guid"
-          ],
+          "columns": ["user_id", "anki_guid"],
           "isUnique": true
         }
       },
@@ -821,16 +781,12 @@
       "indexes": {
         "review_logs_card_id_idx": {
           "name": "review_logs_card_id_idx",
-          "columns": [
-            "card_id"
-          ],
+          "columns": ["card_id"],
           "isUnique": false
         },
         "review_logs_reviewed_at_idx": {
           "name": "review_logs_reviewed_at_idx",
-          "columns": [
-            "reviewed_at"
-          ],
+          "columns": ["reviewed_at"],
           "isUnique": false
         }
       },
@@ -903,16 +859,12 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "session_userId_idx": {
           "name": "session_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -921,12 +873,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1002,9 +950,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -1064,9 +1010,7 @@
       "indexes": {
         "verification_identifier_idx": {
           "name": "verification_identifier_idx",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": false
         }
       },

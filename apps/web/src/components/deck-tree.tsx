@@ -312,7 +312,6 @@ function DeckTreeItem({
   });
 
   // Merge drag and drop refs onto the same element
-  // oxlint-disable-next-line react-hooks/exhaustive-deps -- refs are stable from dnd-kit hooks
   const setNodeRef = useCallback(
     // oxlint-disable-next-line typescript-eslint(no-restricted-types) -- React ref callback requires null
     (el: HTMLElement | null) => {
@@ -568,7 +567,6 @@ export function DeckTree({
 
     void updateDeck.mutateAsync({
       deckId,
-      // oxlint-disable-next-line eslint-plugin-unicorn(no-null) -- API requires null for root-level reparenting
       parentId: newParentId ?? null,
     });
   }

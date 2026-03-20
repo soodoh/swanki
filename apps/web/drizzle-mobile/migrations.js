@@ -3,9 +3,10 @@
 import journal from "./meta/_journal.json";
 import m0000 from "./0000_previous_prodigy.sql";
 
-export default {
+export const mobileMigrations = {
   journal,
   migrations: {
+    // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- .sql imports are untyped
     m0000,
   },
 };

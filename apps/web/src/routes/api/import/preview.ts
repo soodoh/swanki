@@ -283,7 +283,6 @@ export const Route = createFileRoute("/api/import/preview")({
 
             const ext = filePath.slice(filePath.lastIndexOf("."));
             format = detectFormat(`file${ext}`);
-            // oxlint-disable-next-line typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-assignment) -- node:fs is untyped in this project
             const fileData: Buffer = readFileSync(filePath);
             buffer = fileData.buffer.slice(
               fileData.byteOffset,

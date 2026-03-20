@@ -66,7 +66,7 @@ function createAnkiDb(options?: {
 
   try {
     // Create Anki schema
-    db.exec(`
+    db.run(`
       CREATE TABLE col (
         id integer PRIMARY KEY,
         crt integer NOT NULL,
@@ -84,7 +84,7 @@ function createAnkiDb(options?: {
       );
     `);
 
-    db.exec(`
+    db.run(`
       CREATE TABLE notes (
         id integer PRIMARY KEY,
         guid text NOT NULL,
@@ -100,7 +100,7 @@ function createAnkiDb(options?: {
       );
     `);
 
-    db.exec(`
+    db.run(`
       CREATE TABLE cards (
         id integer PRIMARY KEY,
         nid integer NOT NULL,
@@ -318,18 +318,18 @@ function createProtobufNewSchemaDb(options: {
   const sqliteDb = new Database(dbPath);
 
   try {
-    sqliteDb.exec(
+    sqliteDb.run(
       "CREATE TABLE notetypes (id integer PRIMARY KEY, name text, config blob)",
     );
-    sqliteDb.exec(
+    sqliteDb.run(
       "CREATE TABLE templates (ntid integer, ord integer, name text, config blob)",
     );
-    sqliteDb.exec("CREATE TABLE fields (ntid integer, ord integer, name text)");
-    sqliteDb.exec("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
-    sqliteDb.exec(
+    sqliteDb.run("CREATE TABLE fields (ntid integer, ord integer, name text)");
+    sqliteDb.run("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
+    sqliteDb.run(
       "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
     );
-    sqliteDb.exec(
+    sqliteDb.run(
       "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
     );
 
@@ -391,7 +391,7 @@ describe("Import Integration", () => {
     const testDb = createTestDbWithRaw();
     db = testDb.db;
     importService = new ImportService(testDb.db, {
-      execSQL: (sql: string) => testDb.rawDb.exec(sql),
+      execSQL: (sql: string) => testDb.rawDb.run(sql),
     });
   });
 
@@ -1073,35 +1073,35 @@ describe("Import Integration", () => {
       );
       const sqliteDb = new Database(dbPath);
       try {
-        sqliteDb.exec(
+        sqliteDb.run(
           "CREATE TABLE notetypes (id integer PRIMARY KEY, name text, css text DEFAULT '')",
         );
-        sqliteDb.exec(
+        sqliteDb.run(
           "CREATE TABLE fields (ntid integer, ord integer, name text)",
         );
-        sqliteDb.exec(
+        sqliteDb.run(
           "CREATE TABLE templates (ntid integer, ord integer, name text, qfmt text, afmt text)",
         );
-        sqliteDb.exec("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
-        sqliteDb.exec(
+        sqliteDb.run("CREATE TABLE decks (id integer PRIMARY KEY, name text)");
+        sqliteDb.run(
           "CREATE TABLE notes (id integer PRIMARY KEY, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)",
         );
-        sqliteDb.exec(
+        sqliteDb.run(
           "CREATE TABLE cards (id integer PRIMARY KEY, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text)",
         );
-        sqliteDb.exec(
+        sqliteDb.run(
           "INSERT INTO notetypes VALUES (1, 'Basic', '.card { color: red; }')",
         );
-        sqliteDb.exec("INSERT INTO fields VALUES (1, 0, 'Front')");
-        sqliteDb.exec("INSERT INTO fields VALUES (1, 1, 'Back')");
-        sqliteDb.exec(
+        sqliteDb.run("INSERT INTO fields VALUES (1, 0, 'Front')");
+        sqliteDb.run("INSERT INTO fields VALUES (1, 1, 'Back')");
+        sqliteDb.run(
           "INSERT INTO templates VALUES (1, 0, 'Card 1', '{{Front}}', '{{FrontSide}}<hr>{{Back}}')",
         );
-        sqliteDb.exec("INSERT INTO decks VALUES (1, 'NewFormat Deck')");
-        sqliteDb.exec(
+        sqliteDb.run("INSERT INTO decks VALUES (1, 'NewFormat Deck')");
+        sqliteDb.run(
           "INSERT INTO notes VALUES (100, 'g1', 1, 0, 0, 'tag1', 'hola\u001Fhello', 'hola', 0, 0, '')",
         );
-        sqliteDb.exec(
+        sqliteDb.run(
           "INSERT INTO cards VALUES (200, 100, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '')",
         );
         sqliteDb.close();

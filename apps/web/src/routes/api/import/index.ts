@@ -14,7 +14,7 @@ import { db, rawSqlite } from "../../../db";
 
 const mediaDir: string = join(process.cwd(), "data", "media");
 const importService = new ImportService(db, {
-  execSQL: (sql) => rawSqlite.exec(sql),
+  execSQL: (sql) => rawSqlite.run(sql),
 });
 
 export const Route = createFileRoute("/api/import/")({
@@ -68,7 +68,6 @@ export const Route = createFileRoute("/api/import/")({
               mergeMode === "merge",
             );
             return Response.json(
-              // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- mediaCount is number from importBatch
               { ...result, mediaWarnings, mediaCount },
               { status: 201 },
             );
@@ -112,7 +111,6 @@ export const Route = createFileRoute("/api/import/")({
             mediaMapping,
           );
           return Response.json(
-            // oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- mediaCount is number from importBatch
             { ...result, mediaWarnings, mediaCount },
             { status: 201 },
           );

@@ -3,7 +3,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db";
 import { NoteTypeService } from "./services/note-type-service";
 
-// oxlint-disable-next-line typescript-eslint(no-unsafe-member-access) -- process.env typed as any in Bun
 const envVars = process.env as Record<string, string | undefined>;
 
 async function createDefaultNoteTypes(userId: string): Promise<void> {
