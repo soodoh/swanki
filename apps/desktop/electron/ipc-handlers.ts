@@ -851,7 +851,11 @@ export function registerIpcHandlers(
 
   ipcMain.handle("auth:sign-out", async () => {
     stopPeriodicSync();
-    await authClient.signOut();
+    try {
+      await authClient.signOut();
+    } catch {
+      // Server may be unreachable — local cookie is already cleared by the plugin
+    }
     return { signedIn: false };
   });
 
