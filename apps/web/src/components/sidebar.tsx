@@ -153,6 +153,8 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
         }
       ).electronAPI.authCompleteSignIn({ strategy });
       setShowMergeDialog(false);
+      // Reload to refresh React Query caches with synced data
+      globalThis.location.href = "/";
     } finally {
       setMergeLoading(false);
     }

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -106,6 +106,13 @@ function LoginPage(): React.ReactElement {
       fetchOptions: { query: electronQuery },
     });
   }
+
+  // Auto-redirect to the desktop app via deep link
+  useEffect(() => {
+    if (electronRedirectUrl) {
+      globalThis.location.href = electronRedirectUrl;
+    }
+  }, [electronRedirectUrl]);
 
   if (electronRedirectUrl) {
     return (
