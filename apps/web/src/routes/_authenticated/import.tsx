@@ -358,31 +358,34 @@ export function ImportPage(): React.ReactElement {
         return;
       }
 
-      // Web: parse in-browser using sql.js WASM
-      const uploadedFileId = await ensureUploaded(previewFile);
-
+      // Web: parse in-browser using sql.js WASM (no server needed)
       const buffer = await previewFile.arrayBuffer();
       const data = await buildClientPreview(buffer);
       setApkgPreview(data);
 
-      // Fetch merge stats from server using fileId (no re-upload)
-      const mergeMode = config.apkg?.mergeMode ?? "merge";
-      if (mergeMode === "merge") {
-        try {
-          const serverData = await transport.mutate<{
-            mergeStats?: typeof data.mergeStats;
-          }>("/api/import/preview", "POST", {
-            fileId: uploadedFileId,
-            mergeMode,
-          });
-          if (serverData.mergeStats) {
-            setApkgPreview((prev) =>
-              prev ? { ...prev, mergeStats: serverData.mergeStats } : prev,
-            );
+      // Upload + merge stats are non-blocking — failures don't affect preview
+      try {
+        const uploadedFileId = await ensureUploaded(previewFile);
+        const mergeMode = config.apkg?.mergeMode ?? "merge";
+        if (mergeMode === "merge") {
+          try {
+            const serverData = await transport.mutate<{
+              mergeStats?: typeof data.mergeStats;
+            }>("/api/import/preview", "POST", {
+              fileId: uploadedFileId,
+              mergeMode,
+            });
+            if (serverData.mergeStats) {
+              setApkgPreview((prev) =>
+                prev ? { ...prev, mergeStats: serverData.mergeStats } : prev,
+              );
+            }
+          } catch {
+            // Merge stats are optional — continue without them
           }
-        } catch {
-          // Merge stats are optional — continue without them
         }
+      } catch {
+        // Upload failed during preview — will retry at import time
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Preview failed";
@@ -402,21 +405,24 @@ export function ImportPage(): React.ReactElement {
       const data = buildCrowdAnkiPreview(buffer);
       setApkgPreview(data);
 
-      // Upload file for merge stats (if not already uploaded)
-      const uploadedFileId = await ensureUploaded(previewFile);
-
-      // Fetch merge stats from server using fileId (no re-upload)
+      // Upload + merge stats are non-blocking — failures don't affect preview
       try {
-        const serverData = await transport.mutate<{
-          mergeStats?: typeof data.mergeStats;
-        }>("/api/import/preview", "POST", { fileId: uploadedFileId });
-        if (serverData.mergeStats) {
-          setApkgPreview((prev) =>
-            prev ? { ...prev, mergeStats: serverData.mergeStats } : prev,
-          );
+        const uploadedFileId = await ensureUploaded(previewFile);
+
+        try {
+          const serverData = await transport.mutate<{
+            mergeStats?: typeof data.mergeStats;
+          }>("/api/import/preview", "POST", { fileId: uploadedFileId });
+          if (serverData.mergeStats) {
+            setApkgPreview((prev) =>
+              prev ? { ...prev, mergeStats: serverData.mergeStats } : prev,
+            );
+          }
+        } catch {
+          // Merge stats are optional — continue without them
         }
       } catch {
-        // Merge stats are optional — continue without them
+        // Upload failed during preview — will retry at import time
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Preview failed";
