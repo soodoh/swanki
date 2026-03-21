@@ -120,11 +120,11 @@ CREATE INDEX `note_media_note_id_idx` ON `note_media` (`note_id`);--> statement-
 CREATE INDEX `note_media_media_id_idx` ON `note_media` (`media_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `note_media_note_media_unique` ON `note_media` (`note_id`,`media_id`);--> statement-breakpoint
 
-CREATE TABLE `deletions` (
+CREATE TABLE IF NOT EXISTS `deletions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`table_name` text NOT NULL,
 	`entity_id` text NOT NULL,
 	`user_id` text NOT NULL,
 	`deleted_at` integer NOT NULL
 );--> statement-breakpoint
-CREATE INDEX `deletions_user_id_deleted_at_idx` ON `deletions` (`user_id`, `deleted_at`);
+CREATE INDEX IF NOT EXISTS `deletions_user_id_deleted_at_idx` ON `deletions` (`user_id`, `deleted_at`);
