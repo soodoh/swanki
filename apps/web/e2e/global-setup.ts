@@ -110,9 +110,11 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     throw new Error("Failed to get user ID from session for seeding");
   }
 
-  // Seed baseline test data
-  const { seedData } = await import("./setup-db");
-  seedData(E2E_DB, userId);
+  // Seed baseline test data via bun subprocess (bun:sqlite is Bun-only; not available in Node.js)
+  execSync(`bun --bun run e2e/seed.ts "${E2E_DB}" "${userId}"`, {
+    cwd: WEB_DIR,
+    stdio: "pipe",
+  });
 
   await browser.close();
 }
