@@ -42,13 +42,10 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     rmSync(MEDIA_DIR, { recursive: true, force: true });
   }
 
-  // Push DB schema to the e2e database
-  execSync("bun x drizzle-kit push --force", {
+  // Apply migrations to the e2e database using Bun's native SQLite
+  // (drizzle-kit push doesn't work because better-sqlite3 is compiled for Bun, not Node)
+  execSync("bun --bun run e2e/setup-db.ts sqlite-e2e.db", {
     cwd: WEB_DIR,
-    env: {
-      ...(process as { env: Record<string, string> }).env,
-      DATABASE_URL: "sqlite-e2e.db",
-    },
     stdio: "pipe",
   });
 
