@@ -108,7 +108,35 @@ function RegisterPage(): React.ReactElement {
     });
   }
 
-  // Auto-redirect to the desktop app via deep link
+  // If the user already has a web session and this is the electron flow,
+  // transfer the session to the desktop app without requiring re-authentication.
+  useEffect(() => {
+    if (!isElectronFlow) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data: session } = await authClient.getSession();
+      if (!session?.user || cancelled) {
+        return;
+      }
+      const params = new URLSearchParams(electronQuery!);
+      await fetch(`/api/auth/electron/transfer-user?${params}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        credentials: "include",
+      });
+      if (!cancelled) {
+        authClient.ensureElectronRedirect();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isElectronFlow, electronQuery]);
+
+  // Auto-redirect to the desktop app via deep link (fallback for manual sign-up flow)
   useEffect(() => {
     if (electronRedirectUrl) {
       globalThis.location.href = electronRedirectUrl;
