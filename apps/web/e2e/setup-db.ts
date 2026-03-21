@@ -1,4 +1,8 @@
 /// <reference types="bun-types" />
+// This file is executed as a bun script for two purposes:
+// 1. Migrate:  bun --bun run e2e/setup-db.ts <dbPath>  (run by global-setup.ts)
+// 2. Seed:     imported by e2e/seed.ts which is run by global-setup.ts
+
 import { createBunDb } from "../src/db";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 
