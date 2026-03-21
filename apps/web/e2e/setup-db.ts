@@ -13,6 +13,8 @@ migrate(drizzleDb, { migrationsFolder: "./drizzle" });
 export function seedData(dbPath: string, userId: string): void {
   const { Database } = require("bun:sqlite") as typeof import("bun:sqlite");
   const seedDb = new Database(dbPath);
+  seedDb.exec("PRAGMA journal_mode = WAL");
+  seedDb.exec("PRAGMA busy_timeout = 5000");
 
   const now = Math.floor(Date.now() / 1000);
   const oneDayAgo = now - 86400;
