@@ -97,5 +97,22 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
 
   // Save storage state
   await context.storageState({ path: join(AUTH_DIR, "storage-state.json") });
+
+  // Extract user ID from session for seeding
+  const sessionRes = await page.request.get(
+    "http://localhost:3000/api/auth/get-session",
+  );
+  const sessionData = (await sessionRes.json()) as {
+    user?: { id: string };
+  };
+  const userId = sessionData.user?.id;
+  if (!userId) {
+    throw new Error("Failed to get user ID from session for seeding");
+  }
+
+  // Seed baseline test data
+  const { seedData } = await import("./setup-db");
+  seedData(E2E_DB, userId);
+
   await browser.close();
 }
