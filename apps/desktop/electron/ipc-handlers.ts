@@ -766,6 +766,34 @@ export function registerIpcHandlers(
     return BrowserWindow.getFocusedWindow()?.isMaximized() ?? false;
   });
 
+  // Helper: fetch the authenticated user's profile from the cloud session
+  async function fetchCloudUser(): Promise<{
+    name: string;
+    email: string;
+    image?: string;
+  } | null> {
+    if (!isSignedIn()) return null;
+    try {
+      const serverUrl = getCloudServerUrl();
+      const cookie = authClient.getCookie();
+      const res = await fetch(`${serverUrl}/api/auth/get-session`, {
+        headers: { Cookie: cookie },
+      });
+      if (!res.ok) return null;
+      const session = (await res.json()) as {
+        user?: { name?: string; email?: string; image?: string };
+      };
+      if (!session?.user?.name || !session?.user?.email) return null;
+      return {
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   // Auth handlers
   ipcMain.handle("auth:sign-in", async () => {
     // Opens the system browser to the sign-in page.
@@ -778,6 +806,8 @@ export function registerIpcHandlers(
       return { signedIn: false };
     }
 
+    const user = await fetchCloudUser();
+
     // Check if any local data exists (decks table)
     const localDeckCount = (
       rawDb.prepare("SELECT COUNT(*) as count FROM decks").get() as {
@@ -787,13 +817,13 @@ export function registerIpcHandlers(
 
     if (localDeckCount > 0) {
       // Local data present — ask the user whether to merge or replace
-      return { signedIn: true, hasLocalData: true };
+      return { signedIn: true, hasLocalData: true, user };
     }
 
     // No local data — do a full pull and start periodic sync
     await syncPull(db, rawDb);
     startPeriodicSync(db, rawDb);
-    return { signedIn: true, hasLocalData: false };
+    return { signedIn: true, hasLocalData: false, user };
   });
 
   ipcMain.handle(
@@ -845,7 +875,8 @@ export function registerIpcHandlers(
       }
 
       startPeriodicSync(db, rawDb);
-      return { ok: true };
+      const user = await fetchCloudUser();
+      return { ok: true, user };
     },
   );
 
@@ -860,9 +891,12 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle("auth:status", async () => {
+    const signedIn = isSignedIn();
+    const user = signedIn ? await fetchCloudUser() : null;
     return {
-      signedIn: isSignedIn(),
+      signedIn,
       cloudUrl: getCloudServerUrl(),
+      user,
     };
   });
 

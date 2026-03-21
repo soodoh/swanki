@@ -4,6 +4,7 @@ import {
   ChevronsUpDown,
   Layers,
   LayoutDashboard,
+  Loader2,
   LogIn,
   LogOut,
   Search,
@@ -13,6 +14,15 @@ import {
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,19 +84,28 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
   const currentPath = routerState.location.pathname;
   const platform = usePlatform();
   const [desktopSignedIn, setDesktopSignedIn] = useState(false);
+  const [desktopUser, setDesktopUser] = useState<
+    { name: string; email: string; image?: string } | undefined
+  >();
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [mergeLoading, setMergeLoading] = useState(false);
 
   useEffect(() => {
     if (platform === "desktop") {
       const api = (
         globalThis as unknown as {
           electronAPI: {
-            authStatus(): Promise<{ signedIn: boolean }>;
+            authStatus(): Promise<{
+              signedIn: boolean;
+              user?: { name: string; email: string; image?: string };
+            }>;
           };
         }
       ).electronAPI;
       void (async () => {
         const s = await api.authStatus();
         setDesktopSignedIn(s.signedIn);
+        setDesktopUser(s.user ?? undefined);
       })();
     }
   }, [platform]);
@@ -102,11 +121,41 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
     const result = await (
       globalThis as unknown as {
         electronAPI: {
-          authSignIn(): Promise<{ signedIn: boolean }>;
+          authSignIn(): Promise<{
+            signedIn: boolean;
+            hasLocalData?: boolean;
+            user?: { name: string; email: string; image?: string };
+          }>;
         };
       }
     ).electronAPI.authSignIn();
     setDesktopSignedIn(result.signedIn);
+    if (result.user) {
+      setDesktopUser(result.user);
+    }
+    if (result.signedIn && result.hasLocalData) {
+      setShowMergeDialog(true);
+    }
+  }
+
+  async function handleCompleteSignIn(
+    strategy: "merge" | "replace",
+  ): Promise<void> {
+    setMergeLoading(true);
+    try {
+      await (
+        globalThis as unknown as {
+          electronAPI: {
+            authCompleteSignIn(data: {
+              strategy: "merge" | "replace";
+            }): Promise<{ ok: boolean }>;
+          };
+        }
+      ).electronAPI.authCompleteSignIn({ strategy });
+      setShowMergeDialog(false);
+    } finally {
+      setMergeLoading(false);
+    }
   }
 
   async function handleSignOut(): Promise<void> {
@@ -119,12 +168,16 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
         }
       ).electronAPI.authSignOut();
       setDesktopSignedIn(result.signedIn);
+      setDesktopUser(undefined);
       globalThis.location.href = "/";
     } else {
       await authClient.signOut();
       globalThis.location.href = "/login";
     }
   }
+
+  const displayUser =
+    platform === "desktop" && desktopUser ? desktopUser : user;
 
   return (
     <Sidebar collapsible="icon">
@@ -181,17 +234,22 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
                 }
               >
                 <Avatar size="sm" className="size-8 rounded-lg">
-                  {user.image && (
-                    <AvatarImage src={user.image} alt={user.name} />
+                  {displayUser.image && (
+                    <AvatarImage
+                      src={displayUser.image}
+                      alt={displayUser.name}
+                    />
                   )}
                   <AvatarFallback className="rounded-lg">
-                    {getInitials(user.name)}
+                    {getInitials(displayUser.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user.name}</span>
+                  <span className="truncate font-semibold">
+                    {displayUser.name}
+                  </span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {user.email}
+                    {displayUser.email}
                   </span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4" />
@@ -225,6 +283,43 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
       </SidebarFooter>
 
       <SidebarRail />
+
+      {/* Merge/Replace dialog shown when signing in with existing local data */}
+      <Dialog
+        open={showMergeDialog}
+        onOpenChange={(open) => {
+          if (!mergeLoading) {
+            setShowMergeDialog(open);
+          }
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Existing Local Data</DialogTitle>
+            <DialogDescription>
+              You have flashcard data on this device. How would you like to
+              handle it?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={mergeLoading}
+              onClick={async () => handleCompleteSignIn("replace")}
+            >
+              {mergeLoading ? <Loader2 className="animate-spin" /> : null}
+              Use Cloud Data
+            </Button>
+            <Button
+              disabled={mergeLoading}
+              onClick={async () => handleCompleteSignIn("merge")}
+            >
+              {mergeLoading ? <Loader2 className="animate-spin" /> : null}
+              Merge Data
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sidebar>
   );
 }
