@@ -69,8 +69,18 @@ test.describe("Auth edge cases", () => {
   // Tests 4-5: authenticated context (default page fixture with storage state)
   // -------------------------------------------------------------------------
 
-  test("delete account modal requires exact DELETE text", async ({ page }) => {
-    await page.goto("/settings", { waitUntil: "networkidle" });
+  test("delete account modal requires exact DELETE text", async ({
+    browser,
+  }) => {
+    // Use a separate context so we never touch the shared session
+    const context = await browser.newContext({
+      storageState: "./e2e/.auth/storage-state.json",
+    });
+    const page = await context.newPage();
+
+    await page.goto("http://localhost:3000/settings", {
+      waitUntil: "networkidle",
+    });
 
     // Open the delete account dialog
     await page.getByRole("button", { name: "Delete Account" }).click();
@@ -93,13 +103,34 @@ test.describe("Auth edge cases", () => {
 
     // Close without deleting
     await page.keyboard.press("Escape");
+
+    await context.close();
   });
 
-  test("sign out redirects to login (LAST TEST)", async ({ page }) => {
-    await page.goto("/settings", { waitUntil: "networkidle" });
+  test("sign out redirects to login (LAST TEST)", async ({ browser }) => {
+    // Log in with a fresh session so signing out does not invalidate the
+    // shared storageState session used by every other spec file.
+    const context = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const page = await context.newPage();
 
+    await page.goto("http://localhost:3000/login", {
+      waitUntil: "networkidle",
+    });
+    await page.locator("#email").fill("e2e@test.com");
+    await page.locator("#password").fill("TestPass123!");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.waitForURL((url) => url.pathname === "/", { timeout: 30_000 });
+
+    // Now navigate to settings and sign out
+    await page.goto("http://localhost:3000/settings", {
+      waitUntil: "networkidle",
+    });
     await page.getByRole("button", { name: "Sign Out" }).click();
 
     await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+
+    await context.close();
   });
 });
