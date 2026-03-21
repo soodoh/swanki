@@ -27,7 +27,7 @@ The Swanki web app has 2 Playwright spec files covering import/study flows and t
 
 ### Seed Data Script
 
-Extend `e2e/seed-db.ts` to insert baseline data after applying migrations. The seed runs once during global setup, populating `sqlite-e2e.db` alongside the existing user registration.
+Extend the existing `e2e/setup-db.ts` (which already applies migrations) to also insert baseline seed data. The seed runs once during global setup, populating `sqlite-e2e.db` alongside the existing user registration.
 
 **Seed contents:**
 
@@ -114,8 +114,8 @@ Since Playwright runs with `workers: 1` and `fullyParallel: false`, all tests sh
 | 5     | `deck-management.spec.ts`             | Creates throwaway decks              |
 | 6     | `note-types.spec.ts`                  | Creates throwaway note types         |
 | 7     | `study-actions.spec.ts`               | Creates own deck+notes via API       |
-| 8     | `settings.spec.ts`                    | Harmless mutations (theme, name)     |
-| 9     | `auth-edge-cases.spec.ts`             | Destructive — runs last              |
+| 8     | `settings.spec.ts`                    | Harmless mutations (theme, name, pw) |
+| 9     | `auth-edge-cases.spec.ts`             | Destructive (sign-out) — runs last   |
 
 ---
 
@@ -192,7 +192,7 @@ Tests note-type management on `/note-types`. Creates throwaway note types.
 
 Tests study features beyond basic show/rate. Creates its own deck with notes via API.
 
-**Setup:** Create a deck "StudyTest" with 3 Basic notes (6 cards — front+back) via API.
+**Setup:** Create a deck "StudyTest" with 3 Basic notes (3 cards — 1 card per note) via API.
 
 **Tests:**
 
@@ -222,8 +222,7 @@ Tests the `/settings` page. Mutations are harmless (theme, display name).
 - **Theme: system** — Click System radio; verify selection highlighted
 - **Change password: too short** — Enter <8 char password, submit; verify error message
 - **Change password: mismatch** — Enter mismatched confirm, submit; verify error message
-- **Change password: success** — Enter valid current + new password, submit; verify success message and fields cleared
-- **Sign out** — Click Sign Out; verify redirect to `/login`
+- **Change password: success** — Enter valid current + new password, submit; verify success message and fields cleared. Then change password back to original to preserve test user credentials for future runs.
 
 ### 7. `auth-edge-cases.spec.ts`
 
@@ -236,8 +235,9 @@ Tests auth error states and guards. Runs last since sign-out/delete are destruct
 - **Register with duplicate email** — Fill register form with existing email; verify error message
 - **Delete account modal** — Open delete modal; verify "Permanently Delete Account" button is disabled
 - **Delete account requires exact "DELETE"** — Type "delete" (lowercase); verify button stays disabled. Type "DELETE"; verify button enables
+- **Sign out** — Click Sign Out; verify redirect to `/login`. This test runs last because `authClient.signOut()` invalidates the server-side session, making the stored session cookie unusable for subsequent tests.
 
-**Note:** Actual account deletion and login-after-sign-out are not tested to avoid invalidating the test user session for other runs.
+**Note:** Actual account deletion is not tested to avoid destroying the test user. The sign-out test is the final test in the entire suite.
 
 ---
 
@@ -262,7 +262,7 @@ Deterministic IDs and constants for referencing seeded data.
 
 | File                          | Change                                       |
 | ----------------------------- | -------------------------------------------- |
-| `e2e/seed-db.ts`              | Add seed data insertion after migrations     |
+| `e2e/setup-db.ts`             | Add seed data insertion after migrations     |
 | `e2e/global-setup.ts`         | Call seed insertion in setup flow            |
 | `e2e/helpers/seed-data.ts`    | New — deterministic IDs and constants        |
 | `e2e/helpers/api.ts`          | New — CRUD helpers for throwaway entities    |
