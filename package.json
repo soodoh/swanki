@@ -24,22 +24,16 @@
     "test:run": "turbo test:run",
     "db:generate": "cd apps/web && bun x drizzle-kit generate",
     "db:push": "cd apps/web && bun x drizzle-kit push",
-    "lint-staged": "lint-staged",
-    "prepare": "husky"
+    "prepare": "lefthook install"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@commitlint/types": "^20.5.0",
     "bun-types": "^1.3.11",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
+    "lefthook": "^1.11.13",
     "oxlint": "^1.55.0",
     "prettier": "^3.5.3",
     "turbo": "^2.8.17"
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": "prettier --write",
-    "*.{css,html,json,md,mdx,yaml,yml}": "prettier --write"
   }
 }
