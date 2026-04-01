@@ -64,7 +64,7 @@ better-sqlite3 is a native module that must be compiled for the correct runtime:
 - **Styling**: Tailwind CSS v4 + shadcn/ui components (`apps/web/src/components/ui/`)
 - **Linting**: oxlint (config: `apps/web/oxlint.config.mjs`) + prettier
 - **Testing**: Vitest with in-memory SQLite (`apps/web/src/__tests__/test-utils.ts`)
-- **Git hooks**: husky + lint-staged + commitlint (conventional commits, no scopes)
+- **Git hooks**: lefthook + commitlint (conventional commits, no scopes)
 
 ## Architecture
 
