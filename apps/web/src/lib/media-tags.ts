@@ -6,32 +6,32 @@
  * by wireSoundButtons() after the HTML is mounted in the DOM.
  */
 export function expandMediaTags(
-  html: string,
-  mediaBaseUrl = "/api/media/",
+	html: string,
+	mediaBaseUrl = "/api/media/",
 ): string {
-  /* oxlint-disable unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference */
-  let result = html;
+	/* oxlint-disable unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference */
+	let result = html;
 
-  // [image:file] → <img>
-  result = result.replace(
-    /\[image:([^\]]+)\]/g,
-    `<img src="${mediaBaseUrl}$1">`,
-  );
+	// [image:file] → <img>
+	result = result.replace(
+		/\[image:([^\]]+)\]/g,
+		`<img src="${mediaBaseUrl}$1">`,
+	);
 
-  // [audio:file] → play button + <audio>
-  result = result.replace(
-    /\[audio:([^\]]+)\]/g,
-    `<span class="sound-player"><button type="button" class="sound-btn" aria-label="Play audio">\u25B6</button><audio src="${mediaBaseUrl}$1" preload="auto"></audio></span>`,
-  );
+	// [audio:file] → play button + <audio>
+	result = result.replace(
+		/\[audio:([^\]]+)\]/g,
+		`<span class="sound-player"><button type="button" class="sound-btn" aria-label="Play audio">\u25B6</button><audio src="${mediaBaseUrl}$1" preload="auto"></audio></span>`,
+	);
 
-  // [video:file] → <video>
-  result = result.replace(
-    /\[video:([^\]]+)\]/g,
-    `<video src="${mediaBaseUrl}$1" controls></video>`,
-  );
+	// [video:file] → <video>
+	result = result.replace(
+		/\[video:([^\]]+)\]/g,
+		`<video src="${mediaBaseUrl}$1" controls></video>`,
+	);
 
-  /* oxlint-enable unicorn(prefer-string-replace-all) */
-  return result;
+	/* oxlint-enable unicorn(prefer-string-replace-all) */
+	return result;
 }
 
 /**
@@ -41,45 +41,45 @@ export function expandMediaTags(
  * Returns a cleanup function to remove listeners.
  */
 export function wireSoundButtons(container: HTMLElement): () => void {
-  const buttons = container.querySelectorAll<HTMLButtonElement>(".sound-btn");
-  const controllers: Array<() => void> = [];
+	const buttons = container.querySelectorAll<HTMLButtonElement>(".sound-btn");
+	const controllers: Array<() => void> = [];
 
-  for (const btn of buttons) {
-    const audio = btn.nextElementSibling;
-    if (!audio || audio.tagName !== "AUDIO") {
-      continue;
-    }
-    const audioEl = audio as HTMLAudioElement;
+	for (const btn of buttons) {
+		const audio = btn.nextElementSibling;
+		if (!audio || audio.tagName !== "AUDIO") {
+			continue;
+		}
+		const audioEl = audio as HTMLAudioElement;
 
-    const handleClick = (): void => {
-      if (audioEl.paused) {
-        // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then) -- fire-and-forget play with error recovery
-        audioEl.play().catch(() => {
-          btn.textContent = "\u25B6";
-        });
-        btn.textContent = "\u23F8";
-      } else {
-        audioEl.pause();
-        btn.textContent = "\u25B6";
-      }
-    };
+		const handleClick = (): void => {
+			if (audioEl.paused) {
+				// oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then) -- fire-and-forget play with error recovery
+				audioEl.play().catch(() => {
+					btn.textContent = "\u25B6";
+				});
+				btn.textContent = "\u23F8";
+			} else {
+				audioEl.pause();
+				btn.textContent = "\u25B6";
+			}
+		};
 
-    const handleEnded = (): void => {
-      btn.textContent = "\u25B6";
-    };
+		const handleEnded = (): void => {
+			btn.textContent = "\u25B6";
+		};
 
-    btn.addEventListener("click", handleClick);
-    audioEl.addEventListener("ended", handleEnded);
+		btn.addEventListener("click", handleClick);
+		audioEl.addEventListener("ended", handleEnded);
 
-    controllers.push(() => {
-      btn.removeEventListener("click", handleClick);
-      audioEl.removeEventListener("ended", handleEnded);
-    });
-  }
+		controllers.push(() => {
+			btn.removeEventListener("click", handleClick);
+			audioEl.removeEventListener("ended", handleEnded);
+		});
+	}
 
-  return () => {
-    for (const cleanup of controllers) {
-      cleanup();
-    }
-  };
+	return () => {
+		for (const cleanup of controllers) {
+			cleanup();
+		}
+	};
 }

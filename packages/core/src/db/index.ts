@@ -4,10 +4,10 @@ import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import * as schema from "./schema";
 
 export function createDb(dbPath: string) {
-  const sqlite = new Database(dbPath);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-  return { drizzleDb: drizzle(sqlite, { schema }), rawDb: sqlite };
+	const sqlite = new Database(dbPath);
+	sqlite.pragma("journal_mode = WAL");
+	sqlite.pragma("foreign_keys = ON");
+	return { drizzleDb: drizzle(sqlite, { schema }), rawDb: sqlite };
 }
 
 /**
@@ -24,5 +24,5 @@ export type AppDb = BaseSQLiteDatabase<any, any, typeof schema>;
  * Abstracts over better-sqlite3 (sync) and Capacitor SQLite (async).
  */
 export interface RawSqliteDb {
-  execSQL(sql: string): void | Promise<void>;
+	execSQL(sql: string): void | Promise<void>;
 }

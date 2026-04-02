@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("smoke test", () => {
-  it("works", () => {
-    expect(1 + 1).toBe(2);
-  });
+	it("works", () => {
+		expect(1 + 1).toBe(2);
+	});
 });

@@ -3,25 +3,25 @@
 // 1. Migrate:  bun --bun run e2e/setup-db.ts <dbPath>  (run by global-setup.ts)
 // 2. Seed:     imported by e2e/seed.ts which is run by global-setup.ts
 
-import { createBunDb } from "../src/db";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { createBunDb } from "../src/db";
 
 const dbPath = process.argv[2] || "sqlite-e2e.db";
 const { drizzleDb } = createBunDb(dbPath);
 migrate(drizzleDb, { migrationsFolder: "./drizzle" });
 
 export function seedData(dbPath: string, userId: string): void {
-  const { Database } = require("bun:sqlite") as typeof import("bun:sqlite");
-  const seedDb = new Database(dbPath);
-  seedDb.exec("PRAGMA journal_mode = WAL");
-  seedDb.exec("PRAGMA busy_timeout = 5000");
+	const { Database } = require("bun:sqlite") as typeof import("bun:sqlite");
+	const seedDb = new Database(dbPath);
+	seedDb.exec("PRAGMA journal_mode = WAL");
+	seedDb.exec("PRAGMA busy_timeout = 5000");
 
-  const now = Math.floor(Date.now() / 1000);
-  const oneDayAgo = now - 86400;
-  const twoDaysAgo = now - 172800;
-  const threeDaysAgo = now - 259200;
+	const now = Math.floor(Date.now() / 1000);
+	const oneDayAgo = now - 86400;
+	const twoDaysAgo = now - 172800;
+	const threeDaysAgo = now - 259200;
 
-  seedDb.exec(`
+	seedDb.exec(`
     INSERT OR IGNORE INTO decks (id, user_id, name, parent_id, description, settings, created_at, updated_at) VALUES
       ('a0000000-0000-0000-0000-000000000001', '${userId}', 'Spanish', NULL, '', '{"newCardsPerDay":20,"maxReviewsPerDay":200}', ${now}, ${now}),
       ('a0000000-0000-0000-0000-000000000002', '${userId}', 'Spanish::Verbs', 'a0000000-0000-0000-0000-000000000001', '', '{"newCardsPerDay":20,"maxReviewsPerDay":200}', ${now}, ${now}),
@@ -60,5 +60,5 @@ export function seedData(dbPath: string, userId: string): void {
       ('f0000000-0000-0000-0000-000000000005', 'e0000000-0000-0000-0000-000000000003', 3, 2, ${oneDayAgo}, 4.0, 5.5, 1, 1, 4, ${oneDayAgo}, 3500);
   `);
 
-  seedDb.close();
+	seedDb.close();
 }

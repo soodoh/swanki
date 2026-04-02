@@ -9,13 +9,13 @@ import { sanitize } from "isomorphic-dompurify";
  * expandMediaTags() converts them to HTML elements AFTER sanitization.
  */
 export function sanitizeHtml(html: string): string {
-  return sanitize(html);
+	return sanitize(html);
 }
 
 /**
  * Sanitize CSS to prevent style tag breakout attacks.
  */
 export function sanitizeCss(css: string): string {
-  // Escape closing style tag sequences to prevent style tag breakout
-  return css.split(/<\/style/gi).join(String.raw`<\/style`);
+	// Escape closing style tag sequences to prevent style tag breakout
+	return css.split(/<\/style/gi).join(String.raw`<\/style`);
 }
