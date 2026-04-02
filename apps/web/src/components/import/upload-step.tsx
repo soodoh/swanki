@@ -109,6 +109,7 @@ export function UploadStep({
 	return (
 		<div className="space-y-6">
 			{/* Drop zone */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: drop zone with nested interactive children cannot be a semantic button */}
 			<div
 				onDragOver={handleDragOver}
 				onDragLeave={handleDragLeave}

@@ -76,7 +76,7 @@ function RootComponent(): React.ReactElement {
 		<html lang="en" className={htmlClass}>
 			<head>
 				<HeadContent />
-				{/* hardcoded constant, not user input */}
+				{/* biome-ignore lint/security/noDangerouslySetInnerHtml: hardcoded constant theme script, not user input */}
 				<script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
 			</head>
 			<body>

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
+import { deleteCookie, getCookie } from "@/lib/cookies";
 
 type ElectronSearchParams = {
 	client_id?: string;
@@ -78,15 +79,9 @@ function RegisterPage(): React.ReactElement {
 
 		if (isElectronFlow) {
 			authClient.ensureElectronRedirect();
-			// eslint-disable-next-line unicorn/no-document-cookie -- reading electron auth cookie
-			const cookieMatch = document.cookie.match(
-				/better-auth\.electron=([^;]+)/,
-			);
-			const token = cookieMatch?.[1];
+			const token = getCookie("better-auth.electron");
 			if (token) {
-				// eslint-disable-next-line unicorn/no-document-cookie -- clearing electron auth cookie
-				document.cookie =
-					"better-auth.electron=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+				deleteCookie("better-auth.electron");
 				setElectronRedirectUrl(`swanki://auth/callback#token=${token}`);
 			} else {
 				setError("Registration succeeded but desktop redirect failed.");
@@ -120,7 +115,8 @@ function RegisterPage(): React.ReactElement {
 			if (!session?.user || cancelled) {
 				return;
 			}
-			const params = new URLSearchParams(electronQuery!);
+			if (!electronQuery) return;
+			const params = new URLSearchParams(electronQuery);
 			await fetch(`/api/auth/electron/transfer-user?${params}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },

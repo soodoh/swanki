@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 function Label({ className, ...props }: ComponentProps<"label">): ReactElement {
 	return (
-		// eslint-disable-next-line jsx-a11y/label-has-associated-control -- htmlFor is passed via spread props
+		// biome-ignore lint/a11y/noLabelWithoutControl: htmlFor is passed via spread props by consumers
 		<label
 			data-slot="label"
 			className={cn(

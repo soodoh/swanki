@@ -33,10 +33,11 @@ async function navigateToVocabStudy(
 ): Promise<string> {
 	const href = await page.evaluate(findVocabStudyHref, rootDeck);
 	expect(href).toBeTruthy();
-	await page.goto(`${RENDERER_URL}${href!}`);
+	if (!href) throw new Error("Expected vocab study href to exist");
+	await page.goto(`${RENDERER_URL}${href}`);
 	await page.waitForTimeout(2000);
 	await page.waitForURL(`${RENDERER_URL}**/study/**`, { timeout: 10_000 });
-	return href!;
+	return href;
 }
 
 const FORMATS = [

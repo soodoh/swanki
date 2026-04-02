@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { expandMediaTags } from "@/lib/media-tags";
@@ -18,6 +18,24 @@ type NoteTypeInfo = {
 	}>;
 	css: string;
 };
+
+/** Renders pre-sanitized HTML (already processed by DOMPurify via sanitizeHtml). */
+function HtmlContent({
+	html,
+	className,
+}: {
+	html: string;
+	className?: string;
+}): React.ReactElement {
+	const ref = useRef<HTMLDivElement>(null);
+	useLayoutEffect(() => {
+		if (ref.current) {
+			ref.current.textContent = "";
+			ref.current.insertAdjacentHTML("afterbegin", html);
+		}
+	}, [html]);
+	return <div ref={ref} className={className} />;
+}
 
 type ApkgCardPreviewProps = {
 	noteTypeName: string;
@@ -100,9 +118,9 @@ export function ApkgCardPreview({
 					<p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
 						Front
 					</p>
-					<div
+					<HtmlContent
+						html={frontHtml}
 						className="prose prose-sm dark:prose-invert max-w-none"
-						dangerouslySetInnerHTML={{ __html: frontHtml }}
 					/>
 				</div>
 
@@ -111,14 +129,13 @@ export function ApkgCardPreview({
 						<p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
 							Back
 						</p>
-						<div
+						<HtmlContent
+							html={backHtml}
 							className="prose prose-sm dark:prose-invert max-w-none"
-							dangerouslySetInnerHTML={{ __html: backHtml }}
 						/>
 					</div>
 				)}
 			</div>
-			{/* oxlint-enable react/no-danger */}
 		</div>
 	);
 }

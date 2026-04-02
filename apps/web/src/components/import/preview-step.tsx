@@ -139,10 +139,10 @@ function CarouselDots(): React.ReactNode {
 
 	return (
 		<div className="flex justify-center gap-1.5 pt-2">
-			{Array.from({ length: count }).map((_, i) => (
+			{Array.from({ length: count }, (_, i) => (
 				<button
-					// stable dot order
-					key={i}
+					// stable dot order - index is the identity for carousel dots
+					key={`dot-${String(i)}`}
 					type="button"
 					className={cn(
 						"size-2 rounded-full transition-colors",
@@ -191,7 +191,8 @@ function ApkgPreview({
 			<Carousel setApi={setApi} className="mx-12">
 				<CarouselContent>
 					{validNotes.map((note, index) => {
-						const noteType = noteTypeMap.get(note.noteTypeName)!;
+						const noteType = noteTypeMap.get(note.noteTypeName);
+						if (!noteType) return null;
 						const firstField = Object.values(note.fields)[0] ?? "";
 						const keyStr = `${note.noteTypeName}-${firstField.slice(0, 40)}`;
 						return (

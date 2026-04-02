@@ -71,8 +71,12 @@ function AuthenticatedLayout(): React.ReactElement {
 		);
 	}
 
+	if (!transport) {
+		throw new Error("WebTransport unavailable in non-mobile build");
+	}
+
 	return (
-		<TransportProvider value={transport!}>
+		<TransportProvider value={transport}>
 			<PlatformProvider value="web">
 				<AppShell user={user}>
 					<Outlet />

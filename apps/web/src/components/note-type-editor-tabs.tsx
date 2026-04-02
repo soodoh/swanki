@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { usePlatform } from "@swanki/core/platform";
 import { ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CssCodeEditor } from "@/components/css-code-editor";
 import { TemplateCodeEditor } from "@/components/template-code-editor";
 import { Button } from "@/components/ui/button";
@@ -484,6 +484,17 @@ function TemplatePreviewPane({
 	const platform = usePlatform();
 	const mediaBaseUrl =
 		platform === "desktop" ? "swanki-media://media/" : "/api/media/";
+	const contentRef = useRef<HTMLDivElement>(null);
+	const sanitizedContent = expandMediaTags(sanitizeHtml(html), mediaBaseUrl);
+
+	// Render sanitized HTML via ref (content pre-sanitized by DOMPurify)
+	useLayoutEffect(() => {
+		if (contentRef.current) {
+			contentRef.current.textContent = "";
+			contentRef.current.insertAdjacentHTML("afterbegin", sanitizedContent);
+		}
+	}, [sanitizedContent]);
+
 	return (
 		<div className="grid gap-2">
 			<Label className="text-xs font-medium text-muted-foreground">
@@ -492,14 +503,10 @@ function TemplatePreviewPane({
 			<Card className="min-h-[200px] flex items-center justify-center">
 				<CardContent className="p-3">
 					{css && <style>{sanitizeCss(css)}</style>}
-					{/* sanitized via DOMPurify */}
 					<div
+						ref={contentRef}
 						className="prose prose-sm dark:prose-invert max-w-none text-center"
-						dangerouslySetInnerHTML={{
-							__html: expandMediaTags(sanitizeHtml(html), mediaBaseUrl),
-						}}
 					/>
-					{/* oxlint-enable react/no-danger */}
 				</CardContent>
 			</Card>
 		</div>

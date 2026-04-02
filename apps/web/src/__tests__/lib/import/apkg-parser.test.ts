@@ -898,7 +898,8 @@ describe("parseApkg — Anki 2.1.50+ format", () => {
 
 	it.skipIf(!hasZstd)("handles zstd-compressed database file", () => {
 		const dbBytes = createNewSchemaAnkiDb(NEW_SCHEMA_DEFAULTS);
-		const compressed = zstdCompress(dbBytes)!;
+		const compressed = zstdCompress(dbBytes);
+		if (!compressed) throw new Error("Expected zstd compression to succeed");
 
 		const buffer = createApkgBuffer({
 			dbBytes: compressed,
@@ -920,7 +921,8 @@ describe("parseApkg — Anki 2.1.50+ format", () => {
 				...NEW_SCHEMA_DEFAULTS,
 				useProtobufConfig: true,
 			});
-			const compressed = zstdCompress(dbBytes)!;
+			const compressed = zstdCompress(dbBytes);
+			if (!compressed) throw new Error("Expected zstd compression to succeed");
 
 			const buffer = createApkgBuffer({
 				dbBytes: compressed,
@@ -945,7 +947,8 @@ describe("parseApkg — Anki 2.1.50+ format", () => {
 				useProtobufConfig: true,
 				useUnicaseCollation: true,
 			});
-			const compressed = zstdCompress(dbBytes)!;
+			const compressed = zstdCompress(dbBytes);
+			if (!compressed) throw new Error("Expected zstd compression to succeed");
 
 			const buffer = createApkgBuffer({
 				dbBytes: compressed,
@@ -1014,7 +1017,9 @@ describe("parseApkg — Anki 2.1.50+ format", () => {
 		const mediaMapBytes = encodeMediaMapProtobuf([
 			{ index: 0, filename: "image.png" },
 		]);
-		const compressedMedia = zstdCompress(mediaMapBytes)!;
+		const compressedMedia = zstdCompress(mediaMapBytes);
+		if (!compressedMedia)
+			throw new Error("Expected zstd compression to succeed");
 
 		const buffer = createApkgBuffer({
 			dbBytes,

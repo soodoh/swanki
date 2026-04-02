@@ -1,72 +1,55 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
-	"vcs": {
-		"enabled": true,
-		"clientKind": "git",
-		"useIgnoreFile": true,
-		"defaultBranch": "main"
-	},
-	"files": {
-		"ignoreUnknown": true,
-		"includes": [
-			"**",
-			"!!**/node_modules",
-			"!!**/.output",
-			"!!**/dist",
-			"!!**/src/routeTree.gen.ts"
-		]
-	},
-	"assist": {
-		"actions": {
-			"source": {
-				"organizeImports": "on"
-			}
-		}
-	},
-	"css": {
-		"parser": {
-			"tailwindDirectives": true
-		}
-	},
-	"formatter": {
-		"enabled": true
-	},
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true,
-			"style": {
-				"noNonNullAssertion": "off",
-				"noRestrictedImports": {
-					"level": "error",
-					"options": {
-						"paths": {
-							"react": {
-								"importNames": ["default"],
-								"message": "Use named imports from 'react' instead."
-							}
-						}
-					}
-				}
-			},
-			"suspicious": {
-				"noExplicitAny": "off",
-				"noControlCharactersInRegex": "off",
-				"noArrayIndexKey": "off",
-				"noDocumentCookie": "off"
-			},
-			"security": {
-				"noDangerouslySetInnerHtml": "off"
-			},
-			"a11y": {
-				"noLabelWithoutControl": "off",
-				"noStaticElementInteractions": "off",
-				"useSemanticElements": "off",
-				"noSvgWithoutTitle": "off"
-			},
-			"correctness": {
-				"useExhaustiveDependencies": "warn"
-			}
-		}
-	}
+  "$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!!**/node_modules",
+      "!!**/.output",
+      "!!**/dist",
+      "!!**/src/routeTree.gen.ts"
+    ]
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "formatter": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "react": {
+                "importNames": [
+                  "default"
+                ],
+                "message": "Use named imports from 'react' instead."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
