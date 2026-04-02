@@ -6,14 +6,10 @@ if [[ -z "$FILE_PATH" || ! -f "$FILE_PATH" ]]; then
   exit 0
 fi
 
-# Only process JS/TS files
+# Only process file types Biome supports
 case "$FILE_PATH" in
-  *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs)
-    npx oxlint --fix "$FILE_PATH" 2>/dev/null
-    npx prettier --write "$FILE_PATH" 2>/dev/null
-    ;;
-  *.json|*.css|*.md|*.html)
-    npx prettier --write "$FILE_PATH" 2>/dev/null
+  *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.css)
+    bunx biome check --write "$FILE_PATH" 2>/dev/null
     ;;
 esac
 
