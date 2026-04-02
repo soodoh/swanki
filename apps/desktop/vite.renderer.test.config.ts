@@ -21,11 +21,11 @@ import baseConfig from "./vite.renderer.config";
  *    Electron.  e2e tests do not need hot-reloading.
  */
 export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    cacheDir: ".e2e-vite-cache",
-    server: {
-      hmr: false,
-    },
-  }),
+	baseConfig,
+	defineConfig({
+		cacheDir: ".e2e-vite-cache",
+		server: {
+			hmr: false,
+		},
+	}),
 );

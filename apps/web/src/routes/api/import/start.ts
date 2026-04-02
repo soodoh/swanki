@@ -1,168 +1,168 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { requireSession } from "../../../lib/auth-middleware";
-import {
-  getUploadPath,
-  deleteUpload,
-} from "../../../lib/services/upload-service";
-import {
-  detectFormat,
-  ImportService,
-} from "../../../lib/services/import-service";
-import { MediaService } from "../../../lib/services/media-service";
 import { nodeFs } from "@swanki/core/node-filesystem";
+import { createFileRoute } from "@tanstack/react-router";
+import { db, rawSqlite } from "../../../db";
+import { requireSession } from "../../../lib/auth-middleware";
 import { parseApkg } from "../../../lib/import/apkg-parser";
 import { createJob, updateJob } from "../../../lib/import/import-job";
-import { db, rawSqlite } from "../../../db";
+import {
+	detectFormat,
+	ImportService,
+} from "../../../lib/services/import-service";
+import { MediaService } from "../../../lib/services/media-service";
+import {
+	deleteUpload,
+	getUploadPath,
+} from "../../../lib/services/upload-service";
 
 const mediaDir: string = join(process.cwd(), "data", "media");
 const uploadDir: string = join(process.cwd(), "data", "uploads");
 
 async function processImport(
-  jobId: string,
-  userId: string,
-  fileId: string,
-  filePath: string,
-  merge: boolean,
+	jobId: string,
+	userId: string,
+	fileId: string,
+	filePath: string,
+	merge: boolean,
 ): Promise<void> {
-  try {
-    updateJob(jobId, {
-      phase: "parsing",
-      progress: 0,
-      detail: "Reading and parsing file...",
-    });
+	try {
+		updateJob(jobId, {
+			phase: "parsing",
+			progress: 0,
+			detail: "Reading and parsing file...",
+		});
 
-    const fileData: Buffer = readFileSync(filePath);
-    const buffer: ArrayBuffer = fileData.buffer.slice(
-      fileData.byteOffset,
-      fileData.byteOffset + fileData.byteLength,
-    );
-    const apkgData = parseApkg(buffer);
+		const fileData: Buffer = readFileSync(filePath);
+		const buffer: ArrayBuffer = fileData.buffer.slice(
+			fileData.byteOffset,
+			fileData.byteOffset + fileData.byteLength,
+		);
+		const apkgData = parseApkg(buffer);
 
-    updateJob(jobId, {
-      phase: "media",
-      progress: 0,
-      detail: `Importing ${apkgData.media.length} media files...`,
-    });
+		updateJob(jobId, {
+			phase: "media",
+			progress: 0,
+			detail: `Importing ${apkgData.media.length} media files...`,
+		});
 
-    const mediaService = new MediaService(db, mediaDir, nodeFs);
-    const {
-      mapping: mediaMapping,
-      warnings: mediaWarnings,
-      mediaCount,
-    } = await mediaService.importBatch(userId, apkgData.media);
+		const mediaService = new MediaService(db, mediaDir, nodeFs);
+		const {
+			mapping: mediaMapping,
+			warnings: mediaWarnings,
+			mediaCount,
+		} = await mediaService.importBatch(userId, apkgData.media);
 
-    updateJob(jobId, {
-      phase: "notes",
-      progress: 0,
-      detail: "Importing notes and cards...",
-    });
+		updateJob(jobId, {
+			phase: "notes",
+			progress: 0,
+			detail: "Importing notes and cards...",
+		});
 
-    const importService = new ImportService(db, {
-      execSQL: (sql) => rawSqlite.run(sql),
-    });
-    const result = await importService.importFromApkgBatched(
-      userId,
-      apkgData,
-      mediaMapping,
-      merge,
-      (phase, progress, detail) => {
-        updateJob(jobId, {
-          phase: phase as "notes" | "cards",
-          progress,
-          detail,
-        });
-      },
-    );
+		const importService = new ImportService(db, {
+			execSQL: (sql) => rawSqlite.run(sql),
+		});
+		const result = await importService.importFromApkgBatched(
+			userId,
+			apkgData,
+			mediaMapping,
+			merge,
+			(phase, progress, detail) => {
+				updateJob(jobId, {
+					phase: phase as "notes" | "cards",
+					progress,
+					detail,
+				});
+			},
+		);
 
-    updateJob(jobId, {
-      status: "complete",
-      phase: "cleanup",
-      progress: 100,
-      detail: "Import complete!",
-      result: {
-        ...result,
-        mediaWarnings,
-        mediaCount,
-      },
-    });
+		updateJob(jobId, {
+			status: "complete",
+			phase: "cleanup",
+			progress: 100,
+			detail: "Import complete!",
+			result: {
+				...result,
+				mediaWarnings,
+				mediaCount,
+			},
+		});
 
-    // Clean up uploaded file
-    await deleteUpload(nodeFs, uploadDir, userId, fileId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Import failed";
-    updateJob(jobId, {
-      status: "error",
-      phase: "cleanup",
-      progress: 0,
-      detail: message,
-      error: message,
-    });
-  }
+		// Clean up uploaded file
+		await deleteUpload(nodeFs, uploadDir, userId, fileId);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Import failed";
+		updateJob(jobId, {
+			status: "error",
+			phase: "cleanup",
+			progress: 0,
+			detail: message,
+			error: message,
+		});
+	}
 }
 
 export const Route = createFileRoute("/api/import/start")({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
-        const session = await requireSession(request);
-        const userId = session.user.id;
+	server: {
+		handlers: {
+			POST: async ({ request }) => {
+				const session = await requireSession(request);
+				const userId = session.user.id;
 
-        try {
-          const body = (await request.json()) as {
-            fileId?: string;
-            mergeMode?: string;
-          };
+				try {
+					const body = (await request.json()) as {
+						fileId?: string;
+						mergeMode?: string;
+					};
 
-          if (!body.fileId) {
-            return Response.json(
-              { error: "fileId is required" },
-              { status: 400 },
-            );
-          }
+					if (!body.fileId) {
+						return Response.json(
+							{ error: "fileId is required" },
+							{ status: 400 },
+						);
+					}
 
-          const filePath = await getUploadPath(
-            nodeFs,
-            uploadDir,
-            userId,
-            body.fileId,
-          );
-          if (!filePath) {
-            return Response.json(
-              { error: "Upload not found or expired" },
-              { status: 404 },
-            );
-          }
+					const filePath = await getUploadPath(
+						nodeFs,
+						uploadDir,
+						userId,
+						body.fileId,
+					);
+					if (!filePath) {
+						return Response.json(
+							{ error: "Upload not found or expired" },
+							{ status: 404 },
+						);
+					}
 
-          // Detect format from file extension
-          const ext = filePath.slice(filePath.lastIndexOf("."));
-          const format = detectFormat(`file${ext}`);
-          if (format !== "apkg" && format !== "colpkg") {
-            return Response.json(
-              {
-                error:
-                  "Async import only supports .apkg/.colpkg files. Use /api/import/ for other formats.",
-              },
-              { status: 400 },
-            );
-          }
+					// Detect format from file extension
+					const ext = filePath.slice(filePath.lastIndexOf("."));
+					const format = detectFormat(`file${ext}`);
+					if (format !== "apkg" && format !== "colpkg") {
+						return Response.json(
+							{
+								error:
+									"Async import only supports .apkg/.colpkg files. Use /api/import/ for other formats.",
+							},
+							{ status: 400 },
+						);
+					}
 
-          const jobId = createJob();
-          const merge = body.mergeMode === "merge";
+					const jobId = createJob();
+					const merge = body.mergeMode === "merge";
 
-          // Kick off processing asynchronously
-          setTimeout(() => {
-            void processImport(jobId, userId, body.fileId!, filePath, merge);
-          }, 0);
+					// Kick off processing asynchronously
+					setTimeout(() => {
+						void processImport(jobId, userId, body.fileId!, filePath, merge);
+					}, 0);
 
-          return Response.json({ jobId }, { status: 202 });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Failed to start import";
-          return Response.json({ error: message }, { status: 500 });
-        }
-      },
-    },
-  },
+					return Response.json({ jobId }, { status: 202 });
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : "Failed to start import";
+					return Response.json({ error: message }, { status: 500 });
+				}
+			},
+		},
+	},
 });

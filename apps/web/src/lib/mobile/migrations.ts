@@ -6,11 +6,11 @@
  * Then copy the SQL content into this file.
  */
 export const mobileMigrations = {
-  journal: {
-    entries: [{ tag: "0000_previous_prodigy" }],
-  },
-  migrations: {
-    "0000_previous_prodigy": `CREATE TABLE \`account\` (
+	journal: {
+		entries: [{ tag: "0000_previous_prodigy" }],
+	},
+	migrations: {
+		"0000_previous_prodigy": `CREATE TABLE \`account\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`account_id\` text NOT NULL,
 	\`provider_id\` text NOT NULL,
@@ -161,5 +161,5 @@ CREATE TABLE \`verification\` (
 	\`updated_at\` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL
 );
 CREATE INDEX \`verification_identifier_idx\` ON \`verification\` (\`identifier\`);`,
-  },
+	},
 };

@@ -1,26 +1,26 @@
 export type ImportPhase =
-  | "uploading"
-  | "parsing"
-  | "media"
-  | "notes"
-  | "cards"
-  | "cleanup";
+	| "uploading"
+	| "parsing"
+	| "media"
+	| "notes"
+	| "cards"
+	| "cleanup";
 
 export type ImportJobStatus = {
-  status: "processing" | "complete" | "error";
-  phase: ImportPhase;
-  progress: number; // 0-100
-  detail: string;
-  result?: {
-    cardCount: number;
-    noteCount: number;
-    deckCount?: number;
-    duplicatesSkipped?: number;
-    notesUpdated?: number;
-    mediaWarnings?: string[];
-    mediaCount?: number;
-  };
-  error?: string;
+	status: "processing" | "complete" | "error";
+	phase: ImportPhase;
+	progress: number; // 0-100
+	detail: string;
+	result?: {
+		cardCount: number;
+		noteCount: number;
+		deckCount?: number;
+		duplicatesSkipped?: number;
+		notesUpdated?: number;
+		mediaWarnings?: string[];
+		mediaCount?: number;
+	};
+	error?: string;
 };
 
 const jobs = new Map<string, ImportJobStatus>();
@@ -30,38 +30,38 @@ const JOB_TTL_MS = 10 * 60 * 1000;
 const jobTimestamps = new Map<string, number>();
 
 export function createJob(): string {
-  const jobId = crypto.randomUUID();
-  jobs.set(jobId, {
-    status: "processing",
-    phase: "parsing",
-    progress: 0,
-    detail: "Starting import...",
-  });
-  jobTimestamps.set(jobId, Date.now());
-  cleanupOldJobs();
-  return jobId;
+	const jobId = crypto.randomUUID();
+	jobs.set(jobId, {
+		status: "processing",
+		phase: "parsing",
+		progress: 0,
+		detail: "Starting import...",
+	});
+	jobTimestamps.set(jobId, Date.now());
+	cleanupOldJobs();
+	return jobId;
 }
 
 export function updateJob(
-  jobId: string,
-  update: Partial<ImportJobStatus>,
+	jobId: string,
+	update: Partial<ImportJobStatus>,
 ): void {
-  const existing = jobs.get(jobId);
-  if (existing) {
-    jobs.set(jobId, { ...existing, ...update });
-  }
+	const existing = jobs.get(jobId);
+	if (existing) {
+		jobs.set(jobId, { ...existing, ...update });
+	}
 }
 
 export function getJob(jobId: string): ImportJobStatus | undefined {
-  return jobs.get(jobId);
+	return jobs.get(jobId);
 }
 
 function cleanupOldJobs(): void {
-  const now = Date.now();
-  for (const [id, timestamp] of jobTimestamps) {
-    if (now - timestamp > JOB_TTL_MS) {
-      jobs.delete(id);
-      jobTimestamps.delete(id);
-    }
-  }
+	const now = Date.now();
+	for (const [id, timestamp] of jobTimestamps) {
+		if (now - timestamp > JOB_TTL_MS) {
+			jobs.delete(id);
+			jobTimestamps.delete(id);
+		}
+	}
 }

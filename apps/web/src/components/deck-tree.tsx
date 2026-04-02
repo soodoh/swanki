@@ -1,651 +1,651 @@
-import { useState, useMemo, useCallback } from "react";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import {
+	DndContext,
+	DragOverlay,
+	PointerSensor,
+	useDraggable,
+	useDroppable,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
 import { Link } from "@tanstack/react-router";
 import {
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Layers,
-  MoreHorizontal,
-  Settings,
-  Trash2,
+	ChevronDown,
+	ChevronRight,
+	Layers,
+	MoreHorizontal,
+	Plus,
+	Settings,
+	Trash2,
 } from "lucide-react";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  useDraggable,
-} from "@dnd-kit/core";
-import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
+import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  useCreateDeck,
-  useDeckCounts,
-  useDeleteDeck,
-  useUpdateDeck,
-} from "@/lib/hooks/use-decks";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { DeckTreeNode } from "@/lib/hooks/use-decks";
+import {
+	useCreateDeck,
+	useDeckCounts,
+	useDeleteDeck,
+	useUpdateDeck,
+} from "@/lib/hooks/use-decks";
 
 function CountCell({
-  value,
-  color,
+	value,
+	color,
 }: {
-  value: number;
-  color: string;
+	value: number;
+	color: string;
 }): React.ReactElement {
-  return (
-    <span
-      className={`w-10 text-center tabular-nums text-xs font-medium ${
-        value > 0 ? color : "text-muted-foreground/40"
-      }`}
-    >
-      {value}
-    </span>
-  );
+	return (
+		<span
+			className={`w-10 text-center tabular-nums text-xs font-medium ${
+				value > 0 ? color : "text-muted-foreground/40"
+			}`}
+		>
+			{value}
+		</span>
+	);
 }
 
 function DeckCountBadges({ deckId }: { deckId: string }): React.ReactElement {
-  const { data: counts } = useDeckCounts(deckId);
+	const { data: counts } = useDeckCounts(deckId);
 
-  const n = counts?.new ?? 0;
-  const l = counts?.learning ?? 0;
-  const r = counts?.review ?? 0;
+	const n = counts?.new ?? 0;
+	const l = counts?.learning ?? 0;
+	const r = counts?.review ?? 0;
 
-  return (
-    <div className="flex items-center gap-3">
-      <CountCell value={n} color="text-blue-700 dark:text-blue-400" />
-      <CountCell value={l} color="text-orange-700 dark:text-orange-400" />
-      <CountCell value={r} color="text-green-700 dark:text-green-400" />
-    </div>
-  );
+	return (
+		<div className="flex items-center gap-3">
+			<CountCell value={n} color="text-blue-700 dark:text-blue-400" />
+			<CountCell value={l} color="text-orange-700 dark:text-orange-400" />
+			<CountCell value={r} color="text-green-700 dark:text-green-400" />
+		</div>
+	);
 }
 
 function DeckOptionsDialog({
-  deck,
-  allDecks,
-  open,
-  onOpenChange,
+	deck,
+	allDecks,
+	open,
+	onOpenChange,
 }: {
-  deck: DeckTreeNode;
-  allDecks: DeckTreeNode[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+	deck: DeckTreeNode;
+	allDecks: DeckTreeNode[];
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }): React.ReactElement {
-  const [name, setName] = useState(deck.name);
-  const [description, setDescription] = useState(deck.description ?? "");
-  const [parentId, setParentId] = useState<string>(
-    deck.parentId === undefined ? "" : String(deck.parentId),
-  );
-  const [newCardsPerDay, setNewCardsPerDay] = useState(
-    String(deck.settings?.newCardsPerDay ?? 20),
-  );
-  const [maxReviewsPerDay, setMaxReviewsPerDay] = useState(
-    String(deck.settings?.maxReviewsPerDay ?? 200),
-  );
-  const updateDeck = useUpdateDeck();
+	const [name, setName] = useState(deck.name);
+	const [description, setDescription] = useState(deck.description ?? "");
+	const [parentId, setParentId] = useState<string>(
+		deck.parentId === undefined ? "" : String(deck.parentId),
+	);
+	const [newCardsPerDay, setNewCardsPerDay] = useState(
+		String(deck.settings?.newCardsPerDay ?? 20),
+	);
+	const [maxReviewsPerDay, setMaxReviewsPerDay] = useState(
+		String(deck.settings?.maxReviewsPerDay ?? 200),
+	);
+	const updateDeck = useUpdateDeck();
 
-  const parentOptions = allDecks.filter((d) => d.id !== deck.id);
+	const parentOptions = allDecks.filter((d) => d.id !== deck.id);
 
-  async function handleSave(): Promise<void> {
-    await updateDeck.mutateAsync({
-      deckId: deck.id,
-      name: name.trim(),
-      description: description.trim(),
-      parentId: parentId ? Number(parentId) : null,
-      settings: {
-        newCardsPerDay: Number(newCardsPerDay) || 20,
-        maxReviewsPerDay: Number(maxReviewsPerDay) || 200,
-      },
-    });
-    onOpenChange(false);
-  }
+	async function handleSave(): Promise<void> {
+		await updateDeck.mutateAsync({
+			deckId: deck.id,
+			name: name.trim(),
+			description: description.trim(),
+			parentId: parentId ? Number(parentId) : null,
+			settings: {
+				newCardsPerDay: Number(newCardsPerDay) || 20,
+				maxReviewsPerDay: Number(maxReviewsPerDay) || 200,
+			},
+		});
+		onOpenChange(false);
+	}
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Deck Options</DialogTitle>
-          <DialogDescription>
-            Configure settings for this deck.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="opt-name">Name</Label>
-            <Input
-              id="opt-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="opt-description">Description</Label>
-            <textarea
-              id="opt-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description"
-              className="h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="opt-parent">Parent Deck</Label>
-            <select
-              id="opt-parent"
-              className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
-              value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
-            >
-              <option value="">None (top-level)</option>
-              {parentOptions.map((d) => (
-                <option key={d.id} value={String(d.id)}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="opt-new-cards">New Cards/Day</Label>
-              <Input
-                id="opt-new-cards"
-                type="number"
-                min="0"
-                max="9999"
-                value={newCardsPerDay}
-                onChange={(e) => setNewCardsPerDay(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="opt-max-reviews">Max Reviews/Day</Label>
-              <Input
-                id="opt-max-reviews"
-                type="number"
-                min="0"
-                max="9999"
-                value={maxReviewsPerDay}
-                onChange={(e) => setMaxReviewsPerDay(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => void handleSave()}
-            disabled={!name.trim() || updateDeck.isPending}
-          >
-            {updateDeck.isPending ? "Saving..." : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Deck Options</DialogTitle>
+					<DialogDescription>
+						Configure settings for this deck.
+					</DialogDescription>
+				</DialogHeader>
+				<div className="grid gap-4 py-2">
+					<div className="grid gap-2">
+						<Label htmlFor="opt-name">Name</Label>
+						<Input
+							id="opt-name"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+						/>
+					</div>
+					<div className="grid gap-2">
+						<Label htmlFor="opt-description">Description</Label>
+						<textarea
+							id="opt-description"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+							placeholder="Optional description"
+							className="h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+						/>
+					</div>
+					<div className="grid gap-2">
+						<Label htmlFor="opt-parent">Parent Deck</Label>
+						<select
+							id="opt-parent"
+							className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+							value={parentId}
+							onChange={(e) => setParentId(e.target.value)}
+						>
+							<option value="">None (top-level)</option>
+							{parentOptions.map((d) => (
+								<option key={d.id} value={String(d.id)}>
+									{d.name}
+								</option>
+							))}
+						</select>
+					</div>
+					<div className="grid grid-cols-2 gap-4">
+						<div className="grid gap-2">
+							<Label htmlFor="opt-new-cards">New Cards/Day</Label>
+							<Input
+								id="opt-new-cards"
+								type="number"
+								min="0"
+								max="9999"
+								value={newCardsPerDay}
+								onChange={(e) => setNewCardsPerDay(e.target.value)}
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="opt-max-reviews">Max Reviews/Day</Label>
+							<Input
+								id="opt-max-reviews"
+								type="number"
+								min="0"
+								max="9999"
+								value={maxReviewsPerDay}
+								onChange={(e) => setMaxReviewsPerDay(e.target.value)}
+							/>
+						</div>
+					</div>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={() => onOpenChange(false)}>
+						Cancel
+					</Button>
+					<Button
+						onClick={() => void handleSave()}
+						disabled={!name.trim() || updateDeck.isPending}
+					>
+						{updateDeck.isPending ? "Saving..." : "Save"}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 function DeckActionMenu({
-  node,
-  allDecks,
+	node,
+	allDecks,
 }: {
-  node: DeckTreeNode;
-  allDecks: DeckTreeNode[];
+	node: DeckTreeNode;
+	allDecks: DeckTreeNode[];
 }): React.ReactElement {
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  const deleteDeck = useDeleteDeck();
-  const hasChildren = node.children.length > 0;
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [optionsOpen, setOptionsOpen] = useState(false);
+	const deleteDeck = useDeleteDeck();
+	const hasChildren = node.children.length > 0;
 
-  async function handleDelete(): Promise<void> {
-    await deleteDeck.mutateAsync(node.id);
-    setDeleteOpen(false);
-  }
+	async function handleDelete(): Promise<void> {
+		await deleteDeck.mutateAsync(node.id);
+		setDeleteOpen(false);
+	}
 
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="icon-xs" className="cursor-pointer">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setOptionsOpen(true)}>
-            <Settings className="size-4" />
-            Options
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="size-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+	return (
+		<>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={
+						<Button variant="ghost" size="icon-xs" className="cursor-pointer">
+							<MoreHorizontal className="size-4" />
+						</Button>
+					}
+				/>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onClick={() => setOptionsOpen(true)}>
+						<Settings className="size-4" />
+						Options
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem
+						variant="destructive"
+						onClick={() => setDeleteOpen(true)}
+					>
+						<Trash2 className="size-4" />
+						Delete
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
 
-      <DeckOptionsDialog
-        deck={node}
-        allDecks={allDecks}
-        open={optionsOpen}
-        onOpenChange={setOptionsOpen}
-      />
+			<DeckOptionsDialog
+				deck={node}
+				allDecks={allDecks}
+				open={optionsOpen}
+				onOpenChange={setOptionsOpen}
+			/>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Deck</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{node.name}</strong>?
-              {hasChildren && " Child decks will be moved to the parent deck."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteDeck.isPending}
-            >
-              {deleteDeck.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
+			<Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Deck</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to delete <strong>{node.name}</strong>?
+							{hasChildren && " Child decks will be moved to the parent deck."}
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setDeleteOpen(false)}>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleDelete}
+							disabled={deleteDeck.isPending}
+						>
+							{deleteDeck.isPending ? "Deleting..." : "Delete"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</>
+	);
 }
 
 function DeckTreeItem({
-  node,
-  allDecks,
-  depth = 0,
-  invalidDropIds,
+	node,
+	allDecks,
+	depth = 0,
+	invalidDropIds,
 }: {
-  node: DeckTreeNode;
-  allDecks: DeckTreeNode[];
-  depth?: number;
-  invalidDropIds: Set<number>;
+	node: DeckTreeNode;
+	allDecks: DeckTreeNode[];
+	depth?: number;
+	invalidDropIds: Set<number>;
 }): React.ReactElement {
-  const [expanded, setExpanded] = useState(true);
-  const hasChildren = node.children.length > 0;
+	const [expanded, setExpanded] = useState(true);
+	const hasChildren = node.children.length > 0;
 
-  const isInvalid = invalidDropIds.has(node.id);
+	const isInvalid = invalidDropIds.has(node.id);
 
-  const {
-    attributes,
-    listeners,
-    setNodeRef: setDragRef,
-    isDragging,
-  } = useDraggable({ id: node.id });
+	const {
+		attributes,
+		listeners,
+		setNodeRef: setDragRef,
+		isDragging,
+	} = useDraggable({ id: node.id });
 
-  const { isOver, setNodeRef: setDropRef } = useDroppable({
-    id: node.id,
-    disabled: isInvalid,
-  });
+	const { isOver, setNodeRef: setDropRef } = useDroppable({
+		id: node.id,
+		disabled: isInvalid,
+	});
 
-  // Merge drag and drop refs onto the same element
-  const setNodeRef = useCallback(
-    // oxlint-disable-next-line typescript-eslint(no-restricted-types) -- React ref callback requires null
-    (el: HTMLElement | null) => {
-      setDragRef(el);
-      setDropRef(el);
-    },
-    [setDragRef, setDropRef],
-  );
+	// Merge drag and drop refs onto the same element
+	const setNodeRef = useCallback(
+		// oxlint-disable-next-line typescript-eslint(no-restricted-types) -- React ref callback requires null
+		(el: HTMLElement | null) => {
+			setDragRef(el);
+			setDropRef(el);
+		},
+		[setDragRef, setDropRef],
+	);
 
-  let dragDropClass = "hover:bg-muted/50";
-  if (isDragging) {
-    dragDropClass = "opacity-50";
-  } else if (isOver && !isInvalid) {
-    dragDropClass = "bg-primary/10 ring-2 ring-primary/50";
-  }
+	let dragDropClass = "hover:bg-muted/50";
+	if (isDragging) {
+		dragDropClass = "opacity-50";
+	} else if (isOver && !isInvalid) {
+		dragDropClass = "bg-primary/10 ring-2 ring-primary/50";
+	}
 
-  return (
-    <div>
-      <Link
-        ref={setNodeRef}
-        to="/study/$deckId"
-        params={{ deckId: String(node.id) }}
-        {...attributes}
-        {...listeners}
-        className={`group flex items-center gap-2 rounded-lg pr-9 py-1.5 cursor-pointer no-underline text-inherit transition-colors ${dragDropClass}`}
-        style={{ paddingLeft: `${String(depth * 20 + 8)}px` }}
-      >
-        {hasChildren ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              setExpanded(!expanded);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {expanded ? (
-              <ChevronDown className="size-4" />
-            ) : (
-              <ChevronRight className="size-4" />
-            )}
-          </button>
-        ) : (
-          <span className="size-5 shrink-0" />
-        )}
+	return (
+		<div>
+			<Link
+				ref={setNodeRef}
+				to="/study/$deckId"
+				params={{ deckId: String(node.id) }}
+				{...attributes}
+				{...listeners}
+				className={`group flex items-center gap-2 rounded-lg pr-9 py-1.5 cursor-pointer no-underline text-inherit transition-colors ${dragDropClass}`}
+				style={{ paddingLeft: `${String(depth * 20 + 8)}px` }}
+			>
+				{hasChildren ? (
+					<button
+						type="button"
+						onClick={(e) => {
+							e.preventDefault();
+							setExpanded(!expanded);
+						}}
+						onPointerDown={(e) => e.stopPropagation()}
+						className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
+					>
+						{expanded ? (
+							<ChevronDown className="size-4" />
+						) : (
+							<ChevronRight className="size-4" />
+						)}
+					</button>
+				) : (
+					<span className="size-5 shrink-0" />
+				)}
 
-        <Layers className="size-4 shrink-0 text-muted-foreground" />
+				<Layers className="size-4 shrink-0 text-muted-foreground" />
 
-        <span className="flex-1 truncate text-sm font-medium">{node.name}</span>
+				<span className="flex-1 truncate text-sm font-medium">{node.name}</span>
 
-        <DeckCountBadges deckId={node.id} />
+				<DeckCountBadges deckId={node.id} />
 
-        <span
-          role="presentation"
-          onClick={(e) => e.preventDefault()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <DeckActionMenu node={node} allDecks={allDecks} />
-        </span>
-      </Link>
+				<span
+					role="presentation"
+					onClick={(e) => e.preventDefault()}
+					onPointerDown={(e) => e.stopPropagation()}
+				>
+					<DeckActionMenu node={node} allDecks={allDecks} />
+				</span>
+			</Link>
 
-      {hasChildren && expanded && (
-        <div>
-          {node.children.map((child) => (
-            <DeckTreeItem
-              key={child.id}
-              node={child}
-              allDecks={allDecks}
-              depth={depth + 1}
-              invalidDropIds={invalidDropIds}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+			{hasChildren && expanded && (
+				<div>
+					{node.children.map((child) => (
+						<DeckTreeItem
+							key={child.id}
+							node={child}
+							allDecks={allDecks}
+							depth={depth + 1}
+							invalidDropIds={invalidDropIds}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
 }
 
 function AddDeckDialog({
-  parentId,
+	parentId,
 }: {
-  parentId?: number;
+	parentId?: number;
 }): React.ReactElement {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const createDeck = useCreateDeck();
+	const [open, setOpen] = useState(false);
+	const [name, setName] = useState("");
+	const createDeck = useCreateDeck();
 
-  async function handleSubmit(
-    e: React.SyntheticEvent<HTMLFormElement>,
-  ): Promise<void> {
-    e.preventDefault();
-    if (!name.trim()) {
-      return;
-    }
+	async function handleSubmit(
+		e: React.SyntheticEvent<HTMLFormElement>,
+	): Promise<void> {
+		e.preventDefault();
+		if (!name.trim()) {
+			return;
+		}
 
-    await createDeck.mutateAsync({
-      name: name.trim(),
-      parentId,
-    });
+		await createDeck.mutateAsync({
+			name: name.trim(),
+			parentId,
+		});
 
-    setName("");
-    setOpen(false);
-  }
+		setName("");
+		setOpen(false);
+	}
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="outline" size="sm">
-            <Plus className="size-4" data-icon="inline-start" />
-            Add Deck
-          </Button>
-        }
-      />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create New Deck</DialogTitle>
-          <DialogDescription>
-            Give your deck a name to get started.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Input
-            placeholder="Deck name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <DialogFooter>
-            <Button
-              type="submit"
-              disabled={!name.trim() || createDeck.isPending}
-            >
-              {createDeck.isPending ? "Creating..." : "Create Deck"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+	return (
+		<Dialog open={open} onOpenChange={setOpen}>
+			<DialogTrigger
+				render={
+					<Button variant="outline" size="sm">
+						<Plus className="size-4" data-icon="inline-start" />
+						Add Deck
+					</Button>
+				}
+			/>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Create New Deck</DialogTitle>
+					<DialogDescription>
+						Give your deck a name to get started.
+					</DialogDescription>
+				</DialogHeader>
+				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
+					<Input
+						placeholder="Deck name"
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+					/>
+					<DialogFooter>
+						<Button
+							type="submit"
+							disabled={!name.trim() || createDeck.isPending}
+						>
+							{createDeck.isPending ? "Creating..." : "Create Deck"}
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 function flattenDecks(nodes: DeckTreeNode[]): DeckTreeNode[] {
-  const result: DeckTreeNode[] = [];
-  for (const node of nodes) {
-    result.push(node);
-    if (node.children.length > 0) {
-      result.push(...flattenDecks(node.children));
-    }
-  }
-  return result;
+	const result: DeckTreeNode[] = [];
+	for (const node of nodes) {
+		result.push(node);
+		if (node.children.length > 0) {
+			result.push(...flattenDecks(node.children));
+		}
+	}
+	return result;
 }
 
 function getDescendantIds(
-  nodes: DeckTreeNode[],
-  targetId: number,
+	nodes: DeckTreeNode[],
+	targetId: number,
 ): Set<number> {
-  const ids = new Set<number>();
+	const ids = new Set<number>();
 
-  function collect(children: DeckTreeNode[]): void {
-    for (const child of children) {
-      ids.add(child.id);
-      collect(child.children);
-    }
-  }
+	function collect(children: DeckTreeNode[]): void {
+		for (const child of children) {
+			ids.add(child.id);
+			collect(child.children);
+		}
+	}
 
-  function find(nodes: DeckTreeNode[]): void {
-    for (const node of nodes) {
-      if (node.id === targetId) {
-        collect(node.children);
-        return;
-      }
-      find(node.children);
-    }
-  }
+	function find(nodes: DeckTreeNode[]): void {
+		for (const node of nodes) {
+			if (node.id === targetId) {
+				collect(node.children);
+				return;
+			}
+			find(node.children);
+		}
+	}
 
-  find(nodes);
-  return ids;
+	find(nodes);
+	return ids;
 }
 
 function RootDropZone(): React.ReactElement {
-  const { isOver, setNodeRef } = useDroppable({ id: "__root__" });
+	const { isOver, setNodeRef } = useDroppable({ id: "__root__" });
 
-  return (
-    <div
-      ref={setNodeRef}
-      className={`mt-2 flex items-center justify-center rounded-lg border-2 border-dashed px-4 py-3 text-sm transition-colors ${
-        isOver
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-muted-foreground/30 text-muted-foreground"
-      }`}
-    >
-      Drop here to move to top level
-    </div>
-  );
+	return (
+		<div
+			ref={setNodeRef}
+			className={`mt-2 flex items-center justify-center rounded-lg border-2 border-dashed px-4 py-3 text-sm transition-colors ${
+				isOver
+					? "border-primary bg-primary/10 text-primary"
+					: "border-muted-foreground/30 text-muted-foreground"
+			}`}
+		>
+			Drop here to move to top level
+		</div>
+	);
 }
 
 export function DeckTree({
-  decks,
+	decks,
 }: {
-  decks: DeckTreeNode[];
+	decks: DeckTreeNode[];
 }): React.ReactElement {
-  const allDecks = useMemo(() => flattenDecks(decks), [decks]);
-  const updateDeck = useUpdateDeck();
+	const allDecks = useMemo(() => flattenDecks(decks), [decks]);
+	const updateDeck = useUpdateDeck();
 
-  const [activeDeckId, setActiveDeckId] = useState<number | undefined>(
-    undefined,
-  );
-  const [invalidDropIds, setInvalidDropIds] = useState<Set<number>>(new Set());
+	const [activeDeckId, setActiveDeckId] = useState<number | undefined>(
+		undefined,
+	);
+	const [invalidDropIds, setInvalidDropIds] = useState<Set<number>>(new Set());
 
-  const activeDeck =
-    activeDeckId === undefined
-      ? undefined
-      : allDecks.find((d) => d.id === activeDeckId);
+	const activeDeck =
+		activeDeckId === undefined
+			? undefined
+			: allDecks.find((d) => d.id === activeDeckId);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  );
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+	);
 
-  function handleDragStart(event: DragStartEvent): void {
-    const id = Number(event.active.id);
-    setActiveDeckId(id);
-    const descendants = getDescendantIds(decks, id);
-    descendants.add(id);
-    setInvalidDropIds(descendants);
-  }
+	function handleDragStart(event: DragStartEvent): void {
+		const id = Number(event.active.id);
+		setActiveDeckId(id);
+		const descendants = getDescendantIds(decks, id);
+		descendants.add(id);
+		setInvalidDropIds(descendants);
+	}
 
-  function handleDragEnd(event: DragEndEvent): void {
-    const { active, over } = event;
-    setActiveDeckId(undefined);
-    setInvalidDropIds(new Set());
+	function handleDragEnd(event: DragEndEvent): void {
+		const { active, over } = event;
+		setActiveDeckId(undefined);
+		setInvalidDropIds(new Set());
 
-    if (!over) {
-      return;
-    }
+		if (!over) {
+			return;
+		}
 
-    const deckId = Number(active.id);
-    const overId = over.id;
+		const deckId = Number(active.id);
+		const overId = over.id;
 
-    // Find the dragged deck to check current parent
-    const draggedDeck = allDecks.find((d) => d.id === deckId);
-    if (!draggedDeck) {
-      return;
-    }
+		// Find the dragged deck to check current parent
+		const draggedDeck = allDecks.find((d) => d.id === deckId);
+		if (!draggedDeck) {
+			return;
+		}
 
-    const newParentId = overId === "__root__" ? undefined : Number(overId);
+		const newParentId = overId === "__root__" ? undefined : Number(overId);
 
-    // Skip if parent didn't change
-    const currentParent = draggedDeck.parentId ?? undefined;
-    if (currentParent === newParentId) {
-      return;
-    }
+		// Skip if parent didn't change
+		const currentParent = draggedDeck.parentId ?? undefined;
+		if (currentParent === newParentId) {
+			return;
+		}
 
-    void updateDeck.mutateAsync({
-      deckId,
-      parentId: newParentId ?? null,
-    });
-  }
+		void updateDeck.mutateAsync({
+			deckId,
+			parentId: newParentId ?? null,
+		});
+	}
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Decks</h2>
-        <AddDeckDialog />
-      </div>
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex items-center justify-between">
+				<h2 className="text-lg font-semibold">Decks</h2>
+				<AddDeckDialog />
+			</div>
 
-      {decks.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="rounded-lg border bg-card">
-            <div className="pl-2 pr-9 py-2 border-b">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="size-5 shrink-0" />
-                <span className="size-4 shrink-0" />
-                <span className="flex-1">Name</span>
-                <div className="flex items-center gap-3">
-                  <span className="w-10 text-center text-blue-600 dark:text-blue-400">
-                    New
-                  </span>
-                  <span className="w-10 text-center text-orange-600 dark:text-orange-400">
-                    Learn
-                  </span>
-                  <span className="w-10 text-center text-green-600 dark:text-green-400">
-                    Due
-                  </span>
-                </div>
-                {/* Spacer matching action menu in rows */}
-                <span className="size-6 shrink-0" />
-              </div>
-            </div>
-            <div className="py-1">
-              {decks.map((deck) => (
-                <DeckTreeItem
-                  key={deck.id}
-                  node={deck}
-                  allDecks={allDecks}
-                  invalidDropIds={invalidDropIds}
-                />
-              ))}
-            </div>
-          </div>
+			{decks.length === 0 ? (
+				<EmptyState />
+			) : (
+				<DndContext
+					sensors={sensors}
+					onDragStart={handleDragStart}
+					onDragEnd={handleDragEnd}
+				>
+					<div className="rounded-lg border bg-card">
+						<div className="pl-2 pr-9 py-2 border-b">
+							<div className="flex items-center gap-2 text-xs text-muted-foreground">
+								<span className="size-5 shrink-0" />
+								<span className="size-4 shrink-0" />
+								<span className="flex-1">Name</span>
+								<div className="flex items-center gap-3">
+									<span className="w-10 text-center text-blue-600 dark:text-blue-400">
+										New
+									</span>
+									<span className="w-10 text-center text-orange-600 dark:text-orange-400">
+										Learn
+									</span>
+									<span className="w-10 text-center text-green-600 dark:text-green-400">
+										Due
+									</span>
+								</div>
+								{/* Spacer matching action menu in rows */}
+								<span className="size-6 shrink-0" />
+							</div>
+						</div>
+						<div className="py-1">
+							{decks.map((deck) => (
+								<DeckTreeItem
+									key={deck.id}
+									node={deck}
+									allDecks={allDecks}
+									invalidDropIds={invalidDropIds}
+								/>
+							))}
+						</div>
+					</div>
 
-          {activeDeckId !== undefined && <RootDropZone />}
+					{activeDeckId !== undefined && <RootDropZone />}
 
-          <DragOverlay>
-            {activeDeck ? (
-              <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 shadow-lg">
-                <Layers className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{activeDeck.name}</span>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      )}
-    </div>
-  );
+					<DragOverlay>
+						{activeDeck ? (
+							<div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 shadow-lg">
+								<Layers className="size-4 text-muted-foreground" />
+								<span className="text-sm font-medium">{activeDeck.name}</span>
+							</div>
+						) : null}
+					</DragOverlay>
+				</DndContext>
+			)}
+		</div>
+	);
 }
 
 function EmptyState(): React.ReactElement {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-6 py-12 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 mb-4">
-        <Layers className="size-6 text-primary" />
-      </div>
-      <h3 className="text-base font-medium mb-1">No decks yet</h3>
-      <p className="text-sm text-muted-foreground mb-4">
-        Create your first deck to start studying.
-      </p>
-      <AddDeckDialog />
-    </div>
-  );
+	return (
+		<div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-6 py-12 text-center">
+			<div className="flex size-12 items-center justify-center rounded-full bg-primary/10 mb-4">
+				<Layers className="size-6 text-primary" />
+			</div>
+			<h3 className="text-base font-medium mb-1">No decks yet</h3>
+			<p className="text-sm text-muted-foreground mb-4">
+				Create your first deck to start studying.
+			</p>
+			<AddDeckDialog />
+		</div>
+	);
 }

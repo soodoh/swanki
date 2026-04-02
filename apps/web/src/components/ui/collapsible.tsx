@@ -1,26 +1,26 @@
-import type { ReactElement } from "react";
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
+import type { ReactElement } from "react";
 
 function Collapsible({
-  ...props
+	...props
 }: CollapsiblePrimitive.Root.Props): ReactElement {
-  return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
+	return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
 }
 
 function CollapsibleTrigger({
-  ...props
+	...props
 }: CollapsiblePrimitive.Trigger.Props): ReactElement {
-  return (
-    <CollapsiblePrimitive.Trigger data-slot="collapsible-trigger" {...props} />
-  );
+	return (
+		<CollapsiblePrimitive.Trigger data-slot="collapsible-trigger" {...props} />
+	);
 }
 
 function CollapsibleContent({
-  ...props
+	...props
 }: CollapsiblePrimitive.Panel.Props): ReactElement {
-  return (
-    <CollapsiblePrimitive.Panel data-slot="collapsible-content" {...props} />
-  );
+	return (
+		<CollapsiblePrimitive.Panel data-slot="collapsible-content" {...props} />
+	);
 }
 
-export { Collapsible, CollapsibleTrigger, CollapsibleContent };
+export { Collapsible, CollapsibleContent, CollapsibleTrigger };

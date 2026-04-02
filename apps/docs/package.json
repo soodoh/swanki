@@ -1,14 +1,14 @@
 {
-  "name": "docs",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "echo 'docs dev placeholder'",
-    "build": "mkdir -p dist && echo 'docs build placeholder' > dist/.keep",
-    "start": "echo 'docs start placeholder'",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "test": "echo 'docs test placeholder'",
-    "test:run": "echo 'docs test:run placeholder'"
-  }
+	"name": "docs",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"dev": "echo 'docs dev placeholder'",
+		"build": "mkdir -p dist && echo 'docs build placeholder' > dist/.keep",
+		"start": "echo 'docs start placeholder'",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"test": "echo 'docs test placeholder'",
+		"test:run": "echo 'docs test:run placeholder'"
+	}
 }
