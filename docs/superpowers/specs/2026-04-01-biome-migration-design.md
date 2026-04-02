@@ -15,25 +15,74 @@ Migrate from oxlint (linter) + Prettier (formatter) to Biome, which provides bot
 
 ### Biome Configuration
 
-A single `biome.json` at the repo root covers all workspaces.
+A single `biome.json` at the repo root, using the same config as the `diloreto-website` project:
 
-**Formatter:**
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!!**/node_modules",
+      "!!**/.output",
+      "!!**/dist",
+      "!!**/src/routeTree.gen.ts"
+    ]
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "formatter": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "react": {
+                "importNames": ["default"],
+                "message": "Use named imports from 'react' instead."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
 
-- Biome defaults: tabs, double quotes, line width 80
+Key features:
 
-**Linter:**
+- **VCS integration:** Uses `.gitignore` for file exclusions
+- **Formatter:** Biome defaults (tabs, double quotes, line width 80)
+- **Linter:** Recommended rules + `noRestrictedImports` to block `import React from 'react'` (carries over the oxlint rule)
+- **Import sorting:** Organize imports via assist actions
+- **CSS:** Tailwind directive support enabled
+- **Ignore patterns:** `node_modules`, `.output`, `dist`, `src/routeTree.gen.ts`
 
-- Enable recommended rule set
-- Enable import sorting (organize imports)
-- Note: Biome's `noRestrictedImports` only blocks entire modules, not specific imports from a module. The oxlint rule restricting `import React from 'react'` (default import) while allowing named imports cannot be replicated exactly. This rule is dropped — the automatic JSX runtime (React 17+) makes the default import unnecessary, so enforcement is no longer needed.
-
-**Test file overrides:**
-
-- Relax TypeScript safety rules (`noUnsafeDeclarationMerging`, etc.) in `**/*.test.{ts,tsx}` and `**/*.spec.{ts,tsx}`, matching the current oxlint relaxations
-
-**Ignore patterns:**
-
-- `node_modules`, `.output`, `dist`, `src/routeTree.gen.ts`
+Note: The current oxlint test file overrides (relaxed TS safety rules) are dropped — Biome's recommended rules don't include the same overly strict TS checks, so overrides are unnecessary.
 
 ### Files to Remove
 
