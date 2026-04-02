@@ -94,7 +94,7 @@ export function ApkgCardPreview({
 				</Button>
 			</div>
 
-			{/* oxlint-disable react/no-danger -- all HTML sanitized via DOMPurify */}
+			{/* all HTML sanitized via DOMPurify */}
 			<div>
 				<div className="p-4">
 					<p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">

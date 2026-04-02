@@ -52,7 +52,6 @@ export const Route = createRootRoute({
 const THEME_INIT_SCRIPT = `(function(){var d=document.documentElement,c=d.classList;if(!c.contains('dark')&&!c.contains('light')){if(window.matchMedia('(prefers-color-scheme:dark)').matches)c.add('dark')}})();`;
 
 function RootComponent(): React.ReactElement {
-	// oxlint-disable-next-line typescript-eslint(no-unnecessary-type-assertion) -- conflicts with no-unsafe-assignment without this cast
 	const routeContext = Route.useRouteContext() as {
 		theme: "light" | "dark" | "system";
 	};
@@ -77,7 +76,7 @@ function RootComponent(): React.ReactElement {
 		<html lang="en" className={htmlClass}>
 			<head>
 				<HeadContent />
-				{/* oxlint-disable-next-line react/no-danger -- hardcoded constant, not user input */}
+				{/* hardcoded constant, not user input */}
 				<script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
 			</head>
 			<body>

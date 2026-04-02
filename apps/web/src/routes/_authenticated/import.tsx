@@ -138,7 +138,7 @@ function Stepper({ currentStep }: { currentStep: number }): React.ReactElement {
 
 let cachedState: WizardState | undefined;
 
-// oxlint-disable-next-line eslint(complexity) -- wizard component with multiple steps inherently has high branching
+// wizard component with multiple steps inherently has high branching
 export function ImportPage(): React.ReactElement {
 	const transport = useTransport();
 	const platform = usePlatform();

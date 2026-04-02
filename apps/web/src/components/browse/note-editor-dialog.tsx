@@ -46,7 +46,7 @@ function flattenDecks(
 	return result;
 }
 
-// oxlint-disable-next-line eslint(complexity) -- editor dialog with multiple tabs inherently has high branching
+// editor dialog with multiple tabs inherently has high branching
 export function NoteEditorDialog({
 	noteId,
 	open,

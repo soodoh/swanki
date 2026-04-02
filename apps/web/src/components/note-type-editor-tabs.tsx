@@ -492,7 +492,7 @@ function TemplatePreviewPane({
 			<Card className="min-h-[200px] flex items-center justify-center">
 				<CardContent className="p-3">
 					{css && <style>{sanitizeCss(css)}</style>}
-					{/* oxlint-disable react/no-danger -- sanitized via DOMPurify */}
+					{/* sanitized via DOMPurify */}
 					<div
 						className="prose prose-sm dark:prose-invert max-w-none text-center"
 						dangerouslySetInnerHTML={{

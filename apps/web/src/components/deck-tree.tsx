@@ -313,7 +313,7 @@ function DeckTreeItem({
 
 	// Merge drag and drop refs onto the same element
 	const setNodeRef = useCallback(
-		// oxlint-disable-next-line typescript-eslint(no-restricted-types) -- React ref callback requires null
+		// React ref callback requires null
 		(el: HTMLElement | null) => {
 			setDragRef(el);
 			setDropRef(el);

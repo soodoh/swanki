@@ -62,7 +62,7 @@ function stateToCondition(value: string): SQL | undefined {
 }
 
 function nodeToCondition(node: SearchNode): SQL | undefined {
-	// oxlint-disable-next-line default-case -- switch is exhaustive over SearchNode union type
+	// switch is exhaustive over SearchNode union type
 	switch (node.type) {
 		case "deck":
 			return eq(decks.name, node.value);
@@ -131,7 +131,7 @@ function parseStates(statesStr: string): number[] {
 		return [];
 	}
 	const parsed = statesStr.split(",").map(Number);
-	// oxlint-disable-next-line typescript-eslint(no-unsafe-return),typescript-eslint(no-unsafe-call),eslint-plugin-unicorn(no-array-sort) -- toSorted triggers false positive; sort on spread copy is safe
+	// toSorted triggers false positive; sort on spread copy is safe
 	return [...parsed].sort((a, b) => a - b);
 }
 

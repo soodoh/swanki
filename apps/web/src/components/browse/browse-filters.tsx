@@ -58,7 +58,6 @@ function collapseWhitespace(str: string): string {
 }
 
 function escapeRegExp(str: string): string {
-	// oxlint-disable-next-line typescript/no-unsafe-return, typescript/no-unsafe-call -- replaceAll with regex is correctly typed
 	return str.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 

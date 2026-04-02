@@ -119,7 +119,7 @@ function CsvConfigPanel({
 			</div>
 
 			{/* Header toggle */}
-			{/* oxlint-disable-next-line eslint-plugin-jsx-a11y(label-has-associated-control) -- wraps Checkbox */}
+			{/* wraps Checkbox */}
 			<label className="flex items-center gap-2">
 				<Checkbox
 					checked={config.hasHeader}
@@ -236,7 +236,7 @@ function ApkgConfigPanel({
 					Import Mode
 				</Label>
 				<div className="space-y-2">
-					{/* oxlint-disable-next-line eslint-plugin-jsx-a11y(label-has-associated-control) -- wraps Checkbox */}
+					{/* wraps Checkbox */}
 					<label className="flex cursor-pointer items-center gap-2">
 						<Checkbox
 							checked={config.mergeMode === "merge"}
@@ -251,7 +251,7 @@ function ApkgConfigPanel({
 							</p>
 						</div>
 					</label>
-					{/* oxlint-disable-next-line eslint-plugin-jsx-a11y(label-has-associated-control) -- wraps Checkbox */}
+					{/* wraps Checkbox */}
 					<label className="flex cursor-pointer items-center gap-2">
 						<Checkbox
 							checked={config.mergeMode === "create"}

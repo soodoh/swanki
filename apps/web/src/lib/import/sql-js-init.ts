@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-call, typescript/no-unsafe-member-access, typescript/no-redundant-type-constituents */
 /**
  * Shared SQL.js initialization singleton and query helpers.
  * Used by the client-side APKG import parser to preview .apkg files in the browser.

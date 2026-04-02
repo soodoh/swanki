@@ -58,7 +58,6 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout(): React.ReactElement {
-	// oxlint-disable-next-line typescript-eslint(no-unnecessary-type-assertion) -- conflicts with no-unsafe-assignment without this cast
 	const routeContext = Route.useRouteContext() as { session: SessionData };
 	const user = routeContext.session.user;
 

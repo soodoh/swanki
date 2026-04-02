@@ -620,7 +620,7 @@ describe("parseApkg", () => {
 	it("handles media file mapping", async () => {
 		const mediaMap = { "0": "image.jpg", "1": "audio.mp3" };
 		const mediaFiles = {
-			// oxlint-disable-next-line eslint-plugin-unicorn(number-literal-case) -- prettier enforces lowercase hex
+			// prettier enforces lowercase hex
 			"0": new Uint8Array([0xff, 0xd8, 0xff]),
 			"1": new Uint8Array([0x49, 0x44, 0x33]),
 		};
@@ -991,7 +991,7 @@ describe("parseApkg — Anki 2.1.50+ format", () => {
 			dbFilename: "collection.anki21b",
 			mediaRaw: mediaMapBytes,
 			mediaFiles: {
-				// oxlint-disable-next-line eslint-plugin-unicorn(number-literal-case) -- prettier enforces lowercase hex
+				// prettier enforces lowercase hex
 				"0": new Uint8Array([0xff, 0xd8, 0xff]),
 				"1": new Uint8Array([0x49, 0x44, 0x33]),
 			},
@@ -1021,7 +1021,7 @@ describe("parseApkg — Anki 2.1.50+ format", () => {
 			dbFilename: "collection.anki21b",
 			mediaRaw: compressedMedia,
 			mediaFiles: {
-				// oxlint-disable-next-line eslint-plugin-unicorn(number-literal-case) -- prettier enforces lowercase hex
+				// prettier enforces lowercase hex
 				"0": new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
 			},
 		});

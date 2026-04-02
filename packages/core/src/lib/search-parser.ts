@@ -185,7 +185,6 @@ function splitByOr(nodes: SearchNode[]): SearchNode[][] {
 		if (node.type === "text" && node.value === "__OR__") {
 			groups.push([]);
 		} else {
-			// oxlint-disable-next-line unicorn/prefer-at -- .at() returns any, causing unsafe-call lint error
 			groups[groups.length - 1].push(node);
 		}
 	}

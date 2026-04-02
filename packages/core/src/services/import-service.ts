@@ -506,7 +506,7 @@ export class ImportService {
 		return { deckCount, noteCount, cardCount };
 	}
 
-	// oxlint-disable-next-line eslint(complexity) -- merge logic adds necessary branching
+	// merge logic adds necessary branching
 	async importFromApkg(
 		userId: string,
 		data: ApkgData,
@@ -777,7 +777,7 @@ export class ImportService {
 		now: Date,
 		hierarchyCache: Map<string, string>,
 	): Promise<string> {
-		// oxlint-disable-next-line eslint(no-control-regex), unicorn(prefer-string-replace-all) -- intentionally matching Anki's U+001F separator
+		// intentionally matching Anki's U+001F separator
 		const normalized = fullName.replace(/\u001F/g, "::");
 		const segments = normalized
 			.split("::")
@@ -863,7 +863,7 @@ export class ImportService {
 		}
 	}
 
-	// oxlint-disable-next-line eslint(complexity) -- batched import with merge logic requires high branching
+	// batched import with merge logic requires high branching
 	async importFromApkgBatched(
 		userId: string,
 		data: ApkgData,

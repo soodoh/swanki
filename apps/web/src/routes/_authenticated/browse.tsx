@@ -25,7 +25,6 @@ export const Route = createFileRoute("/_authenticated/browse")({
 
 export function BrowsePage(): React.ReactElement {
 	const navigate = useNavigate({ from: "/browse" });
-	// oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via validateSearch
 	const { q = "", page = 1 } = Route.useSearch();
 	const typedQ = q as string;
 	const typedPage = page as number;

@@ -43,7 +43,7 @@ export function useCardAudio(
 				btn.textContent = "\u23F8";
 			}
 
-			// oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then) -- fire-and-forget play with error recovery
+			// fire-and-forget play with error recovery
 			audio.play().catch(() => {
 				// Play failed (e.g. interrupted by card transition) — reset button and skip ahead
 				if (btn?.classList.contains("sound-btn")) {

@@ -66,7 +66,7 @@ function toFsrsCard(card: DbCard): FsrsCard {
 		due: card.due,
 		stability: card.stability ?? 0,
 		difficulty: card.difficulty ?? 0,
-		// oxlint-disable-next-line no-deprecated -- elapsed_days required by ts-fsrs Card interface
+		// elapsed_days required by ts-fsrs Card interface
 		elapsed_days: card.elapsedDays ?? 0,
 		scheduled_days: card.scheduledDays ?? 0,
 		reps: card.reps ?? 0,
@@ -83,7 +83,7 @@ function fromFsrsResult(item: RecordLogItem): FsrsResult {
 			due: item.card.due,
 			stability: item.card.stability,
 			difficulty: item.card.difficulty,
-			// oxlint-disable-next-line no-deprecated -- elapsed_days required by ts-fsrs
+			// elapsed_days required by ts-fsrs
 			elapsedDays: item.card.elapsed_days,
 			scheduledDays: item.card.scheduled_days,
 			reps: item.card.reps,
@@ -97,9 +97,9 @@ function fromFsrsResult(item: RecordLogItem): FsrsResult {
 			due: item.log.due,
 			stability: item.log.stability,
 			difficulty: item.log.difficulty,
-			// oxlint-disable-next-line no-deprecated -- elapsed_days required by ts-fsrs
+			// elapsed_days required by ts-fsrs
 			elapsedDays: item.log.elapsed_days,
-			// oxlint-disable-next-line no-deprecated -- last_elapsed_days required by ts-fsrs
+			// last_elapsed_days required by ts-fsrs
 			lastElapsedDays: item.log.last_elapsed_days,
 			scheduledDays: item.log.scheduled_days,
 			review: item.log.review,

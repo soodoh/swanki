@@ -1,4 +1,4 @@
-// oxlint-disable eslint-plugin-react(no-danger) -- Card templates are user-authored content rendered via template-renderer
+// Card templates are user-authored content rendered via template-renderer
 
 import { usePlatform } from "@swanki/core/platform";
 import { useMemo, useRef } from "react";

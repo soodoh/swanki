@@ -94,7 +94,6 @@ function buildSampleNotes(
 	return samples;
 }
 
-/* oxlint-disable unicorn/prefer-string-replace-all -- replaceAll with regex isn't typed in this TS target */
 /** Remove media bracket tags so comparison focuses on text content only. */
 function stripMediaRefs(text: string): string {
 	return text
@@ -102,7 +101,6 @@ function stripMediaRefs(text: string): string {
 		.replace(/ {2,}/g, " ")
 		.trim();
 }
-/* oxlint-enable unicorn/prefer-string-replace-all */
 
 function computeMergeStats(
 	apkgData: ReturnType<typeof parseApkg>,
