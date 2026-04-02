@@ -1,7 +1,7 @@
 // Card templates are user-authored content rendered via template-renderer
 
 import { usePlatform } from "@swanki/core/platform";
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { useCardAudio } from "@/lib/hooks/use-card-audio";
 import { expandMediaTags } from "@/lib/media-tags";
 import { sanitizeCss, sanitizeHtml } from "@/lib/sanitize";
@@ -44,6 +44,23 @@ export function CardDisplay({
 	);
 	const { replay } = useCardAudio(contentRef, audioKey, !showAnswer);
 
+	const styleRef = useRef<HTMLStyleElement>(null);
+
+	// Set sanitized CSS via textContent (safe, no script execution)
+	useLayoutEffect(() => {
+		if (styleRef.current && css) {
+			styleRef.current.textContent = sanitizeCss(css);
+		}
+	}, [css]);
+
+	// Set DOMPurify-sanitized HTML content via ref instead of dangerouslySetInnerHTML
+	useLayoutEffect(() => {
+		if (contentRef.current) {
+			contentRef.current.textContent = "";
+			contentRef.current.insertAdjacentHTML("afterbegin", processedHtml);
+		}
+	}, [processedHtml]);
+
 	// Expose replay to parent via ref
 	if (replayRef) {
 		replayRef.current = replay;
@@ -51,7 +68,7 @@ export function CardDisplay({
 
 	return (
 		<div className="flex flex-col items-center gap-6 w-full">
-			{css && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(css) }} />}
+			{css && <style ref={styleRef} />}
 
 			<div
 				className={cn(
@@ -62,7 +79,6 @@ export function CardDisplay({
 				<div
 					ref={contentRef}
 					className="prose prose-sm dark:prose-invert max-w-none text-center"
-					dangerouslySetInnerHTML={{ __html: processedHtml }}
 				/>
 			</div>
 

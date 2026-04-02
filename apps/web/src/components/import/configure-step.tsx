@@ -119,9 +119,9 @@ function CsvConfigPanel({
 			</div>
 
 			{/* Header toggle */}
-			{/* wraps Checkbox */}
-			<label className="flex items-center gap-2">
+			<label htmlFor="csv-has-header" className="flex items-center gap-2">
 				<Checkbox
+					id="csv-has-header"
 					checked={config.hasHeader}
 					onCheckedChange={handleHeaderToggle}
 				/>
@@ -142,7 +142,7 @@ function CsvConfigPanel({
 									: `Column ${i + 1}`;
 
 							return (
-								<div key={i} className="flex items-center gap-3">
+								<div key={headerLabel} className="flex items-center gap-3">
 									<span className="w-24 shrink-0 truncate text-xs text-muted-foreground">
 										{headerLabel}
 									</span>
@@ -236,9 +236,12 @@ function ApkgConfigPanel({
 					Import Mode
 				</Label>
 				<div className="space-y-2">
-					{/* wraps Checkbox */}
-					<label className="flex cursor-pointer items-center gap-2">
+					<label
+						htmlFor="apkg-merge-mode"
+						className="flex cursor-pointer items-center gap-2"
+					>
 						<Checkbox
+							id="apkg-merge-mode"
 							checked={config.mergeMode === "merge"}
 							onCheckedChange={() =>
 								onConfigChange({ ...config, mergeMode: "merge" })
@@ -251,9 +254,12 @@ function ApkgConfigPanel({
 							</p>
 						</div>
 					</label>
-					{/* wraps Checkbox */}
-					<label className="flex cursor-pointer items-center gap-2">
+					<label
+						htmlFor="apkg-create-mode"
+						className="flex cursor-pointer items-center gap-2"
+					>
 						<Checkbox
+							id="apkg-create-mode"
 							checked={config.mergeMode === "create"}
 							onCheckedChange={() =>
 								onConfigChange({ ...config, mergeMode: "create" })

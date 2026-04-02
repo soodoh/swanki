@@ -365,6 +365,7 @@ function DeckTreeItem({
 
 				<DeckCountBadges deckId={node.id} />
 
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: event handlers only prevent propagation to parent Link, not interactive */}
 				<span
 					role="presentation"
 					onClick={(e) => e.preventDefault()}

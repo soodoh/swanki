@@ -122,7 +122,8 @@ describe("MediaService.reconcileNoteReferences", () => {
 			},
 		];
 		const { mapping } = await service.importBatch("user-1", entries);
-		const url = mapping.get("test.jpg")!;
+		const url = mapping.get("test.jpg");
+		if (!url) throw new Error("Expected mapping for test.jpg");
 		const filename = url.replace("/api/media/", "");
 
 		const mediaRecord = db.select().from(media).all()[0];

@@ -80,8 +80,10 @@ describe("CardService", () => {
 
 			// Get the auto-created cards and adjust their due dates
 			const allCards = await db.select().from(cards).all();
-			const card1 = allCards.find((c) => c.noteId === note1.id)!;
-			const card2 = allCards.find((c) => c.noteId === note2.id)!;
+			const card1 = allCards.find((c) => c.noteId === note1.id);
+			if (!card1) throw new Error("Expected card for note1");
+			const card2 = allCards.find((c) => c.noteId === note2.id);
+			if (!card2) throw new Error("Expected card for note2");
 
 			await db
 				.update(cards)
@@ -121,9 +123,12 @@ describe("CardService", () => {
 			});
 
 			const allCards = await db.select().from(cards).all();
-			const cardNew = allCards.find((c) => c.noteId === noteNew.id)!;
-			const cardLearning = allCards.find((c) => c.noteId === noteLearning.id)!;
-			const cardReview = allCards.find((c) => c.noteId === noteReview.id)!;
+			const cardNew = allCards.find((c) => c.noteId === noteNew.id);
+			if (!cardNew) throw new Error("Expected card for noteNew");
+			const cardLearning = allCards.find((c) => c.noteId === noteLearning.id);
+			if (!cardLearning) throw new Error("Expected card for noteLearning");
+			const cardReview = allCards.find((c) => c.noteId === noteReview.id);
+			if (!cardReview) throw new Error("Expected card for noteReview");
 
 			// Set states and due dates
 			await db

@@ -152,8 +152,9 @@ export const Route = createFileRoute("/api/import/start")({
 					const merge = body.mergeMode === "merge";
 
 					// Kick off processing asynchronously
+					const confirmedFileId = body.fileId;
 					setTimeout(() => {
-						void processImport(jobId, userId, body.fileId!, filePath, merge);
+						void processImport(jobId, userId, confirmedFileId, filePath, merge);
 					}, 0);
 
 					return Response.json({ jobId }, { status: 202 });

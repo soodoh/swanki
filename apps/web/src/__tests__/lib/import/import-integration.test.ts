@@ -913,10 +913,14 @@ describe("Import Integration", () => {
 				.all();
 			expect(allDecks).toHaveLength(4);
 
-			const root = allDecks.find((d) => d.name === "Languages")!;
-			const spanish = allDecks.find((d) => d.name === "Spanish")!;
-			const verbs = allDecks.find((d) => d.name === "Verbs")!;
-			const french = allDecks.find((d) => d.name === "French")!;
+			const root = allDecks.find((d) => d.name === "Languages");
+			if (!root) throw new Error("Expected Languages deck");
+			const spanish = allDecks.find((d) => d.name === "Spanish");
+			if (!spanish) throw new Error("Expected Spanish deck");
+			const verbs = allDecks.find((d) => d.name === "Verbs");
+			if (!verbs) throw new Error("Expected Verbs deck");
+			const french = allDecks.find((d) => d.name === "French");
+			if (!french) throw new Error("Expected French deck");
 
 			expect(root.parentId).toBeNull();
 			expect(spanish.parentId).toBe(root.id);

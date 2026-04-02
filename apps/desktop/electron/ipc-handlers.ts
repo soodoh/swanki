@@ -453,7 +453,8 @@ export function registerIpcHandlers(
 						for (const key of Object.keys(incomingFields)) {
 							strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
 						}
-						const storedFields = existingMap.get(note.guid)!;
+						const storedFields = existingMap.get(note.guid);
+						if (!storedFields) continue;
 						const fieldsMatch =
 							Object.keys(storedFields).length ===
 								Object.keys(strippedFields).length &&
@@ -502,7 +503,8 @@ export function registerIpcHandlers(
 						for (const key of Object.keys(incomingFields)) {
 							strippedFields[key] = stripHtmlToPlainText(incomingFields[key]);
 						}
-						const storedFields = existingMap.get(ankiNote.guid)!;
+						const storedFields = existingMap.get(ankiNote.guid);
+						if (!storedFields) continue;
 						const fieldsMatch =
 							Object.keys(storedFields).length ===
 								Object.keys(strippedFields).length &&

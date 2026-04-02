@@ -200,11 +200,14 @@ export function ReviewHeatmap({ year }: HeatmapProps): React.ReactElement {
 													);
 													if (!cell) {
 														return (
-															<div key={dayOfWeek} className="size-[13px]" />
+															<div
+																key={`empty-${String(dayOfWeek)}`}
+																className="size-[13px]"
+															/>
 														);
 													}
 													return (
-														<Tooltip key={dayOfWeek}>
+														<Tooltip key={cell.date}>
 															<TooltipTrigger>
 																<div
 																	className={`size-[13px] rounded-[2px] ${getIntensityClass(cell.count, maxCount)}`}

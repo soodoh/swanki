@@ -37,10 +37,11 @@ async function navigateToVocabStudy(
 ): Promise<string> {
 	const href = await page.evaluate(findVocabStudyHref, rootDeck);
 	expect(href).toBeTruthy();
-	await page.goto(href!);
+	if (!href) throw new Error("Expected vocab study href");
+	await page.goto(href);
 	await page.waitForTimeout(2000);
 	await page.waitForURL("**/study/**", { timeout: 10_000 });
-	return href!;
+	return href;
 }
 
 const FORMATS = [

@@ -34,8 +34,9 @@ export async function assertMediaLoads(page: Page): Promise<void> {
 
 		// Verify media URL is accessible
 		expect(src).toBeTruthy();
+		if (!src) throw new Error("Expected src attribute");
 		const origin = new URL(page.url()).origin;
-		const fullUrl = src?.startsWith("http") ? src! : `${origin}${src}`;
+		const fullUrl = src.startsWith("http") ? src : `${origin}${src}`;
 		const response = await page.request.get(fullUrl);
 		expect(response.status()).toBe(200);
 	}
@@ -57,9 +58,10 @@ export async function assertSoundPlayersWork(page: Page): Promise<void> {
 		const audio = soundPlayers.nth(i).locator("audio");
 		const src = await audio.getAttribute("src");
 		expect(src).toContain("/api/media/");
+		if (!src) throw new Error("Expected src attribute");
 
 		const origin = new URL(page.url()).origin;
-		const fullUrl = src?.startsWith("http") ? src! : `${origin}${src}`;
+		const fullUrl = src.startsWith("http") ? src : `${origin}${src}`;
 		const response = await page.request.get(fullUrl);
 		expect(response.status()).toBe(200);
 		expect(response.headers()["content-type"]).toMatch(/^audio\//);

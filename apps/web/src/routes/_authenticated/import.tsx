@@ -97,6 +97,7 @@ function Stepper({ currentStep }: { currentStep: number }): React.ReactElement {
 										stroke="currentColor"
 										strokeWidth={3}
 									>
+										<title>Completed</title>
 										<path
 											strokeLinecap="round"
 											strokeLinejoin="round"
@@ -285,7 +286,7 @@ export function ImportPage(): React.ReactElement {
 	const isApkgFormat = detectedFormat === "apkg" || detectedFormat === "colpkg";
 	const isCrowdAnkiFormat = detectedFormat === "zip";
 
-	const handleNext = useCallback(() => {
+	function handleNext(): void {
 		if (currentStep >= STEPS.length - 1) {
 			return;
 		}
@@ -300,16 +301,7 @@ export function ImportPage(): React.ReactElement {
 		} else {
 			setCurrentStep((prev) => prev + 1);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- runImport/fetchApkgPreview/fetchCrowdAnkiPreview are stable functions using file state
-	}, [
-		currentStep,
-		file,
-		isApkgFormat,
-		isCrowdAnkiFormat,
-		runImport,
-		fetchCrowdAnkiPreview,
-		fetchApkgPreview,
-	]);
+	}
 
 	const handleBack = useCallback(() => {
 		if (currentStep > 0) {

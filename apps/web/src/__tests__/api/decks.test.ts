@@ -136,7 +136,8 @@ describe("DeckService", () => {
 			const rootNames = tree.map((d) => d.name);
 			expect(rootNames).toStrictEqual(["Alpha", "Parent", "Zoo"]);
 
-			const parentNode = tree.find((d) => d.name === "Parent")!;
+			const parentNode = tree.find((d) => d.name === "Parent");
+			if (!parentNode) throw new Error("Expected Parent node in tree");
 			const childNames = parentNode.children.map((c) => c.name);
 			expect(childNames).toStrictEqual(["Apple", "Mango", "Zebra"]);
 		});
@@ -341,7 +342,8 @@ describe("DeckService", () => {
 					data: new Uint8Array([1, 2, 3, 4]),
 				},
 			]);
-			const mediaUrl = mapping.get("test.png")!;
+			const mediaUrl = mapping.get("test.png");
+			if (!mediaUrl) throw new Error("Expected mapping for test.png");
 			const mediaFilename = mediaUrl.replace("/api/media/", "");
 
 			// Create note referencing the media
