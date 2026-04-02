@@ -86,11 +86,9 @@ export function stripHtmlToPlainText(html: string): string {
 	}
 
 	// Clean up excessive whitespace but preserve single spaces
-	// oxlint-disable-next-line unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
 	return result.replace(/ {2,}/g, " ").trim();
 }
 
-/* oxlint-disable unicorn(prefer-string-replace-all), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-assignment) -- chained replace returns `any` in oxlint */
 function decodeEntities(text: string): string {
 	let result = text;
 	result = result.replace(/&amp;/g, "&");
@@ -101,4 +99,3 @@ function decodeEntities(text: string): string {
 	result = result.replace(/&nbsp;/g, " ");
 	return result;
 }
-/* oxlint-enable unicorn(prefer-string-replace-all), typescript-eslint(no-unsafe-call), typescript-eslint(no-unsafe-assignment) */

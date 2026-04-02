@@ -1,4 +1,3 @@
-/* oxlint-disable eslint/class-methods-use-this -- implements AppTransport interface */
 /**
  * WebTransport — web-specific implementation of AppTransport.
  * Stateless HTTP fetch wrapper, analogous to desktop's IpcTransport.

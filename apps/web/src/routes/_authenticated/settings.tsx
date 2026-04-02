@@ -38,7 +38,6 @@ type SessionData = {
 };
 
 export function SettingsPage(): React.ReactElement {
-	// oxlint-disable-next-line typescript/no-unsafe-assignment -- typed via beforeLoad return
 	const { session } = Route.useRouteContext();
 	const user = (session as SessionData).user;
 

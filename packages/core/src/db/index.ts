@@ -16,7 +16,7 @@ export function createDb(dbPath: string) {
  *
  * All service methods must use `await` on Drizzle query calls to support both modes.
  */
-// oxlint-disable-next-line typescript-eslint(no-explicit-any) -- intentionally broad to accept any SQLite driver
+// intentionally broad to accept any SQLite driver
 export type AppDb = BaseSQLiteDatabase<any, any, typeof schema>;
 
 /**

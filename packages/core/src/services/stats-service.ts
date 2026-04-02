@@ -154,7 +154,6 @@ export class StatsService {
 
 		// Calculate longest streak: walk through all dates sorted ascending
 		const reviewDateArray: string[] = rows.map((r) => r.date);
-		// oxlint-disable-next-line typescript-eslint(no-unsafe-assignment), typescript-eslint(no-unsafe-call) -- toSorted() returns any due to ES2017 target
 		const sortedDates: string[] = reviewDateArray.toSorted();
 		let longest = 0;
 		let streak = 0;

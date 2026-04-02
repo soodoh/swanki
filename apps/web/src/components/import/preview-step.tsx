@@ -85,7 +85,6 @@ function CsvPreview({
 								</TableCell>
 								{fieldNames.map((name) => {
 									const value: string = card.fields[name] ?? "";
-									// oxlint-disable-next-line eslint-plugin-unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
 									const stripped = value.replace(/<[^>]*>/g, "");
 									const display =
 										stripped.length > 80
@@ -142,7 +141,7 @@ function CarouselDots(): React.ReactNode {
 		<div className="flex justify-center gap-1.5 pt-2">
 			{Array.from({ length: count }).map((_, i) => (
 				<button
-					// oxlint-disable-next-line eslint-plugin-react(no-array-index-key) -- stable dot order
+					// stable dot order
 					key={i}
 					type="button"
 					className={cn(
@@ -347,7 +346,7 @@ function MergeStatsBadges({
 	);
 }
 
-// oxlint-disable-next-line eslint(complexity) -- preview component with multiple format-specific branches
+// preview component with multiple format-specific branches
 export function PreviewStep({
 	file,
 	format,

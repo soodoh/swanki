@@ -14,7 +14,7 @@ export async function getSession(
 export async function requireSession(request: Request): Promise<Session> {
 	const session = await getSession(request);
 	if (!session) {
-		// oxlint-disable-next-line only-throw-error -- TanStack Start uses thrown Responses for HTTP error handling
+		// TanStack Start uses thrown Responses for HTTP error handling
 		throw Response.json({ error: "Unauthorized" }, { status: 401 });
 	}
 	return session;

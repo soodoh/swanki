@@ -50,7 +50,6 @@ function getQuestionPreview(fields: Record<string, string>): string {
 		return "(empty)";
 	}
 	// Strip HTML tags for preview
-	// oxlint-disable-next-line eslint-plugin-unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference
 	const text: string = firstValue.replace(/<[^>]*>/g, "");
 	return text.length > 80 ? `${text.slice(0, 80)}...` : text;
 }

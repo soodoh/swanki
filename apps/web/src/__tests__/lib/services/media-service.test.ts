@@ -31,7 +31,7 @@ describe("MediaService.importBatch", () => {
 			{
 				filename: "image.jpg",
 				index: "0",
-				// oxlint-disable-next-line eslint-plugin-unicorn(number-literal-case) -- prettier enforces lowercase hex
+				// prettier enforces lowercase hex
 				data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
 			},
 			{
@@ -53,7 +53,7 @@ describe("MediaService.importBatch", () => {
 	});
 
 	it("should deduplicate identical files", async () => {
-		// oxlint-disable-next-line eslint-plugin-unicorn(number-literal-case) -- prettier enforces lowercase hex
+		// prettier enforces lowercase hex
 		const sameData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 		const entries = [
 			{ filename: "copy1.png", index: "0", data: sameData },

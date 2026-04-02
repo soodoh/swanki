@@ -1,4 +1,3 @@
-// oxlint-disable eslint(curly), typescript-eslint(explicit-module-boundary-types), typescript-eslint(no-restricted-types), eslint-plugin-react(jsx-no-constructed-context-values)
 "use client";
 
 import type { UseEmblaCarouselType } from "embla-carousel-react";

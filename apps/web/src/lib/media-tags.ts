@@ -9,7 +9,6 @@ export function expandMediaTags(
 	html: string,
 	mediaBaseUrl = "/api/media/",
 ): string {
-	/* oxlint-disable unicorn(prefer-string-replace-all) -- replaceAll returns `any` in oxlint type inference */
 	let result = html;
 
 	// [image:file] → <img>
@@ -30,7 +29,6 @@ export function expandMediaTags(
 		`<video src="${mediaBaseUrl}$1" controls></video>`,
 	);
 
-	/* oxlint-enable unicorn(prefer-string-replace-all) */
 	return result;
 }
 
@@ -53,7 +51,7 @@ export function wireSoundButtons(container: HTMLElement): () => void {
 
 		const handleClick = (): void => {
 			if (audioEl.paused) {
-				// oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then) -- fire-and-forget play with error recovery
+				// fire-and-forget play with error recovery
 				audioEl.play().catch(() => {
 					btn.textContent = "\u25B6";
 				});

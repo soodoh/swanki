@@ -6,7 +6,6 @@ import journal from "./meta/_journal.json";
 export const mobileMigrations = {
 	journal,
 	migrations: {
-		// oxlint-disable-next-line typescript-eslint(no-unsafe-assignment) -- .sql imports are untyped
 		m0000,
 	},
 };
