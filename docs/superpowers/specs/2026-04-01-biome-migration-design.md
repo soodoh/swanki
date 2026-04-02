@@ -24,8 +24,8 @@ A single `biome.json` at the repo root covers all workspaces.
 **Linter:**
 
 - Enable recommended rule set
-- Carry over the "no default React import" restriction (restrict `import React from 'react'` — enforce named imports)
 - Enable import sorting (organize imports)
+- Note: Biome's `noRestrictedImports` only blocks entire modules, not specific imports from a module. The oxlint rule restricting `import React from 'react'` (default import) while allowing named imports cannot be replicated exactly. This rule is dropped — the automatic JSX runtime (React 17+) makes the default import unnecessary, so enforcement is no longer needed.
 
 **Test file overrides:**
 
