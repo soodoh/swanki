@@ -23,7 +23,9 @@ export default defineConfig({
 					exclude: ["e2e/**"],
 					browser: {
 						enabled: true,
-						provider: playwright,
+						headless: true,
+						connectTimeout: 120000,
+						provider: playwright(),
 						instances: [{ browser: "chromium" }],
 					},
 				},
