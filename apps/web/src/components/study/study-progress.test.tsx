@@ -25,8 +25,8 @@ describe("StudyProgress", () => {
 			/>,
 		);
 
-		const progressBar = container.querySelector("[style*='width']");
-		await expect.element(progressBar!).toHaveAttribute("style", "width: 33%;");
+		const progressBar = container.querySelector("[style*='width']") as Element;
+		await expect.element(progressBar).toHaveAttribute("style", "width: 33%;");
 	});
 
 	it("shows 0% progress when all cards remain", async () => {
@@ -37,8 +37,8 @@ describe("StudyProgress", () => {
 			/>,
 		);
 
-		const progressBar = container.querySelector("[style*='width']");
-		await expect.element(progressBar!).toHaveAttribute("style", "width: 0%;");
+		const progressBar = container.querySelector("[style*='width']") as Element;
+		await expect.element(progressBar).toHaveAttribute("style", "width: 0%;");
 	});
 
 	it("handles zero initialTotal without division error", async () => {
@@ -49,7 +49,7 @@ describe("StudyProgress", () => {
 			/>,
 		);
 
-		const progressBar = container.querySelector("[style*='width']");
-		await expect.element(progressBar!).toHaveAttribute("style", "width: 0%;");
+		const progressBar = container.querySelector("[style*='width']") as Element;
+		await expect.element(progressBar).toHaveAttribute("style", "width: 0%;");
 	});
 });
