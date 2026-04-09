@@ -64,10 +64,13 @@
 		"@types/react": "^19.1.2",
 		"@types/react-dom": "^19.1.2",
 		"@vitejs/plugin-react": "^6.0.1",
+		"@vitest/browser": "^4.1.4",
 		"drizzle-kit": "^0.31.9",
+		"playwright": "^1.59.1",
 		"tailwindcss": "^4.2.1",
 		"typescript": "^5.8.3",
 		"vite-tsconfig-paths": "^6.1.1",
-		"vitest": "^4.1.0"
+		"vitest": "^4.1.0",
+		"vitest-browser-react": "^2.2.0"
 	}
 }
