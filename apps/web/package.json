@@ -71,7 +71,7 @@
 		"tailwindcss": "^4.2.1",
 		"typescript": "^5.8.3",
 		"vite-tsconfig-paths": "^6.1.1",
-		"vitest": "^4.1.0",
+		"vitest": "^4.1.4",
 		"vitest-browser-react": "^2.2.0"
 	}
 }
