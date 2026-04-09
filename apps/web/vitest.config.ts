@@ -17,6 +17,16 @@ export default defineConfig({
 			},
 			{
 				plugins: [tsconfigPaths()],
+				optimizeDeps: {
+					include: [
+						"@base-ui/react/button",
+						"@base-ui/react/input",
+						"@base-ui/react/tooltip",
+						"class-variance-authority",
+						"lucide-react",
+						"react",
+					],
+				},
 				test: {
 					name: "browser",
 					include: ["src/**/*.test.tsx"],
