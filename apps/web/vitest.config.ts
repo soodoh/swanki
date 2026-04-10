@@ -38,6 +38,30 @@ const browserOptimizeDeps = [
 export default defineConfig({
 	plugins: [tsconfigPaths()],
 	test: {
+		coverage: {
+			provider: "istanbul",
+			reporter: ["text", "html"],
+			include: [
+				"src/**/*.ts",
+				"src/**/*.tsx",
+				"../../packages/core/src/**/*.ts",
+				"../../packages/core/src/**/*.tsx",
+			],
+			exclude: [
+				"e2e/**",
+				"src/**/*.test.ts",
+				"src/**/*.test.tsx",
+				"src/**/*.spec.ts",
+				"src/**/*.spec.tsx",
+				"src/__tests__/**",
+				"src/entry-client.tsx",
+				"src/routeTree.gen.ts",
+				"../../packages/core/src/**/*.test.ts",
+				"../../packages/core/src/**/*.test.tsx",
+				"../../packages/core/src/**/*.spec.ts",
+				"../../packages/core/src/**/*.spec.tsx",
+			],
+		},
 		projects: [
 			{
 				plugins: [tsconfigPaths()],
