@@ -1,5 +1,4 @@
 import { playwright } from "@vitest/browser-playwright";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 const browserOptimizeDeps = [
@@ -36,7 +35,9 @@ const browserOptimizeDeps = [
 ];
 
 export default defineConfig({
-	plugins: [tsconfigPaths()],
+	resolve: {
+		tsconfigPaths: true,
+	},
 	test: {
 		coverage: {
 			provider: "istanbul",
@@ -64,7 +65,9 @@ export default defineConfig({
 		},
 		projects: [
 			{
-				plugins: [tsconfigPaths()],
+				resolve: {
+					tsconfigPaths: true,
+				},
 				optimizeDeps: {
 					include: browserOptimizeDeps,
 				},
@@ -84,7 +87,9 @@ export default defineConfig({
 				},
 			},
 			{
-				plugins: [tsconfigPaths()],
+				resolve: {
+					tsconfigPaths: true,
+				},
 				test: {
 					name: "unit",
 					environment: "node",
