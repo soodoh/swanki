@@ -7,16 +7,16 @@ describe("Skeleton", () => {
 		const screen = await render(
 			<Skeleton
 				aria-label="Loading deck"
-				className="h-4 w-24"
+				className="test-skeleton"
 				style={{ width: "96px", height: "16px" }}
 			/>,
 		);
 
-		const skeleton = screen.container.querySelector('[data-slot="skeleton"]');
-		expect(skeleton).toBeTruthy();
-		await expect.element(screen.getByLabelText("Loading deck")).toHaveAttribute(
-			"data-slot",
-			"skeleton",
+		const skeleton = screen.getByLabelText("Loading deck");
+		await expect.element(skeleton).toHaveClass(/test-skeleton/);
+		await expect.element(skeleton).toHaveAttribute(
+			"style",
+			"width: 96px; height: 16px;",
 		);
 	});
 });

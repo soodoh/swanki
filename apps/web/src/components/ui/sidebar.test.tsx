@@ -21,22 +21,17 @@ vi.mock("@/lib/cookies", () => ({
 }));
 
 describe("Sidebar", () => {
-	it("updates controlled state from the provider contract", async () => {
+	it("updates controlled state from the trigger contract", async () => {
 		function Harness() {
 			const [open, setOpen] = useState(true);
 
 			return (
-				<>
-					<button type="button" onClick={() => setOpen(false)}>
-						Collapse
-					</button>
-					<SidebarProvider open={open} onOpenChange={setOpen}>
-						<Sidebar collapsible="icon">
-							<SidebarTrigger />
-							<div>Sidebar content</div>
-						</Sidebar>
-					</SidebarProvider>
-				</>
+				<SidebarProvider open={open} onOpenChange={setOpen}>
+					<Sidebar collapsible="icon">
+						<SidebarTrigger />
+						<div>Sidebar content</div>
+					</Sidebar>
+				</SidebarProvider>
 			);
 		}
 
@@ -48,8 +43,9 @@ describe("Sidebar", () => {
 		expect(sidebar).toBeTruthy();
 		expect(sidebar).toHaveAttribute("data-state", "expanded");
 
-		await screen.getByRole("button", { name: "Collapse" }).click();
+		await screen.getByRole("button", { name: "Toggle Sidebar" }).click();
 
 		expect(sidebar).toHaveAttribute("data-state", "collapsed");
+		expect(setCookie).toHaveBeenCalled();
 	});
 });
