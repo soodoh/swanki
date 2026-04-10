@@ -12,6 +12,7 @@ export default defineConfig({
 					name: "unit",
 					environment: "node",
 					include: ["src/**/*.test.ts"],
+					setupFiles: ["src/__tests__/unit/setup.ts"],
 					globals: true,
 				},
 			},
@@ -34,6 +35,7 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						headless: true,
+						fileParallelism: false,
 						connectTimeout: 120000,
 						provider: playwright(),
 						instances: [{ browser: "chromium" }],
