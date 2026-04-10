@@ -37,38 +37,47 @@ export function ReviewChart({ days }: ReviewChartProps): React.ReactElement {
 					</div>
 				)}
 				{data && data.length > 0 && (
-					<ResponsiveContainer width="100%" height={280}>
-						<BarChart data={data}>
-							<CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-							<XAxis
-								dataKey="date"
-								tickFormatter={formatDate}
-								tick={{ fontSize: 12 }}
-								className="fill-muted-foreground"
-								interval={days <= 7 ? 0 : "preserveStartEnd"}
-							/>
-							<YAxis
-								allowDecimals={false}
-								tick={{ fontSize: 12 }}
-								className="fill-muted-foreground"
-							/>
-							<Tooltip
-								labelFormatter={(label: string) => formatDate(label)}
-								contentStyle={{
-									backgroundColor: "hsl(var(--popover))",
-									border: "1px solid hsl(var(--border))",
-									borderRadius: "8px",
-									fontSize: "13px",
-								}}
-							/>
-							<Bar
-								dataKey="count"
-								name="Reviews"
-								fill="hsl(var(--primary))"
-								radius={BAR_RADIUS}
-							/>
-						</BarChart>
-					</ResponsiveContainer>
+					<div
+						role="img"
+						aria-label="Reviews chart"
+						className="min-h-[280px] w-full"
+					>
+						<ResponsiveContainer width="100%" height={280}>
+							<BarChart data={data}>
+								<CartesianGrid
+									strokeDasharray="3 3"
+									className="stroke-border"
+								/>
+								<XAxis
+									dataKey="date"
+									tickFormatter={formatDate}
+									tick={{ fontSize: 12 }}
+									className="fill-muted-foreground"
+									interval={days <= 7 ? 0 : "preserveStartEnd"}
+								/>
+								<YAxis
+									allowDecimals={false}
+									tick={{ fontSize: 12 }}
+									className="fill-muted-foreground"
+								/>
+								<Tooltip
+									labelFormatter={(label: string) => formatDate(label)}
+									contentStyle={{
+										backgroundColor: "hsl(var(--popover))",
+										border: "1px solid hsl(var(--border))",
+										borderRadius: "8px",
+										fontSize: "13px",
+									}}
+								/>
+								<Bar
+									dataKey="count"
+									name="Reviews"
+									fill="hsl(var(--primary))"
+									radius={BAR_RADIUS}
+								/>
+							</BarChart>
+						</ResponsiveContainer>
+					</div>
 				)}
 				{data && data.length === 0 && (
 					<div className="flex h-64 items-center justify-center">

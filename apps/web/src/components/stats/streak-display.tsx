@@ -17,6 +17,11 @@ export function StreakDisplay(): React.ReactElement {
 						<p className="text-sm text-muted-foreground">Loading...</p>
 					</div>
 				)}
+				{!isLoading && !data && (
+					<div className="flex h-24 items-center justify-center">
+						<p className="text-sm text-muted-foreground">No streak yet.</p>
+					</div>
+				)}
 				{data && (
 					<div className="flex items-center gap-8">
 						<div className="flex items-center gap-3">
