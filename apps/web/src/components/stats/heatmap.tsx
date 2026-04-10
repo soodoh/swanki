@@ -125,6 +125,9 @@ export function ReviewHeatmap({ year }: HeatmapProps): React.ReactElement {
 		() => buildGrid(year, data ?? {}),
 		[year, data],
 	);
+	const hasActivity = Boolean(
+		data && Object.values(data).some((count) => count > 0),
+	);
 
 	const maxCount = useMemo(() => {
 		if (!data) {
@@ -159,7 +162,14 @@ export function ReviewHeatmap({ year }: HeatmapProps): React.ReactElement {
 						<p className="text-sm text-muted-foreground">Loading...</p>
 					</div>
 				)}
-				{data && (
+				{!isLoading && !hasActivity && (
+					<div className="flex h-40 items-center justify-center">
+						<p className="text-sm text-muted-foreground">
+							No review activity yet.
+						</p>
+					</div>
+				)}
+				{hasActivity && (
 					<div className="overflow-x-auto">
 						<TooltipProvider delayDuration={100}>
 							<div className="inline-flex gap-px">

@@ -72,6 +72,7 @@ export function AppShell({
 										size="icon"
 										onClick={cycleTheme}
 										className="size-8"
+										aria-label={`Theme: ${themeLabels[theme] ?? "System"}`}
 									/>
 								}
 							>
