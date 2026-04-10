@@ -2,44 +2,38 @@ import { playwright } from "@vitest/browser-playwright";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
+const browserOptimizeDeps = [
+	"@base-ui/react/button",
+	"@base-ui/react/checkbox",
+	"@base-ui/react/collapsible",
+	"@base-ui/react/dialog",
+	"@base-ui/react/input",
+	"@base-ui/react/menu",
+	"@base-ui/react/select",
+	"@base-ui/react/tabs",
+	"@base-ui/react/tooltip",
+	"@codemirror/lang-css",
+	"@codemirror/lang-html",
+	"@codemirror/theme-one-dark",
+	"@dnd-kit/core",
+	"@dnd-kit/sortable",
+	"@dnd-kit/utilities",
+	"@uiw/react-codemirror",
+	"class-variance-authority",
+	"isomorphic-dompurify",
+	"lucide-react",
+	"react",
+	"react-dom",
+];
+
 export default defineConfig({
 	plugins: [tsconfigPaths()],
 	test: {
 		projects: [
 			{
 				plugins: [tsconfigPaths()],
-				test: {
-					name: "unit",
-					environment: "node",
-					include: ["src/**/*.test.ts"],
-					setupFiles: ["src/__tests__/unit/setup.ts"],
-					globals: true,
-				},
-			},
-			{
-				plugins: [tsconfigPaths()],
 				optimizeDeps: {
-					include: [
-						"@base-ui/react/button",
-						"@base-ui/react/collapsible",
-						"@base-ui/react/dialog",
-						"@base-ui/react/input",
-						"@base-ui/react/menu",
-						"@base-ui/react/tabs",
-						"@base-ui/react/tooltip",
-						"@codemirror/lang-css",
-						"@codemirror/lang-html",
-						"@codemirror/theme-one-dark",
-						"@dnd-kit/core",
-						"@dnd-kit/sortable",
-						"@dnd-kit/utilities",
-						"class-variance-authority",
-						"isomorphic-dompurify",
-						"lucide-react",
-						"react",
-						"react-dom",
-						"@uiw/react-codemirror",
-					],
+					include: browserOptimizeDeps,
 				},
 				test: {
 					name: "browser",
@@ -54,6 +48,16 @@ export default defineConfig({
 						provider: playwright(),
 						instances: [{ browser: "chromium" }],
 					},
+				},
+			},
+			{
+				plugins: [tsconfigPaths()],
+				test: {
+					name: "unit",
+					environment: "node",
+					include: ["src/**/*.test.ts"],
+					setupFiles: ["src/__tests__/unit/setup.ts"],
+					globals: true,
 				},
 			},
 		],
