@@ -31,6 +31,7 @@ const browserOptimizeDeps = [
 	"lucide-react",
 	"react",
 	"react-dom",
+	"recharts",
 ];
 
 export default defineConfig({
