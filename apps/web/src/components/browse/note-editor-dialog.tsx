@@ -195,11 +195,15 @@ export function NoteEditorDialog({
 										{noteTypeFields.map((field) => {
 											const val = editFields[field.name] ?? "";
 											const mediaOnly = isMediaOnlyField(val);
+											const fieldId = `note-field-${field.name}`;
 											return (
 												<div key={field.name} className="space-y-1">
-													<Label className="text-xs">{field.name}</Label>
+													<Label htmlFor={fieldId} className="text-xs">
+														{field.name}
+													</Label>
 													{!mediaOnly && (
 														<Input
+															id={fieldId}
 															value={val}
 															onChange={(e) =>
 																handleFieldChange(field.name, e.target.value)
@@ -221,11 +225,15 @@ export function NoteEditorDialog({
 										{noteTypeFields.length === 0 &&
 											Object.entries(editFields).map(([key, value]) => {
 												const mediaOnly = isMediaOnlyField(value);
+												const fieldId = `note-field-${key}`;
 												return (
 													<div key={key} className="space-y-1">
-														<Label className="text-xs">{key}</Label>
+														<Label htmlFor={fieldId} className="text-xs">
+															{key}
+														</Label>
 														{!mediaOnly && (
 															<Input
+																id={fieldId}
 																value={value}
 																onChange={(e) =>
 																	handleFieldChange(key, e.target.value)

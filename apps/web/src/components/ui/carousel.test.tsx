@@ -8,55 +8,40 @@ import {
 	CarouselPrevious,
 } from "./carousel";
 
-const { emblaApi, emblaRef, setApi } = vi.hoisted(() => {
-	return {
-		emblaApi: {
-			canScrollPrev: vi.fn(() => true),
-			canScrollNext: vi.fn(() => true),
-			scrollPrev: vi.fn(),
-			scrollNext: vi.fn(),
-			on: vi.fn(),
-			off: vi.fn(),
-		},
-		emblaRef: vi.fn(),
-		setApi: vi.fn(),
-	};
-});
-
-vi.mock("embla-carousel-react", () => ({
-	default: vi.fn(() => [emblaRef, emblaApi]),
-}));
-
 describe("Carousel", () => {
-	it("exposes the carousel region and wires previous and next actions", async () => {
+	it("wires the real Embla carousel API and navigation controls", async () => {
+		const setApi = vi.fn();
 		const screen = await render(
-			<Carousel setApi={setApi}>
-				<CarouselContent>
-					<CarouselItem>One</CarouselItem>
-					<CarouselItem>Two</CarouselItem>
+			<Carousel setApi={setApi} style={{ width: "200px" }}>
+				<CarouselContent style={{ display: "flex", marginLeft: "0px" }}>
+					<CarouselItem style={{ flex: "0 0 200px", paddingLeft: "0px" }}>
+						One
+					</CarouselItem>
+					<CarouselItem style={{ flex: "0 0 200px", paddingLeft: "0px" }}>
+						Two
+					</CarouselItem>
 				</CarouselContent>
 				<CarouselPrevious />
 				<CarouselNext />
 			</Carousel>,
 		);
 
-		const carousel = screen.container.querySelector('[data-slot="carousel"]');
-		const content = screen.container.querySelector(
-			'[data-slot="carousel-content"] > div',
-		);
-
-		expect(carousel).toBeTruthy();
-		expect(content).toBeTruthy();
 		await expect.element(screen.getByText("One")).toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Previous slide" })).toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Next slide" })).toBeVisible();
+		await expect.element(screen.getByRole("button", { name: "Previous slide" })).toHaveAttribute(
+			"disabled",
+			"",
+		);
+		await vi.waitFor(() => {
+			expect(setApi).toHaveBeenCalledTimes(1);
+		});
 
-		await screen.getByRole("button", { name: "Next slide" }).click();
-		await screen.getByRole("button", { name: "Previous slide" }).click();
-
-		expect(setApi).toHaveBeenCalledWith(emblaApi);
-		expect(emblaApi.scrollNext).toHaveBeenCalled();
-		expect(emblaApi.scrollPrev).toHaveBeenCalled();
+		const previous = screen.getByRole("button", { name: "Previous slide" });
+		const next = screen.getByRole("button", { name: "Next slide" });
+		await expect.element(next).not.toHaveAttribute("disabled", "");
+		await next.click();
+		await expect.element(previous).not.toHaveAttribute("disabled", "");
+		await previous.click();
+		await expect.element(previous).toHaveAttribute("disabled", "");
 	});
 
 	it("switches layout classes for vertical orientation", async () => {

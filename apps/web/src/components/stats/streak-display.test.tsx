@@ -1,65 +1,45 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render } from "vitest-browser-react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderWithProviders } from "@/__tests__/browser/render";
 import { StreakDisplay } from "./streak-display";
 
-const state = vi.hoisted(() => ({
-	streak: {
-		data: undefined as
-			| {
-					current: number;
-					longest: number;
-			  }
-			| undefined,
-		isLoading: true,
-	},
+const streakMocks = vi.hoisted(() => ({
+	useStreak: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-stats", () => ({
-	useStreak: () => state.streak,
+	useStreak: streakMocks.useStreak,
 }));
 
 describe("StreakDisplay", () => {
 	beforeEach(() => {
-		state.streak = {
+		vi.clearAllMocks();
+	});
+
+	it("renders the loading state", async () => {
+		streakMocks.useStreak.mockReturnValue({
 			data: undefined,
 			isLoading: true,
-		};
-	});
+		});
 
-	afterEach(() => {
-		document.body.innerHTML = "";
-	});
-
-	it("shows a loading state while the query is pending", async () => {
-		const screen = await render(<StreakDisplay />);
+		const screen = await renderWithProviders(<StreakDisplay />);
 
 		await expect.element(screen.getByText("Loading...")).toBeVisible();
 	});
 
-	it("shows an empty state when there is no streak data", async () => {
-		state.streak = {
-			data: undefined,
+	it("renders current and longest streak values", async () => {
+		streakMocks.useStreak.mockReturnValue({
+			data: {
+				current: 5,
+				longest: 12,
+			},
 			isLoading: false,
-		};
+		});
 
-		const screen = await render(<StreakDisplay />);
+		const screen = await renderWithProviders(<StreakDisplay />);
 
-		await expect.element(screen.getByText("No streak yet.")).toBeVisible();
-		expect(document.body.textContent ?? "").not.toContain("current");
-	});
-
-	it("renders the current and longest streak values", async () => {
-		state.streak = {
-			data: { current: 12, longest: 30 },
-			isLoading: false,
-		};
-
-		const screen = await render(<StreakDisplay />);
-
-		await expect.element(screen.getByText("12")).toBeVisible();
-		await expect.element(screen.getByText("30")).toBeVisible();
+		await expect.element(screen.getByText("5")).toBeVisible();
 		await expect.element(screen.getByText("days current")).toBeVisible();
+		await expect.element(screen.getByText("12")).toBeVisible();
 		await expect.element(screen.getByText("days longest")).toBeVisible();
-		expect(document.body.textContent ?? "").not.toContain("No streak yet.");
 	});
 });

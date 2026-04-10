@@ -255,6 +255,7 @@ export function FieldAttachments({
 				type="button"
 				variant="ghost"
 				size="sm"
+				aria-label="Attach media"
 				className="h-8 w-8 p-0"
 				onClick={() => fileInputRef.current?.click()}
 				disabled={uploading}

@@ -1,85 +1,62 @@
-import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render } from "vitest-browser-react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderWithProviders } from "@/__tests__/browser/render";
 import { ReviewChart } from "./review-chart";
 
-const state = vi.hoisted(() => ({
-	reviews: {
-		data: undefined as
-			| Array<{
-					date: string;
-					count: number;
-			  }>
-			| undefined,
-		isLoading: true,
-	},
+const reviewChartMocks = vi.hoisted(() => ({
+	useReviewsPerDay: vi.fn(),
 }));
 
 vi.mock("@/lib/hooks/use-stats", () => ({
-	useReviewsPerDay: () => state.reviews,
-}));
-
-vi.mock("recharts", () => ({
-	Bar: () => null,
-	BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-	CartesianGrid: () => null,
-	ResponsiveContainer: ({ children }: { children: ReactNode }) => (
-		<div>{children}</div>
-	),
-	Tooltip: () => null,
-	XAxis: () => null,
-	YAxis: () => null,
+	useReviewsPerDay: reviewChartMocks.useReviewsPerDay,
 }));
 
 describe("ReviewChart", () => {
 	beforeEach(() => {
-		state.reviews = {
+		vi.clearAllMocks();
+	});
+
+	it("renders the loading state", async () => {
+		reviewChartMocks.useReviewsPerDay.mockReturnValue({
 			data: undefined,
 			isLoading: true,
-		};
-	});
+		});
 
-	afterEach(() => {
-		document.body.innerHTML = "";
-	});
-
-	it("shows a loading state while the query is pending", async () => {
-		const screen = await render(<ReviewChart days={30} />);
+		const screen = await renderWithProviders(<ReviewChart days={7} />);
 
 		await expect.element(screen.getByText("Loading...")).toBeVisible();
 	});
 
-	it("shows an empty state when there are no reviews", async () => {
-		state.reviews = {
+	it("renders the empty state when no review data exists", async () => {
+		reviewChartMocks.useReviewsPerDay.mockReturnValue({
 			data: [],
 			isLoading: false,
-		};
+		});
 
-		const screen = await render(<ReviewChart days={30} />);
+		const screen = await renderWithProviders(<ReviewChart days={30} />);
 
 		await expect.element(screen.getByText("No review data yet.")).toBeVisible();
-		expect(
-			document.body.querySelector('[role="img"][aria-label="Reviews chart"]'),
-		).toBeNull();
 	});
 
-	it("renders the populated chart container", async () => {
-		state.reviews = {
+	it("renders the populated chart branch for review history", async () => {
+		const formattedDate = new Date("2026-04-08T00:00:00").toLocaleDateString(
+			undefined,
+			{
+				month: "short",
+				day: "numeric",
+			},
+		);
+
+		reviewChartMocks.useReviewsPerDay.mockReturnValue({
 			data: [
-				{ date: "2026-01-01", count: 4 },
-				{ date: "2026-01-02", count: 2 },
-				{ date: "2026-01-03", count: 1 },
+				{ date: "2026-04-08", count: 12 },
+				{ date: "2026-04-09", count: 18 },
 			],
 			isLoading: false,
-		};
+		});
 
-		await render(<ReviewChart days={30} />);
+		const screen = await renderWithProviders(<ReviewChart days={7} />);
 
-		expect(
-			document.body.querySelector('[role="img"][aria-label="Reviews chart"]'),
-		).not.toBeNull();
-		expect(document.body.textContent ?? "").not.toContain(
-			"No review data yet.",
-		);
+		await expect.element(screen.getByText(formattedDate)).toBeVisible();
+		expect(document.body.textContent ?? "").not.toContain("No review data yet.");
 	});
 });

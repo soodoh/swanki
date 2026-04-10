@@ -139,8 +139,8 @@ export function UploadStep({
 					ref={inputRef}
 					type="file"
 					accept={ACCEPT_STRING}
-					onChange={handleFileChange}
 					aria-label="Import file"
+					onChange={handleFileChange}
 					className="hidden"
 				/>
 				<p className="mt-3 text-[10px] text-muted-foreground">
@@ -162,8 +162,8 @@ export function UploadStep({
 					<Button
 						variant="ghost"
 						size="icon-xs"
-						onClick={handleClear}
 						aria-label="Clear selected file"
+						onClick={handleClear}
 					>
 						<X className="size-3.5" />
 					</Button>

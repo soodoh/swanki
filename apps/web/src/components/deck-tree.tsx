@@ -94,7 +94,7 @@ function DeckOptionsDialog({
 }): React.ReactElement {
 	const [name, setName] = useState(deck.name);
 	const [description, setDescription] = useState(deck.description ?? "");
-	const [parentId, setParentId] = useState<string | undefined>(
+	const [parentId, setParentId] = useState<string>(
 		deck.parentId === undefined ? "" : String(deck.parentId),
 	);
 	const [newCardsPerDay, setNewCardsPerDay] = useState(
@@ -112,7 +112,7 @@ function DeckOptionsDialog({
 			deckId: deck.id,
 			name: name.trim(),
 			description: description.trim(),
-			parentId: parentId || undefined,
+			parentId: parentId || null,
 			settings: {
 				newCardsPerDay: Number(newCardsPerDay) || 20,
 				maxReviewsPerDay: Number(maxReviewsPerDay) || 200,
@@ -154,7 +154,7 @@ function DeckOptionsDialog({
 						<select
 							id="opt-parent"
 							className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
-							value={parentId ?? ""}
+							value={parentId}
 							onChange={(e) => setParentId(e.target.value)}
 						>
 							<option value="">None (top-level)</option>
@@ -232,7 +232,7 @@ function DeckActionMenu({
 							variant="ghost"
 							size="icon-xs"
 							className="cursor-pointer"
-							aria-label={`Deck options for ${node.name}`}
+							aria-label={`Deck actions for ${node.name}`}
 						>
 							<MoreHorizontal className="size-4" />
 						</Button>
@@ -276,6 +276,7 @@ function DeckActionMenu({
 						</Button>
 						<Button
 							variant="destructive"
+							aria-label={`Confirm delete deck ${node.name}`}
 							onClick={handleDelete}
 							disabled={deleteDeck.isPending}
 						>
@@ -297,7 +298,7 @@ function DeckTreeItem({
 	node: DeckTreeNode;
 	allDecks: DeckTreeNode[];
 	depth?: number;
-	invalidDropIds: Set<number>;
+	invalidDropIds: Set<string>;
 }): React.ReactElement {
 	const [expanded, setExpanded] = useState(true);
 	const hasChildren = node.children.length > 0;
@@ -339,7 +340,6 @@ function DeckTreeItem({
 				ref={setNodeRef}
 				to="/study/$deckId"
 				params={{ deckId: String(node.id) }}
-				aria-label={node.name}
 				{...attributes}
 				{...listeners}
 				className={`group flex items-center gap-2 rounded-lg pr-9 py-1.5 cursor-pointer no-underline text-inherit transition-colors ${dragDropClass}`}
@@ -348,13 +348,13 @@ function DeckTreeItem({
 				{hasChildren ? (
 					<button
 						type="button"
-						aria-label={`${expanded ? "Collapse" : "Expand"} ${node.name}`}
-						aria-expanded={expanded}
 						onClick={(e) => {
 							e.preventDefault();
 							setExpanded(!expanded);
 						}}
 						onPointerDown={(e) => e.stopPropagation()}
+						aria-label={`${expanded ? "Collapse" : "Expand"} deck ${node.name}`}
+						aria-expanded={expanded}
 						className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
 					>
 						{expanded ? (
@@ -402,8 +402,10 @@ function DeckTreeItem({
 
 function AddDeckDialog({
 	parentId,
+	triggerAriaLabel = "Add Deck",
 }: {
 	parentId?: string;
+	triggerAriaLabel?: string;
 }): React.ReactElement {
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
@@ -430,7 +432,7 @@ function AddDeckDialog({
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger
 				render={
-					<Button variant="outline" size="sm">
+					<Button variant="outline" size="sm" aria-label={triggerAriaLabel}>
 						<Plus className="size-4" data-icon="inline-start" />
 						Add Deck
 					</Button>
@@ -445,8 +447,8 @@ function AddDeckDialog({
 				</DialogHeader>
 				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 					<Input
-						placeholder="Deck name"
 						aria-label="Deck name"
+						placeholder="Deck name"
 						value={name}
 						onChange={(e) => setName(e.target.value)}
 					/>
@@ -567,17 +569,17 @@ export function DeckTree({
 			return;
 		}
 
-		const newParentId = overId === "__root__" ? undefined : String(overId);
+		const newParentId = overId === "__root__" ? null : String(overId);
 
 		// Skip if parent didn't change
-		const currentParent = draggedDeck.parentId ?? undefined;
+		const currentParent = draggedDeck.parentId ?? null;
 		if (currentParent === newParentId) {
 			return;
 		}
 
 		void updateDeck.mutateAsync({
 			deckId,
-			parentId: newParentId ?? undefined,
+			parentId: newParentId,
 		});
 	}
 
@@ -655,7 +657,7 @@ function EmptyState(): React.ReactElement {
 			<p className="text-sm text-muted-foreground mb-4">
 				Create your first deck to start studying.
 			</p>
-			<AddDeckDialog />
+			<AddDeckDialog triggerAriaLabel="Add Deck from empty state" />
 		</div>
 	);
 }

@@ -13,15 +13,18 @@ function SelectHarness() {
 	const [value, setValue] = useState("English");
 
 	return (
-			<Select value={value} onValueChange={setValue}>
-			<SelectTrigger aria-label="Language">
-				<SelectValue />
-			</SelectTrigger>
-			<SelectContent>
-				<SelectItem value="English">English</SelectItem>
-				<SelectItem value="Spanish">Spanish</SelectItem>
-			</SelectContent>
-		</Select>
+		<div>
+			<Select open modal={false} value={value} onValueChange={setValue}>
+				<SelectTrigger aria-label="Language">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value="English">English</SelectItem>
+					<SelectItem value="Spanish">Spanish</SelectItem>
+				</SelectContent>
+			</Select>
+			<output aria-label="Selected language">{value}</output>
+		</div>
 	);
 }
 
@@ -29,8 +32,17 @@ describe("Select", () => {
 	it("renders the selected value and open list in controlled state", async () => {
 		const screen = await render(<SelectHarness />);
 
-		await expect.element(screen.getByLabelText("Language")).toBeVisible();
-		const trigger = screen.container.querySelector('[data-slot="select-trigger"]');
-		expect(trigger?.textContent).toContain("English");
+		await expect.element(screen.getByRole("combobox", { name: "Language" })).toBeVisible();
+		await expect.element(screen.getByLabelText("Selected language")).toHaveTextContent(
+			"English",
+		);
+		await expect.element(screen.getByRole("option", { name: "Spanish" })).toBeVisible();
+		await screen.getByRole("option", { name: "Spanish" }).click();
+		await expect.element(screen.getByRole("combobox", { name: "Language" })).toHaveTextContent(
+			"Spanish",
+		);
+		await expect.element(screen.getByLabelText("Selected language")).toHaveTextContent(
+			"Spanish",
+		);
 	});
 });

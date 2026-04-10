@@ -106,7 +106,7 @@ function CsvConfigPanel({
 			<div className="space-y-1.5">
 				<Label className="text-xs">Delimiter</Label>
 				<Select value={config.delimiter} onValueChange={handleDelimiterChange}>
-					<SelectTrigger className="w-40" aria-label="Delimiter">
+					<SelectTrigger className="w-40" aria-label="CSV delimiter">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -152,7 +152,7 @@ function CsvConfigPanel({
 									>
 										<SelectTrigger
 											className="w-40 text-xs"
-											aria-label={`Map ${headerLabel}`}
+											aria-label={`Field mapping for ${headerLabel}`}
 										>
 											<SelectValue />
 										</SelectTrigger>
@@ -184,7 +184,10 @@ function CsvConfigPanel({
 					/>
 					{flatDecks.length > 0 && (
 						<Select onValueChange={handleDeckChange}>
-							<SelectTrigger className="w-36 text-xs" aria-label="Existing deck">
+							<SelectTrigger
+								className="w-36 text-xs"
+								aria-label="Existing deck"
+							>
 								<SelectValue placeholder="Existing..." />
 							</SelectTrigger>
 							<SelectContent>

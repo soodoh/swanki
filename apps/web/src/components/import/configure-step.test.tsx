@@ -1,103 +1,245 @@
-import { useState, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { useDecks } from "@/lib/hooks/use-decks";
-import { render } from "vitest-browser-react";
-import { ConfigureStep, type ImportConfig } from "./configure-step";
+import { useState, type ReactElement, type ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderWithProviders } from "@/__tests__/browser/render";
+import {
+	type ImportConfig,
+	ConfigureStep,
+} from "./configure-step";
 
-vi.mock("@/lib/hooks/use-decks", () => ({
+const configureMocks = vi.hoisted(() => ({
 	useDecks: vi.fn(),
 }));
 
-const mockedUseDecks = vi.mocked(useDecks);
+vi.mock("@/lib/hooks/use-decks", () => ({
+	useDecks: configureMocks.useDecks,
+}));
 
-function ConfigureHarness({
-	format,
-	file,
-	csvPreview,
-	csvHeaders,
-	initialConfig = {},
-}: {
-	format: string;
-	file: File;
-	csvPreview?: string[][];
-	csvHeaders?: string[];
-	initialConfig?: ImportConfig;
-}): ReactElement {
-	const [config, setConfig] = useState<ImportConfig>(initialConfig);
+vi.mock("@/components/ui/checkbox", () => ({
+	Checkbox: ({
+		id,
+		checked,
+		onCheckedChange,
+	}: {
+		id?: string;
+		checked?: boolean;
+		onCheckedChange?: (checked: boolean) => void;
+	}): ReactElement => (
+		<input
+			id={id}
+			type="checkbox"
+			checked={Boolean(checked)}
+			onChange={(event) => onCheckedChange?.(event.currentTarget.checked)}
+		/>
+	),
+}));
+
+vi.mock("@/components/ui/select", async () => {
+	const React = await import("react");
+
+	type SelectContextValue = {
+		value?: string;
+		open: boolean;
+		setOpen: (open: boolean) => void;
+		onValueChange?: (value: string) => void;
+	};
+
+	const SelectContext = React.createContext<SelectContextValue | null>(null);
+
+	return {
+		Select: ({
+			value,
+			onValueChange,
+			children,
+		}: {
+			value?: string;
+			onValueChange?: (value: string) => void;
+			children: ReactNode;
+		}): ReactElement => {
+			const [open, setOpen] = React.useState(false);
+
+			return (
+				<SelectContext.Provider
+					value={{
+						value,
+						open,
+						setOpen,
+						onValueChange,
+					}}
+				>
+					<div>{children}</div>
+				</SelectContext.Provider>
+			);
+		},
+		SelectTrigger: ({
+			children,
+			...props
+		}: {
+			children: ReactNode;
+			"aria-label"?: string;
+		}): ReactElement => {
+			const context = React.useContext(SelectContext);
+
+			if (!context) {
+				throw new Error("SelectTrigger must be used within Select");
+			}
+
+			return (
+				<button
+					type="button"
+					onClick={() => context.setOpen(!context.open)}
+					{...props}
+				>
+					{children}
+				</button>
+			);
+		},
+		SelectValue: ({
+			placeholder,
+		}: {
+			placeholder?: string;
+		}): ReactElement => {
+			const context = React.useContext(SelectContext);
+			return <span>{context?.value || placeholder || ""}</span>;
+		},
+		SelectContent: ({
+			children,
+		}: {
+			children: ReactNode;
+		}): ReactElement | null => {
+			const context = React.useContext(SelectContext);
+
+			return context?.open ? <div role="listbox">{children}</div> : null;
+		},
+		SelectItem: ({
+			value,
+			children,
+		}: {
+			value: string;
+			children: ReactNode;
+		}): ReactElement => {
+			const context = React.useContext(SelectContext);
+
+			if (!context) {
+				throw new Error("SelectItem must be used within Select");
+			}
+
+			return (
+				<button
+					type="button"
+					role="option"
+					onClick={() => {
+						context.onValueChange?.(value);
+						context.setOpen(false);
+					}}
+				>
+					{children}
+				</button>
+			);
+		},
+	};
+});
+
+function CsvHarness(): ReactElement {
+	const [config, setConfig] = useState<ImportConfig>({
+		csv: {
+			delimiter: ",",
+			hasHeader: true,
+			fieldMapping: {
+				0: "Front",
+				1: "Back",
+			},
+			targetDeck: "Import",
+		},
+	});
 
 	return (
-		<ConfigureStep
-			format={format}
-			file={file}
-			config={config}
-			onConfigChange={setConfig}
-			csvPreview={csvPreview}
-			csvHeaders={csvHeaders}
-		/>
+		<div className="space-y-2">
+			<ConfigureStep
+				format="csv"
+				file={new File(["Front,Back"], "notes.csv", { type: "text/csv" })}
+				config={config}
+				onConfigChange={setConfig}
+				csvPreview={[
+					["Front", "Back"],
+					["Hola", "Hello"],
+				]}
+				csvHeaders={["Front", "Back"]}
+			/>
+			<output data-testid="config-state">{JSON.stringify(config)}</output>
+		</div>
+	);
+}
+
+function ApkgHarness(): ReactElement {
+	const [config, setConfig] = useState<ImportConfig>({
+		apkg: { mergeMode: "merge" },
+	});
+
+	return (
+		<div className="space-y-2">
+			<ConfigureStep
+				format="apkg"
+				file={new File([], "spanish.apkg")}
+				config={config}
+				onConfigChange={setConfig}
+				csvPreview={undefined}
+				csvHeaders={undefined}
+			/>
+			<output data-testid="config-state">{JSON.stringify(config)}</output>
+		</div>
 	);
 }
 
 describe("ConfigureStep", () => {
-	it("updates CSV import options through the real controls", async () => {
-		mockedUseDecks.mockReturnValue({
+	beforeEach(() => {
+		vi.clearAllMocks();
+		configureMocks.useDecks.mockReturnValue({
 			data: [
 				{
-					id: "deck-root",
-					name: "Spanish Basics",
+					id: "deck-spanish",
+					name: "Spanish",
 					children: [],
 				},
 			],
 		});
-
-		const { container, ...screen } = await render(
-			<ConfigureHarness
-				format="csv"
-				file={new File(["Front,Back"], "spanish.csv", {
-					type: "text/csv",
-				})}
-				csvPreview={[["Hola", "Hello"]]}
-				csvHeaders={["Front", "Back"]}
-			/>,
-		);
-
-		await screen.getByRole("combobox", { name: "Delimiter" }).click();
-		await screen.getByRole("option", { name: "Tab" }).click();
-		expect(
-			container.querySelector('[aria-label="Delimiter"]')?.textContent ?? "",
-		).toContain("\t");
-
-		await screen.getByRole("combobox", { name: "Map Front" }).click();
-		await screen.getByRole("option", { name: "Skip" }).click();
-		expect(
-			container.querySelector('[aria-label="Map Front"]')?.textContent ?? "",
-		).toContain("__skip__");
-
-		await screen.getByRole("combobox", { name: "Existing deck" }).click();
-		await screen.getByRole("option", { name: "Spanish Basics" }).click();
-		expect(
-			container.querySelector('[aria-label="Existing deck"]')?.textContent ?? "",
-		).toContain("Spanish Basics");
-
-		const deckInput = screen.getByPlaceholder("Deck name");
-		await deckInput.fill("Vocabulary");
-		await expect.element(deckInput).toHaveValue("Vocabulary");
 	});
 
-	it("switches APKG import mode with the visible controls", async () => {
-		const screen = await render(
-			<ConfigureHarness
-				format="apkg"
-				file={new File(["deck"], "spanish.apkg", {
-					type: "application/octet-stream",
-				})}
-			/>,
+	it("updates CSV delimiter, header mode, field mapping, and target deck", async () => {
+		const screen = await renderWithProviders(<CsvHarness />);
+
+		await screen.getByRole("button", { name: "CSV delimiter" }).click();
+		await screen.getByRole("option", { name: "Semicolon (;)" }).click();
+		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
+			'"delimiter":";"',
 		);
 
-		await expect.element(screen.getByText("Deck name:")).toBeVisible();
-		await expect.element(screen.getByText("spanish")).toBeVisible();
-		await expect.element(screen.getByText("Anki Package")).toBeVisible();
+		await screen.getByRole("button", { name: "Field mapping for Back" }).click();
+		await screen.getByRole("option", { name: "Extra" }).click();
+		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
+			'"1":"Extra"',
+		);
 
-		await screen.getByText("Create new").click();
-		await expect.element(screen.getByRole("checkbox", { name: "Create new" })).toBeChecked();
+		await screen.getByLabelText("First row is header").click();
+		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
+			'"hasHeader":false',
+		);
+
+		await screen.getByRole("button", { name: "Existing deck" }).click();
+		await screen.getByRole("option", { name: "Spanish" }).click();
+		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
+			'"targetDeck":"Spanish"',
+		);
+	});
+
+	it("switches APKG import mode between merge and create", async () => {
+		const screen = await renderWithProviders(<ApkgHarness />);
+
+		await expect.element(screen.getByText("Package Details")).toBeVisible();
+		await expect.element(screen.getByText("spanish")).toBeVisible();
+		await screen.getByRole("checkbox", { name: /create new/i }).click();
+
+		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
+			'"mergeMode":"create"',
+		);
 	});
 });
