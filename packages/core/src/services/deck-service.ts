@@ -78,7 +78,7 @@ export class DeckService {
 		data: {
 			name?: string;
 			description?: string;
-			parentId?: string | undefined;
+			parentId?: string | null | undefined;
 			settings?: { newCardsPerDay: number; maxReviewsPerDay: number };
 		},
 	): Promise<Deck | undefined> {
