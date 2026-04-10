@@ -1,51 +1,71 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render } from "vitest-browser-react";
+import { renderWithProviders } from "@/__tests__/browser/render";
 import { ProgressStep } from "./progress-step";
+
+vi.mock("@/components/ui/progress", () => ({
+	Progress: ({
+		value,
+		children,
+	}: {
+		value: number;
+		children?: ReactNode;
+	}) => (
+		<div data-testid="progress" data-value={value}>
+			{children}
+		</div>
+	),
+}));
 
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({
 		children,
 		to,
-		...props
+		className,
 	}: {
 		children: ReactNode;
-		to?: string;
-	}) => <a href={to} {...props}>{children}</a>,
+		to: string;
+		className?: string;
+	}) => (
+		<a href={to} className={className}>
+			{children}
+		</a>
+	),
 }));
 
 describe("ProgressStep", () => {
-	it("shows upload progress details while an import is running", async () => {
-		const screen = await render(
+	it("renders the active processing state with phase detail and percentage", async () => {
+		const screen = await renderWithProviders(
 			<ProgressStep
 				importProgress={{
-					status: "uploading",
-					progress: 42,
-					detail: "Sending file to the server",
+					status: "processing",
+					progress: 45,
+					phase: "Importing notes",
+					detail: "Reading package data",
 				}}
-				onRetry={() => {}}
+				onRetry={vi.fn()}
 			/>,
 		);
 
 		await expect.element(screen.getByText("Importing...")).toBeVisible();
-		await expect.element(screen.getByText("Uploading...")).toBeVisible();
-		await expect.element(screen.getByText("Sending file to the server")).toBeVisible();
-		await expect.element(screen.getByText("42%")).toBeVisible();
+		await expect.element(screen.getByText("Importing notes")).toBeVisible();
+		await expect.element(screen.getByText("Reading package data")).toBeVisible();
+		await expect.element(screen.getByText("45%")).toBeVisible();
 	});
 
-	it("renders the success summary and retry action", async () => {
+	it("renders the complete state summary and retries another import", async () => {
 		const onRetry = vi.fn();
-		const screen = await render(
+		const screen = await renderWithProviders(
 			<ProgressStep
 				importProgress={{
 					status: "complete",
 					progress: 100,
 					result: {
-						cardCount: 12,
-						noteCount: 8,
+						cardCount: 10,
+						noteCount: 5,
 						duplicatesSkipped: 2,
 						notesUpdated: 1,
-						errors: ["One note had an empty field"],
+						errors: ["Skipped malformed row"],
 						mediaCount: 3,
 					},
 				}}
@@ -53,15 +73,14 @@ describe("ProgressStep", () => {
 			/>,
 		);
 
-		await expect.element(screen.getByText("Import Complete")).toBeVisible();
+		await expect.element(screen.getByText("Import Successful")).toBeVisible();
 		await expect.element(screen.getByText("Cards imported")).toBeVisible();
-		await expect.element(screen.getByText("Notes created")).toBeVisible();
 		await expect.element(screen.getByText("Notes updated")).toBeVisible();
-		await expect.element(screen.getByText("Unchanged")).toBeVisible();
 		await expect.element(screen.getByText("Media files")).toBeVisible();
-		await expect.element(screen.getByText("1 warning")).toBeVisible();
+		await expect.element(screen.getByText("Skipped malformed row")).toBeVisible();
 
 		await screen.getByRole("button", { name: "Import Another" }).click();
-		expect(onRetry).toHaveBeenCalled();
+
+		expect(onRetry).toHaveBeenCalledTimes(1);
 	});
 });

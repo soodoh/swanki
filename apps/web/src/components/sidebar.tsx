@@ -60,6 +60,17 @@ const navItems: NavItem[] = [
 	{ title: "Settings", url: "/settings", icon: Settings },
 ];
 
+export function navigateTo(href: string): void {
+	const testNavigate = (
+		globalThis as unknown as { __SWANKI_NAVIGATE__?: (href: string) => void }
+	).__SWANKI_NAVIGATE__;
+	if (testNavigate) {
+		testNavigate(href);
+		return;
+	}
+	globalThis.location.assign(href);
+}
+
 function getInitials(name: string): string {
 	return name
 		.split(" ")
@@ -153,7 +164,7 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
 			).electronAPI.authCompleteSignIn({ strategy });
 			setShowMergeDialog(false);
 			// Reload to refresh React Query caches with synced data
-			globalThis.location.href = "/";
+			navigateTo("/");
 		} finally {
 			setMergeLoading(false);
 		}
@@ -170,10 +181,10 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
 			).electronAPI.authSignOut();
 			setDesktopSignedIn(result.signedIn);
 			setDesktopUser(undefined);
-			globalThis.location.href = "/";
+			navigateTo("/");
 		} else {
 			await authClient.signOut();
-			globalThis.location.href = "/login";
+			navigateTo("/login");
 		}
 	}
 
@@ -210,6 +221,7 @@ export function AppSidebar({ user }: AppSidebarProps): React.ReactElement {
 									<SidebarMenuButton
 										tooltip={item.title}
 										isActive={isActive(item.url)}
+										aria-current={isActive(item.url) ? "page" : undefined}
 										render={<Link to={item.url} />}
 									>
 										<item.icon />
