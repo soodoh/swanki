@@ -24,8 +24,8 @@ bun run package:desktop  # package desktop app
 bun run make:desktop     # create desktop installers (Squirrel/DMG/DEB/RPM)
 bun run lint             # biome lint + format check
 bun run lint:fix         # auto-fix lint and format issues
-bun run test             # run tests in watch mode (vitest)
-bun run test:run         # run tests once (CI mode)
+bun run test             # run tests once with coverage (vitest)
+bun run test:ci          # run tests once (CI mode)
 ```
 
 Single test file from `apps/web`:

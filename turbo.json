@@ -16,6 +16,6 @@
 		"lint": {},
 		"lint:fix": {},
 		"test": {},
-		"test:run": {}
+		"test:ci": {}
 	}
 }
