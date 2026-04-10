@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 
 const browserOptimizeDeps = [
 	"@base-ui/react/button",
+	"@base-ui/react/avatar",
 	"@base-ui/react/checkbox",
 	"@base-ui/react/collapsible",
 	"@base-ui/react/dialog",
@@ -11,8 +12,10 @@ const browserOptimizeDeps = [
 	"@base-ui/react/menu",
 	"@base-ui/react/progress",
 	"@base-ui/react/select",
+	"@base-ui/react/separator",
 	"@base-ui/react/tabs",
 	"@base-ui/react/tooltip",
+	"@better-auth/electron/proxy",
 	"@tanstack/react-router",
 	"@codemirror/lang-css",
 	"@codemirror/lang-html",
@@ -21,6 +24,7 @@ const browserOptimizeDeps = [
 	"@dnd-kit/sortable",
 	"@dnd-kit/utilities",
 	"@uiw/react-codemirror",
+	"better-auth/react",
 	"class-variance-authority",
 	"embla-carousel-react",
 	"isomorphic-dompurify",
