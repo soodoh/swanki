@@ -9,6 +9,6 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"test": "echo 'docs test placeholder'",
-		"test:run": "echo 'docs test:run placeholder'"
+		"test:ci": "echo 'docs test:ci placeholder'"
 	}
 }

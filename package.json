@@ -21,7 +21,7 @@
 		"lint": "turbo lint",
 		"lint:fix": "turbo lint:fix",
 		"test": "turbo test",
-		"test:run": "turbo test:run",
+		"test:ci": "turbo test:ci",
 		"db:generate": "cd apps/web && bun x drizzle-kit generate",
 		"db:push": "cd apps/web && bun x drizzle-kit push",
 		"prepare": "lefthook install"
