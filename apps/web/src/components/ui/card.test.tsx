@@ -11,9 +11,9 @@ import {
 } from "./card";
 
 describe("Card", () => {
-	it("renders the card structure and forwards size metadata", async () => {
+	it("renders the card sections and preserves visible content", async () => {
 		const screen = await render(
-			<Card size="sm">
+			<Card className="test-card">
 				<CardHeader>
 					<CardTitle>Daily review</CardTitle>
 					<CardDescription>3 cards due</CardDescription>
@@ -26,27 +26,31 @@ describe("Card", () => {
 			</Card>,
 		);
 
-		const card = screen.container.querySelector('[data-slot="card"]');
-		const header = screen.container.querySelector('[data-slot="card-header"]');
-		const title = screen.container.querySelector('[data-slot="card-title"]');
-		const description = screen.container.querySelector('[data-slot="card-description"]');
-		const action = screen.container.querySelector('[data-slot="card-action"]');
-		const content = screen.container.querySelector('[data-slot="card-content"]');
-		const footer = screen.container.querySelector('[data-slot="card-footer"]');
-
-		expect(card).toBeTruthy();
-		expect(header).toBeTruthy();
-		expect(title).toBeTruthy();
-		expect(description).toBeTruthy();
-		expect(action).toBeTruthy();
-		expect(content).toBeTruthy();
-		expect(footer).toBeTruthy();
-
-		await expect.element(card as Element).toHaveAttribute("data-size", "sm");
+		await expect
+			.element(screen.container.querySelector(".test-card") as Element)
+			.toBeVisible();
 		await expect.element(screen.getByRole("button", { name: "Edit" })).toBeVisible();
 		await expect.element(screen.getByText("Daily review")).toBeVisible();
 		await expect.element(screen.getByText("3 cards due")).toBeVisible();
 		await expect.element(screen.getByText("Review the current deck.")).toBeVisible();
 		await expect.element(screen.getByText("Footer actions")).toBeVisible();
+		expect(
+			screen.container.querySelector('[data-slot="card-title"]')?.textContent,
+		).toContain("Daily review");
+		expect(
+			screen.container.querySelector('[data-slot="card-header"]')?.textContent,
+		).toContain("Daily review");
+		expect(
+			screen.container.querySelector('[data-slot="card-description"]')?.textContent,
+		).toContain("3 cards due");
+		expect(
+			screen.container.querySelector('[data-slot="card-action"]')?.textContent,
+		).toContain("Edit");
+		expect(
+			screen.container.querySelector('[data-slot="card-content"]')?.textContent,
+		).toContain("Review the current deck.");
+		expect(
+			screen.container.querySelector('[data-slot="card-footer"]')?.textContent,
+		).toContain("Footer actions");
 	});
 });

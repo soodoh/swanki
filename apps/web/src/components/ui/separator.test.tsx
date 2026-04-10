@@ -3,17 +3,23 @@ import { render } from "vitest-browser-react";
 import { Separator } from "./separator";
 
 describe("Separator", () => {
-	it("renders a vertical separator with the expected accessibility contract", async () => {
+	it("defaults to a horizontal separator and supports a vertical override", async () => {
 		const screen = await render(
 			<div>
-				<span>Left</span>
+				<Separator className="test-separator" />
 				<Separator orientation="vertical" />
-				<span>Right</span>
 			</div>,
 		);
 
-		const separator = screen.getByRole("separator");
-		await expect.element(separator).toHaveAttribute("data-slot", "separator");
-		await expect.element(separator).toHaveAttribute("aria-orientation", "vertical");
+		const separators = screen.container.querySelectorAll('[role="separator"]');
+		await expect.element(separators[0] as Element).toHaveClass(/test-separator/);
+		await expect.element(separators[0] as Element).toHaveAttribute("data-slot", "separator");
+		await expect
+			.element(separators[0] as Element)
+			.not.toHaveAttribute("aria-orientation", "vertical");
+		await expect.element(separators[1] as Element).toHaveAttribute(
+			"aria-orientation",
+			"vertical",
+		);
 	});
 });

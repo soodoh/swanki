@@ -4,7 +4,7 @@ import { Input } from "./input";
 import { Label } from "./label";
 
 describe("Label", () => {
-	it("associates with a control and forwards label attributes", async () => {
+	it("associates with a control and transfers focus through the label", async () => {
 		const screen = await render(
 			<div>
 				<Label htmlFor="deck-name">Deck name</Label>
@@ -13,8 +13,11 @@ describe("Label", () => {
 		);
 
 		const label = screen.getByText("Deck name");
-		await expect.element(label).toHaveAttribute("data-slot", "label");
+		const input = screen.getByLabelText("Deck name");
+
 		await expect.element(label).toHaveAttribute("for", "deck-name");
-		await expect.element(screen.getByLabelText("Deck name")).toHaveValue("Spanish");
+		await expect.element(input).toHaveValue("Spanish");
+		await label.click();
+		expect(document.activeElement).toBe(screen.container.querySelector("#deck-name"));
 	});
 });

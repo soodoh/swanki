@@ -26,6 +26,7 @@ const browserOptimizeDeps = [
 	"@uiw/react-codemirror",
 	"better-auth/react",
 	"class-variance-authority",
+	"cmdk",
 	"embla-carousel-react",
 	"isomorphic-dompurify",
 	"lucide-react",

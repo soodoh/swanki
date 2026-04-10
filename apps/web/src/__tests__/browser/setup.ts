@@ -40,7 +40,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	document.body.innerHTML = "";
 	document.documentElement.classList.remove("dark", "light");
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
