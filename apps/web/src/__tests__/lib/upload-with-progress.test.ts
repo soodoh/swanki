@@ -14,11 +14,14 @@ class FakeProgressTarget {
 		this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
 	}
 
-	dispatch(type: string, event?: {
-		lengthComputable?: boolean;
-		loaded?: number;
-		total?: number;
-	}): void {
+	dispatch(
+		type: string,
+		event?: {
+			lengthComputable?: boolean;
+			loaded?: number;
+			total?: number;
+		},
+	): void {
 		for (const listener of this.listeners.get(type) ?? []) {
 			listener(event);
 		}

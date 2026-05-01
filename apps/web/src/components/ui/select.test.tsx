@@ -32,17 +32,21 @@ describe("Select", () => {
 	it("renders the selected value and open list in controlled state", async () => {
 		const screen = await render(<SelectHarness />);
 
-		await expect.element(screen.getByRole("combobox", { name: "Language" })).toBeVisible();
-		await expect.element(screen.getByLabelText("Selected language")).toHaveTextContent(
-			"English",
-		);
-		await expect.element(screen.getByRole("option", { name: "Spanish" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("combobox", { name: "Language" }))
+			.toBeVisible();
+		await expect
+			.element(screen.getByLabelText("Selected language"))
+			.toHaveTextContent("English");
+		await expect
+			.element(screen.getByRole("option", { name: "Spanish" }))
+			.toBeVisible();
 		await screen.getByRole("option", { name: "Spanish" }).click();
-		await expect.element(screen.getByRole("combobox", { name: "Language" })).toHaveTextContent(
-			"Spanish",
-		);
-		await expect.element(screen.getByLabelText("Selected language")).toHaveTextContent(
-			"Spanish",
-		);
+		await expect
+			.element(screen.getByRole("combobox", { name: "Language" }))
+			.toHaveTextContent("Spanish");
+		await expect
+			.element(screen.getByLabelText("Selected language"))
+			.toHaveTextContent("Spanish");
 	});
 });

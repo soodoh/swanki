@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { NoteTable } from "./note-table";
@@ -86,19 +86,18 @@ describe("NoteTable", () => {
 
 		const selectedRow = screen.getByText("Alpha beta").element().closest("tr");
 		await screen.getByText("Alpha beta").click();
-		await expect.element(selectedRow as Element).toHaveAttribute(
-			"data-state",
-			"selected",
-		);
+		await expect
+			.element(selectedRow as Element)
+			.toHaveAttribute("data-state", "selected");
 
 		await screen.getByRole("button", { name: "Due" }).click();
-		await expect.element(screen.getByTestId("sort-state")).toHaveTextContent(
-			"due:desc",
-		);
+		await expect
+			.element(screen.getByTestId("sort-state"))
+			.toHaveTextContent("due:desc");
 		await screen.getByRole("button", { name: "Due" }).click();
-		await expect.element(screen.getByTestId("sort-state")).toHaveTextContent(
-			"due:asc",
-		);
+		await expect
+			.element(screen.getByTestId("sort-state"))
+			.toHaveTextContent("due:asc");
 
 		await screen.getByRole("button", { name: "Next page" }).click();
 		expect(container.textContent ?? "").toContain("2 / 3");

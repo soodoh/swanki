@@ -17,7 +17,11 @@ export function createDb(dbPath: string) {
  * All service methods must use `await` on Drizzle query calls to support both modes.
  */
 // intentionally broad to accept any SQLite driver
-export type AppDb = BaseSQLiteDatabase<any, any, typeof schema>;
+export type AppDb = BaseSQLiteDatabase<
+	"sync" | "async",
+	unknown,
+	typeof schema
+>;
 
 /**
  * Interface for raw SQLite access (transactions).

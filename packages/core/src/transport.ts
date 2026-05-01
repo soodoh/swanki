@@ -9,10 +9,14 @@ export interface AppTransport {
 	): Promise<T>;
 }
 
-const TransportContext = createContext<AppTransport>(null!);
+const TransportContext = createContext<AppTransport | undefined>(undefined);
 
 export function useTransport(): AppTransport {
-	return useContext(TransportContext);
+	const transport = useContext(TransportContext);
+	if (!transport) {
+		throw new Error("useTransport must be used within TransportProvider");
+	}
+	return transport;
 }
 
 export const TransportProvider = TransportContext.Provider;

@@ -29,10 +29,14 @@ describe("Card", () => {
 		await expect
 			.element(screen.container.querySelector(".test-card") as Element)
 			.toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Edit" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("button", { name: "Edit" }))
+			.toBeVisible();
 		await expect.element(screen.getByText("Daily review")).toBeVisible();
 		await expect.element(screen.getByText("3 cards due")).toBeVisible();
-		await expect.element(screen.getByText("Review the current deck.")).toBeVisible();
+		await expect
+			.element(screen.getByText("Review the current deck."))
+			.toBeVisible();
 		await expect.element(screen.getByText("Footer actions")).toBeVisible();
 		expect(
 			screen.container.querySelector('[data-slot="card-title"]')?.textContent,
@@ -41,7 +45,8 @@ describe("Card", () => {
 			screen.container.querySelector('[data-slot="card-header"]')?.textContent,
 		).toContain("Daily review");
 		expect(
-			screen.container.querySelector('[data-slot="card-description"]')?.textContent,
+			screen.container.querySelector('[data-slot="card-description"]')
+				?.textContent,
 		).toContain("3 cards due");
 		expect(
 			screen.container.querySelector('[data-slot="card-action"]')?.textContent,

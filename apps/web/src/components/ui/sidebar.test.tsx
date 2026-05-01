@@ -1,11 +1,7 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import {
-	Sidebar,
-	SidebarProvider,
-	SidebarTrigger,
-} from "./sidebar";
-import { useState } from "react";
+import { Sidebar, SidebarProvider, SidebarTrigger } from "./sidebar";
 
 const { isMobile, setCookie } = vi.hoisted(() => ({
 	isMobile: vi.fn(() => false),

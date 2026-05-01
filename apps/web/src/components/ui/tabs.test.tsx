@@ -17,10 +17,9 @@ describe("Tabs", () => {
 		);
 
 		await expect.element(screen.getByText("Deck content")).toBeVisible();
-		await expect.element(screen.getByRole("tab", { name: "Deck" })).toHaveAttribute(
-			"aria-selected",
-			"true",
-		);
+		await expect
+			.element(screen.getByRole("tab", { name: "Deck" }))
+			.toHaveAttribute("aria-selected", "true");
 	});
 
 	it("switches tabs through the wrapper contract", async () => {

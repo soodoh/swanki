@@ -13,7 +13,11 @@ describe("DropdownMenu", () => {
 		const screen = await render(
 			<DropdownMenu open>
 				<DropdownMenuTrigger
-					render={<button type="button" aria-label="Actions">Actions</button>}
+					render={
+						<button type="button" aria-label="Actions">
+							Actions
+						</button>
+					}
 				/>
 				<DropdownMenuContent>
 					<DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
@@ -21,7 +25,9 @@ describe("DropdownMenu", () => {
 			</DropdownMenu>,
 		);
 
-		await expect.element(screen.getByRole("menuitem", { name: "Rename" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("menuitem", { name: "Rename" }))
+			.toBeVisible();
 		await screen.getByRole("menuitem", { name: "Rename" }).click();
 		expect(onRename).toHaveBeenCalled();
 	});

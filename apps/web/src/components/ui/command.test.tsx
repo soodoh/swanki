@@ -36,14 +36,18 @@ describe("Command", () => {
 		);
 
 		await expect.element(screen.getByRole("dialog")).toBeVisible();
-		await expect.element(screen.getByRole("dialog")).toHaveAccessibleName(
-			"Command Palette",
-		);
-		await expect.element(screen.getByRole("dialog")).toHaveAccessibleDescription(
-			"Find something",
-		);
-		await expect.element(screen.getByPlaceholder("Search commands")).toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Close" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("dialog"))
+			.toHaveAccessibleName("Command Palette");
+		await expect
+			.element(screen.getByRole("dialog"))
+			.toHaveAccessibleDescription("Find something");
+		await expect
+			.element(screen.getByPlaceholder("Search commands"))
+			.toBeVisible();
+		await expect
+			.element(screen.getByRole("button", { name: "Close" }))
+			.toBeVisible();
 		await expect.element(screen.getByText("Decks")).toBeVisible();
 		await expect.element(screen.getByText("⌘K")).toBeVisible();
 	});

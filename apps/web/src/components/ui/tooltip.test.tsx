@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "./tooltip";
 
 describe("Tooltip", () => {
 	it("shows the portal content when open", async () => {
@@ -13,7 +18,9 @@ describe("Tooltip", () => {
 			</TooltipProvider>,
 		);
 
-		expect(document.body.querySelector('[data-slot="tooltip-content"]')).toBeTruthy();
+		expect(
+			document.body.querySelector('[data-slot="tooltip-content"]'),
+		).toBeTruthy();
 		await expect.element(screen.getByText("Helpful text")).toBeVisible();
 	});
 });

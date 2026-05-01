@@ -4,13 +4,7 @@ import { renderWithProviders } from "@/__tests__/browser/render";
 import { ProgressStep } from "./progress-step";
 
 vi.mock("@/components/ui/progress", () => ({
-	Progress: ({
-		value,
-		children,
-	}: {
-		value: number;
-		children?: ReactNode;
-	}) => (
+	Progress: ({ value, children }: { value: number; children?: ReactNode }) => (
 		<div data-testid="progress" data-value={value}>
 			{children}
 		</div>
@@ -49,7 +43,9 @@ describe("ProgressStep", () => {
 
 		await expect.element(screen.getByText("Importing...")).toBeVisible();
 		await expect.element(screen.getByText("Importing notes")).toBeVisible();
-		await expect.element(screen.getByText("Reading package data")).toBeVisible();
+		await expect
+			.element(screen.getByText("Reading package data"))
+			.toBeVisible();
 		await expect.element(screen.getByText("45%")).toBeVisible();
 	});
 
@@ -77,7 +73,9 @@ describe("ProgressStep", () => {
 		await expect.element(screen.getByText("Cards imported")).toBeVisible();
 		await expect.element(screen.getByText("Notes updated")).toBeVisible();
 		await expect.element(screen.getByText("Media files")).toBeVisible();
-		await expect.element(screen.getByText("Skipped malformed row")).toBeVisible();
+		await expect
+			.element(screen.getByText("Skipped malformed row"))
+			.toBeVisible();
 
 		await screen.getByRole("button", { name: "Import Another" }).click();
 

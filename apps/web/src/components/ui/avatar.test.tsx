@@ -43,10 +43,16 @@ describe("Avatar", () => {
 			.element(screen.container.querySelector(".test-avatar") as Element)
 			.toBeVisible();
 		await expect
-			.element(screen.container.querySelector('[data-slot="avatar-badge"]') as Element)
+			.element(
+				screen.container.querySelector('[data-slot="avatar-badge"]') as Element,
+			)
 			.toHaveTextContent("1");
 		await expect
-			.element(screen.container.querySelector('[data-slot="avatar-group-count"]') as Element)
+			.element(
+				screen.container.querySelector(
+					'[data-slot="avatar-group-count"]',
+				) as Element,
+			)
 			.toHaveTextContent("+2");
 	});
 
@@ -78,7 +84,11 @@ describe("Avatar", () => {
 			);
 
 			await expect
-				.element(screen.container.querySelector('[data-slot="avatar-image"]') as Element)
+				.element(
+					screen.container.querySelector(
+						'[data-slot="avatar-image"]',
+					) as Element,
+				)
 				.toBeVisible();
 			expect(document.body.textContent ?? "").not.toContain("JD");
 		} finally {

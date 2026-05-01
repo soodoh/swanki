@@ -23,7 +23,9 @@ describe("Collapsible", () => {
 		const screen = await render(<Harness />);
 
 		const trigger = screen.getByRole("button", { name: "More details" });
-		await expect.element(trigger).toHaveAttribute("data-slot", "collapsible-trigger");
+		await expect
+			.element(trigger)
+			.toHaveAttribute("data-slot", "collapsible-trigger");
 		await expect.element(trigger).toHaveAttribute("aria-expanded", "false");
 
 		await trigger.click();

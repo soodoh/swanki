@@ -25,16 +25,17 @@ describe("Sheet", () => {
 
 		const screen = await render(renderSheet(false));
 
-		await expect.element(screen.getByRole("button", { name: "Open sheet" })).toHaveAttribute(
-			"data-slot",
-			"sheet-trigger",
-		);
+		await expect
+			.element(screen.getByRole("button", { name: "Open sheet" }))
+			.toHaveAttribute("data-slot", "sheet-trigger");
 		expect(document.body.textContent ?? "").not.toContain("Filters");
 
 		await screen.rerender(renderSheet(true));
 
 		await expect.element(screen.getByRole("dialog")).toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Close" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("button", { name: "Close" }))
+			.toBeVisible();
 		await expect.element(screen.getByText("Filters")).toBeVisible();
 		await expect.element(screen.getByText("Refine the list.")).toBeVisible();
 	});

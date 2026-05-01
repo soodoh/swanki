@@ -18,7 +18,9 @@ describe("ScrollArea", () => {
 		await expect.element(screen.getByText("Row 1")).toBeVisible();
 		await expect.element(screen.getByText("Row 2")).toBeVisible();
 		await expect
-			.element(screen.container.querySelector('[data-slot="scroll-area"]') as Element)
+			.element(
+				screen.container.querySelector('[data-slot="scroll-area"]') as Element,
+			)
 			.toHaveAttribute("data-slot", "scroll-area");
 		await expect
 			.element(
@@ -49,7 +51,11 @@ describe("ScrollArea", () => {
 
 		await expect.element(screen.getByText("Wide row")).toBeVisible();
 		await expect
-			.element(screen.container.querySelector('[data-slot="scroll-area-scrollbar"]') as Element)
+			.element(
+				screen.container.querySelector(
+					'[data-slot="scroll-area-scrollbar"]',
+				) as Element,
+			)
 			.toHaveAttribute("data-orientation", "horizontal");
 	});
 });

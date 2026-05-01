@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "@/__tests__/browser/render";
 import { UploadStep } from "./upload-step";
@@ -23,7 +23,9 @@ function Harness(): ReactElement {
 describe("UploadStep", () => {
 	it("accepts a supported file selection and clears it", async () => {
 		const screen = await renderWithProviders(<Harness />);
-		const input = screen.getByLabelText("Import file").element() as HTMLInputElement;
+		const input = screen
+			.getByLabelText("Import file")
+			.element() as HTMLInputElement;
 		const file = new File(["Front,Back"], "notes.csv", { type: "text/csv" });
 
 		Object.defineProperty(input, "files", {
@@ -34,15 +36,15 @@ describe("UploadStep", () => {
 		input.dispatchEvent(new Event("change", { bubbles: true }));
 
 		await expect.element(screen.getByText("notes.csv")).toBeVisible();
-		await expect.element(screen.getByTestId("format-state")).toHaveTextContent(
-			"csv",
-		);
+		await expect
+			.element(screen.getByTestId("format-state"))
+			.toHaveTextContent("csv");
 
 		await screen.getByRole("button", { name: "Clear selected file" }).click();
 
-		await expect.element(screen.getByTestId("format-state")).toHaveTextContent(
-			"(none)",
-		);
+		await expect
+			.element(screen.getByTestId("format-state"))
+			.toHaveTextContent("(none)");
 		expect(document.body.textContent ?? "").not.toContain("notes.csv");
 	});
 });

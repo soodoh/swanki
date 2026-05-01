@@ -38,8 +38,12 @@ describe("FieldAttachments", () => {
 			"/api/media/cover.png",
 		);
 		await expect.element(screen.getByText("cover.png")).toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Replace" })).toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Delete" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("button", { name: "Replace" }))
+			.toBeVisible();
+		await expect
+			.element(screen.getByRole("button", { name: "Delete" }))
+			.toBeVisible();
 
 		await screen.getByRole("button", { name: "Delete" }).click();
 

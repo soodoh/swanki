@@ -38,7 +38,9 @@ describe("ReviewHeatmap", () => {
 
 		const screen = await renderWithProviders(<ReviewHeatmap year={2026} />);
 
-		await expect.element(screen.getByText("Review Activity (2026)")).toBeVisible();
+		await expect
+			.element(screen.getByText("Review Activity (2026)"))
+			.toBeVisible();
 		await expect.element(screen.getByText("Jan")).toBeVisible();
 		await expect.element(screen.getByText("Apr")).toBeVisible();
 		await expect.element(screen.getByText("Dec")).toBeVisible();

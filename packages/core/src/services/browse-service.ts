@@ -147,7 +147,7 @@ function buildWhereClause(node: SearchNode, userId: string): SQL {
 		return userCondition;
 	}
 
-	return and(userCondition, filterCondition)!;
+	return and(userCondition, filterCondition) ?? userCondition;
 }
 
 export class BrowseService {

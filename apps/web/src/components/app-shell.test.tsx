@@ -15,9 +15,7 @@ describe("AppShell", () => {
 
 	it("cycles the theme button through light, dark, and system modes", async () => {
 		const screen = await renderWithProviders(
-			<AppShell
-				user={{ name: "Test User", email: "test@example.com" }}
-			>
+			<AppShell user={{ name: "Test User", email: "test@example.com" }}>
 				<div>Dashboard body</div>
 			</AppShell>,
 			{ initialTheme: "light" },

@@ -18,12 +18,16 @@ describe("InputGroup", () => {
 		);
 
 		const input = screen.getByRole("textbox", { name: "Amount" });
-		screen.container.querySelector('[data-slot="input-group-addon"]')?.dispatchEvent(
-			new MouseEvent("click", { bubbles: true }),
-		);
+		screen.container
+			.querySelector('[data-slot="input-group-addon"]')
+			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 		await expect.element(input).toHaveFocus();
-		await expect.element(input).toHaveAttribute("data-slot", "input-group-control");
-		const element = screen.container.querySelector('[data-slot="input-group-control"]') as HTMLInputElement;
+		await expect
+			.element(input)
+			.toHaveAttribute("data-slot", "input-group-control");
+		const element = screen.container.querySelector(
+			'[data-slot="input-group-control"]',
+		) as HTMLInputElement;
 		expect(element.className).toContain("rounded-none");
 	});
 });

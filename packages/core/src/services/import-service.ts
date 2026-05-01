@@ -778,7 +778,8 @@ export class ImportService {
 		hierarchyCache: Map<string, string>,
 	): Promise<string> {
 		// intentionally matching Anki's U+001F separator
-		const normalized = fullName.replace(/\u001F/g, "::");
+		const ankiDeckSeparator = String.fromCharCode(31);
+		const normalized = fullName.split(ankiDeckSeparator).join("::");
 		const segments = normalized
 			.split("::")
 			.map((s) => s.trim())
@@ -836,7 +837,11 @@ export class ImportService {
 			currentParentId = deck.id;
 		}
 
-		return currentParentId!;
+		if (!currentParentId) {
+			throw new Error("Failed to resolve deck hierarchy");
+		}
+
+		return currentParentId;
 	}
 
 	private async linkNoteMedia(
@@ -1206,18 +1211,27 @@ export class ImportService {
 				await this.db
 					.insert(cards)
 					.values(
-						batch.map((cv) => ({
-							noteId: noteMap.get(cv.ankiNoteId)!,
-							deckId: cv.deckId,
-							templateId: cv.templateId,
-							ordinal: cv.ordinal,
-							state: cv.state,
-							due: now,
-							reps: cv.reps,
-							lapses: cv.lapses,
-							createdAt: now,
-							updatedAt: now,
-						})),
+						batch.map((cv) => {
+							const noteId = noteMap.get(cv.ankiNoteId);
+							if (!noteId) {
+								throw new Error(
+									`Imported note not found for Anki note ${cv.ankiNoteId}`,
+								);
+							}
+
+							return {
+								noteId,
+								deckId: cv.deckId,
+								templateId: cv.templateId,
+								ordinal: cv.ordinal,
+								state: cv.state,
+								due: now,
+								reps: cv.reps,
+								lapses: cv.lapses,
+								createdAt: now,
+								updatedAt: now,
+							};
+						}),
 					)
 					.run();
 

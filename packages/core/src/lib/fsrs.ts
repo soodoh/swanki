@@ -78,6 +78,11 @@ function toFsrsCard(card: DbCard): FsrsCard {
 }
 
 function fromFsrsResult(item: RecordLogItem): FsrsResult {
+	const lastReview = item.card.last_review;
+	if (!lastReview) {
+		throw new Error("FSRS result is missing last review date");
+	}
+
 	return {
 		card: {
 			due: item.card.due,
@@ -89,7 +94,7 @@ function fromFsrsResult(item: RecordLogItem): FsrsResult {
 			reps: item.card.reps,
 			lapses: item.card.lapses,
 			state: item.card.state as number,
-			lastReview: item.card.last_review!,
+			lastReview,
 		},
 		log: {
 			rating: item.log.rating as number,

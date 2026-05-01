@@ -27,8 +27,12 @@ describe("CardDisplay", () => {
 			/>,
 		);
 
-		await expect.element(container.querySelector("strong") as Element).toBeVisible();
-		await expect.element(container.querySelector("button") as Element).toBeVisible();
+		await expect
+			.element(container.querySelector("strong") as Element)
+			.toBeVisible();
+		await expect
+			.element(container.querySelector("button") as Element)
+			.toBeVisible();
 		expect(container.querySelector("script")).toBeNull();
 
 		container.querySelector("button")?.click();
@@ -45,7 +49,9 @@ describe("CardDisplay", () => {
 			/>,
 		);
 
-		await expect.element(container.querySelector("em") as Element).toBeVisible();
+		await expect
+			.element(container.querySelector("em") as Element)
+			.toBeVisible();
 		expect(container.querySelector("button")).toBeNull();
 	});
 });

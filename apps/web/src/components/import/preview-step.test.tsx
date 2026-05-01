@@ -4,13 +4,15 @@ import type { ApkgPreviewData } from "@/lib/import/apkg-parser-client";
 import { PreviewStep } from "./preview-step";
 
 vi.mock("@/components/ui/carousel", () => ({
-	Carousel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-	CarouselContent: ({
-		children,
-	}: {
-		children: React.ReactNode;
-	}) => <div>{children}</div>,
-	CarouselItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+	Carousel: ({ children }: { children: React.ReactNode }) => (
+		<div>{children}</div>
+	),
+	CarouselContent: ({ children }: { children: React.ReactNode }) => (
+		<div>{children}</div>
+	),
+	CarouselItem: ({ children }: { children: React.ReactNode }) => (
+		<div>{children}</div>
+	),
 	CarouselPrevious: () => <button type="button">Previous</button>,
 	CarouselNext: () => <button type="button">Next</button>,
 	useCarousel: () => ({ api: undefined }),
@@ -70,10 +72,14 @@ describe("PreviewStep", () => {
 			/>,
 		);
 
-		await expect.element(screen.getByText("Sample (2 of 2 cards)")).toBeVisible();
+		await expect
+			.element(screen.getByText("Sample (2 of 2 cards)"))
+			.toBeVisible();
 		await expect.element(screen.getByText("Hola")).toBeVisible();
 		await expect.element(screen.getByText("Goodbye")).toBeVisible();
-		await expect.element(screen.getByText("1 duplicate detected")).toBeVisible();
+		await expect
+			.element(screen.getByText("1 duplicate detected"))
+			.toBeVisible();
 		await expect.element(screen.getByText("notes.csv")).toBeVisible();
 	});
 
@@ -89,13 +95,19 @@ describe("PreviewStep", () => {
 			/>,
 		);
 
-		await expect.element(screen.getByText("Card 1 of 1 samples (1 total notes)")).toBeVisible();
+		await expect
+			.element(screen.getByText("Card 1 of 1 samples (1 total notes)"))
+			.toBeVisible();
 		await expect.element(screen.getByText("Hola")).toBeVisible();
 		await expect
-			.element(screen.getByText("Media files (images, audio) will display after import."))
+			.element(
+				screen.getByText(
+					"Media files (images, audio) will display after import.",
+				),
+			)
 			.toBeVisible();
-		await expect.element(
-			screen.getByText("1 note has changed and will be updated."),
-		).toBeVisible();
+		await expect
+			.element(screen.getByText("1 note has changed and will be updated."))
+			.toBeVisible();
 	});
 });

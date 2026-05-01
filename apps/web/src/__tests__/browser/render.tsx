@@ -14,10 +14,7 @@ export function renderWithProviders(
 	ui: ReactElement,
 	options: RenderWithProvidersOptions = {},
 ) {
-	const {
-		initialTheme = "system",
-		platform = "web",
-	} = options;
+	const { initialTheme = "system", platform = "web" } = options;
 
 	const queryClient = new QueryClient({
 		defaultOptions: {

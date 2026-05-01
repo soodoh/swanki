@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/__tests__/browser/render";
 import { CustomStudyDialog } from "./custom-study-dialog";
 
@@ -42,11 +42,7 @@ vi.mock("@/components/ui/dialog", async () => {
 				</DialogContext.Provider>
 			);
 		},
-		DialogTrigger: ({
-			render,
-		}: {
-			render: ReactElement;
-		}): ReactElement => {
+		DialogTrigger: ({ render }: { render: ReactElement }): ReactElement => {
 			const context = React.useContext(DialogContext);
 
 			if (!context) {
@@ -116,9 +112,9 @@ describe("CustomStudyDialog", () => {
 			<CustomStudyDialog onStart={onStart} />,
 		);
 
-		await expect.element(
-			screen.getByRole("button", { name: "Custom Study" }),
-		).toBeVisible();
+		await expect
+			.element(screen.getByRole("button", { name: "Custom Study" }))
+			.toBeVisible();
 
 		await screen.getByRole("button", { name: "Custom Study" }).click();
 
@@ -126,7 +122,11 @@ describe("CustomStudyDialog", () => {
 			.element(screen.getByRole("heading", { name: "Custom Study Session" }))
 			.toBeVisible();
 		await expect
-			.element(screen.getByText("Configure a custom study session with modified settings."))
+			.element(
+				screen.getByText(
+					"Configure a custom study session with modified settings.",
+				),
+			)
 			.toBeVisible();
 
 		await screen.getByLabelText("Days ahead").fill("7");
@@ -137,7 +137,9 @@ describe("CustomStudyDialog", () => {
 		expect(onStart).toHaveBeenCalledWith({
 			studyAhead: 7,
 		});
-		expect(document.body.textContent ?? "").not.toContain("Custom Study Session");
+		expect(document.body.textContent ?? "").not.toContain(
+			"Custom Study Session",
+		);
 	});
 
 	it("submits the extra-new mode payload", async () => {
