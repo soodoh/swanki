@@ -346,9 +346,12 @@ export class StudyService {
 
 		// Reload the card to get the updated version with noteFields
 		const updated = await this.cardService.getById(cardId, userId);
+		if (!updated) {
+			throw new Error("Updated card not found");
+		}
 
 		return {
-			card: updated!,
+			card: updated,
 			fsrs: result,
 		};
 	}

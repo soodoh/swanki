@@ -44,7 +44,9 @@ describe("CssCodeEditor", () => {
 			<CssCodeEditor value="" onChange={onChange} />,
 		);
 
-		await screen.getByLabelText("CSS code editor").fill(".card { color: blue; }");
+		await screen
+			.getByLabelText("CSS code editor")
+			.fill(".card { color: blue; }");
 
 		expect(onChange).toHaveBeenLastCalledWith(".card { color: blue; }");
 	});

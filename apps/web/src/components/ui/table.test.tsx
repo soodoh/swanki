@@ -31,10 +31,14 @@ describe("Table", () => {
 		);
 
 		const table = screen.getByRole("table");
-		const element = screen.container.querySelector('[data-slot="table"]') as HTMLTableElement;
+		const element = screen.container.querySelector(
+			'[data-slot="table"]',
+		) as HTMLTableElement;
 		await expect.element(table).toHaveAttribute("data-slot", "table");
 		await expect.element(screen.getByText("Deck summary")).toBeVisible();
 		expect(element.className).toContain("text-xs");
-		expect(screen.container.querySelector('[data-slot="table-container"]')).toBeTruthy();
+		expect(
+			screen.container.querySelector('[data-slot="table-container"]'),
+		).toBeTruthy();
 	});
 });

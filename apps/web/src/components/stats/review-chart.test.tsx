@@ -57,6 +57,8 @@ describe("ReviewChart", () => {
 		const screen = await renderWithProviders(<ReviewChart days={7} />);
 
 		await expect.element(screen.getByText(formattedDate)).toBeVisible();
-		expect(document.body.textContent ?? "").not.toContain("No review data yet.");
+		expect(document.body.textContent ?? "").not.toContain(
+			"No review data yet.",
+		);
 	});
 });

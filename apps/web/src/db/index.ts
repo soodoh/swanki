@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
+
+import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { Database } from "bun:sqlite";
 import * as schema from "@swanki/core/db/schema";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 

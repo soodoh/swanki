@@ -1,10 +1,7 @@
-import { useState, type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/__tests__/browser/render";
-import {
-	type ImportConfig,
-	ConfigureStep,
-} from "./configure-step";
+import { ConfigureStep, type ImportConfig } from "./configure-step";
 
 const configureMocks = vi.hoisted(() => ({
 	useDecks: vi.fn(),
@@ -93,11 +90,7 @@ vi.mock("@/components/ui/select", async () => {
 				</button>
 			);
 		},
-		SelectValue: ({
-			placeholder,
-		}: {
-			placeholder?: string;
-		}): ReactElement => {
+		SelectValue: ({ placeholder }: { placeholder?: string }): ReactElement => {
 			const context = React.useContext(SelectContext);
 			return <span>{context?.value || placeholder || ""}</span>;
 		},
@@ -209,26 +202,28 @@ describe("ConfigureStep", () => {
 
 		await screen.getByRole("button", { name: "CSV delimiter" }).click();
 		await screen.getByRole("option", { name: "Semicolon (;)" }).click();
-		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
-			'"delimiter":";"',
-		);
+		await expect
+			.element(screen.getByTestId("config-state"))
+			.toHaveTextContent('"delimiter":";"');
 
-		await screen.getByRole("button", { name: "Field mapping for Back" }).click();
+		await screen
+			.getByRole("button", { name: "Field mapping for Back" })
+			.click();
 		await screen.getByRole("option", { name: "Extra" }).click();
-		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
-			'"1":"Extra"',
-		);
+		await expect
+			.element(screen.getByTestId("config-state"))
+			.toHaveTextContent('"1":"Extra"');
 
 		await screen.getByLabelText("First row is header").click();
-		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
-			'"hasHeader":false',
-		);
+		await expect
+			.element(screen.getByTestId("config-state"))
+			.toHaveTextContent('"hasHeader":false');
 
 		await screen.getByRole("button", { name: "Existing deck" }).click();
 		await screen.getByRole("option", { name: "Spanish" }).click();
-		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
-			'"targetDeck":"Spanish"',
-		);
+		await expect
+			.element(screen.getByTestId("config-state"))
+			.toHaveTextContent('"targetDeck":"Spanish"');
 	});
 
 	it("switches APKG import mode between merge and create", async () => {
@@ -238,8 +233,8 @@ describe("ConfigureStep", () => {
 		await expect.element(screen.getByText("spanish")).toBeVisible();
 		await screen.getByRole("checkbox", { name: /create new/i }).click();
 
-		await expect.element(screen.getByTestId("config-state")).toHaveTextContent(
-			'"mergeMode":"create"',
-		);
+		await expect
+			.element(screen.getByTestId("config-state"))
+			.toHaveTextContent('"mergeMode":"create"');
 	});
 });

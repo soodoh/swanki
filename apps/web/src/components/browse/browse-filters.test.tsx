@@ -1,4 +1,4 @@
-import { useState, type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/__tests__/browser/render";
 import { BrowseFilters } from "./browse-filters";
@@ -51,11 +51,7 @@ vi.mock("@/components/ui/select", async () => {
 				</SelectContext.Provider>
 			);
 		},
-		SelectTrigger: ({
-			children,
-		}: {
-			children: ReactNode;
-		}): ReactElement => {
+		SelectTrigger: ({ children }: { children: ReactNode }): ReactElement => {
 			const context = React.useContext(SelectContext);
 
 			if (!context) {
@@ -118,10 +114,7 @@ function Harness({
 			<BrowseFilters
 				searchQuery={query}
 				onSearchChange={setQuery}
-				notes={[
-					{ tags: "verbs grammar" },
-					{ tags: "verbs" },
-				] as never}
+				notes={[{ tags: "verbs grammar" }, { tags: "verbs" }] as never}
 			/>
 			<output data-testid="query">{query || "(empty)"}</output>
 		</div>
@@ -169,36 +162,36 @@ describe("BrowseFilters", () => {
 	it("updates the search query when deck, note type, state, and tag filters are toggled", async () => {
 		const screen = await renderWithProviders(<Harness />);
 
-		await expect.element(screen.getByTestId("query")).toHaveTextContent(
-			"(empty)",
-		);
+		await expect
+			.element(screen.getByTestId("query"))
+			.toHaveTextContent("(empty)");
 
 		await screen.getByText("verbs").click();
-		await expect.element(screen.getByTestId("query")).toHaveTextContent(
-			"tag:verbs",
-		);
+		await expect
+			.element(screen.getByTestId("query"))
+			.toHaveTextContent("tag:verbs");
 
 		await screen.getByRole("button", { name: "new" }).click();
-		await expect.element(screen.getByTestId("query")).toHaveTextContent(
-			"tag:verbs is:new",
-		);
+		await expect
+			.element(screen.getByTestId("query"))
+			.toHaveTextContent("tag:verbs is:new");
 
 		await screen.getByRole("button", { name: "All Decks" }).click();
 		await screen.getByRole("option", { name: "Spanish" }).click();
-		await expect.element(screen.getByTestId("query")).toHaveTextContent(
-			"tag:verbs is:new deck:Spanish",
-		);
+		await expect
+			.element(screen.getByTestId("query"))
+			.toHaveTextContent("tag:verbs is:new deck:Spanish");
 
 		await screen.getByRole("button", { name: "All Types" }).click();
 		await screen.getByRole("option", { name: "Basic" }).click();
-		await expect.element(screen.getByTestId("query")).toHaveTextContent(
-			"tag:verbs is:new deck:Spanish notetype:Basic",
-		);
+		await expect
+			.element(screen.getByTestId("query"))
+			.toHaveTextContent("tag:verbs is:new deck:Spanish notetype:Basic");
 
 		await screen.getByRole("button", { name: "Spanish" }).click();
 		await screen.getByRole("option", { name: "All Decks" }).click();
-		await expect.element(screen.getByTestId("query")).toHaveTextContent(
-			"tag:verbs is:new notetype:Basic",
-		);
+		await expect
+			.element(screen.getByTestId("query"))
+			.toHaveTextContent("tag:verbs is:new notetype:Basic");
 	});
 });

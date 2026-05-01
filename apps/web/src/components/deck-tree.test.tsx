@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ForwardedRef, ReactElement, ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/__tests__/browser/render";
 import { DeckTree } from "./deck-tree";
 
@@ -62,9 +62,7 @@ vi.mock("@tanstack/react-router", () => ({
 		className?: string;
 		ref?: ForwardedRef<HTMLAnchorElement>;
 	}) => {
-		const href = params?.deckId
-			? to.replace("$deckId", params.deckId)
-			: to;
+		const href = params?.deckId ? to.replace("$deckId", params.deckId) : to;
 		return (
 			<a href={href} className={className} ref={ref} {...props}>
 				{children}
@@ -81,7 +79,9 @@ vi.mock("@/components/ui/dropdown-menu", async () => {
 		setOpen: (open: boolean) => void;
 	};
 
-	const DropdownContext = React.createContext<DropdownContextValue | null>(null);
+	const DropdownContext = React.createContext<DropdownContextValue | null>(
+		null,
+	);
 
 	return {
 		DropdownMenu: ({ children }: { children: ReactNode }): ReactElement => {
@@ -168,11 +168,7 @@ vi.mock("@/components/ui/dialog", async () => {
 				</DialogContext.Provider>
 			);
 		},
-		DialogTrigger: ({
-			render,
-		}: {
-			render: ReactElement;
-		}): ReactElement => {
+		DialogTrigger: ({ render }: { render: ReactElement }): ReactElement => {
 			const context = React.useContext(DialogContext);
 			if (!context) {
 				throw new Error("DialogTrigger must be used within Dialog");
@@ -272,12 +268,12 @@ describe("DeckTree", () => {
 	});
 
 	it("collapses nested decks and saves deck options with string parent ids", async () => {
-		const screen = await renderWithProviders(<DeckTree decks={decks as never} />);
+		const screen = await renderWithProviders(
+			<DeckTree decks={decks as never} />,
+		);
 
 		await expect.element(screen.getByText("Verbs")).toBeVisible();
-		await screen
-			.getByRole("button", { name: "Collapse deck Spanish" })
-			.click();
+		await screen.getByRole("button", { name: "Collapse deck Spanish" }).click();
 		expect(document.body.textContent ?? "").not.toContain("Verbs");
 
 		await screen.getByRole("button", { name: "Expand deck Spanish" }).click();
@@ -301,13 +297,17 @@ describe("DeckTree", () => {
 	});
 
 	it("confirms destructive delete actions through the action menu", async () => {
-		const screen = await renderWithProviders(<DeckTree decks={decks as never} />);
+		const screen = await renderWithProviders(
+			<DeckTree decks={decks as never} />,
+		);
 
 		await screen
 			.getByRole("button", { name: "Deck actions for French" })
 			.click();
 		await screen.getByRole("button", { name: "Delete" }).click();
-		await expect.element(screen.getByRole("heading", { name: "Delete Deck" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("heading", { name: "Delete Deck" }))
+			.toBeVisible();
 		await screen
 			.getByRole("button", { name: "Confirm delete deck French" })
 			.click();

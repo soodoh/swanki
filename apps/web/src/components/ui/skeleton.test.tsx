@@ -14,9 +14,8 @@ describe("Skeleton", () => {
 
 		const skeleton = screen.getByLabelText("Loading deck");
 		await expect.element(skeleton).toHaveClass(/test-skeleton/);
-		await expect.element(skeleton).toHaveAttribute(
-			"style",
-			"width: 96px; height: 16px;",
-		);
+		await expect
+			.element(skeleton)
+			.toHaveAttribute("style", "width: 96px; height: 16px;");
 	});
 });

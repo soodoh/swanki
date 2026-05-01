@@ -22,9 +22,9 @@ const tabsMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/hooks/use-note-types", async () => {
-	const actual = await vi.importActual<typeof import("@/lib/hooks/use-note-types")>(
-		"@/lib/hooks/use-note-types",
-	);
+	const actual = await vi.importActual<
+		typeof import("@/lib/hooks/use-note-types")
+	>("@/lib/hooks/use-note-types");
 
 	return {
 		...actual,
@@ -62,7 +62,9 @@ vi.mock("@/components/template-code-editor", () => ({
 		isAnswerTemplate?: boolean;
 	}): React.ReactElement => (
 		<textarea
-			aria-label={isAnswerTemplate ? "Answer template editor" : "Question template editor"}
+			aria-label={
+				isAnswerTemplate ? "Answer template editor" : "Question template editor"
+			}
 			value={value}
 			onInput={(event) => onChange(event.currentTarget.value)}
 			readOnly={false}
@@ -236,7 +238,9 @@ describe("note-type-editor-tabs", () => {
 		const saveButton = screen.getByRole("button", { name: "Save CSS" });
 		await expect.element(saveButton).toBeDisabled();
 
-		await screen.getByLabelText("CSS code editor").fill(".card { color: blue; }");
+		await screen
+			.getByLabelText("CSS code editor")
+			.fill(".card { color: blue; }");
 		await expect.element(saveButton).toBeEnabled();
 
 		await saveButton.click();

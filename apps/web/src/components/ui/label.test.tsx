@@ -18,6 +18,8 @@ describe("Label", () => {
 		await expect.element(label).toHaveAttribute("for", "deck-name");
 		await expect.element(input).toHaveValue("Spanish");
 		await label.click();
-		expect(document.activeElement).toBe(screen.container.querySelector("#deck-name"));
+		expect(document.activeElement).toBe(
+			screen.container.querySelector("#deck-name"),
+		);
 	});
 });

@@ -27,10 +27,9 @@ describe("Carousel", () => {
 		);
 
 		await expect.element(screen.getByText("One")).toBeVisible();
-		await expect.element(screen.getByRole("button", { name: "Previous slide" })).toHaveAttribute(
-			"disabled",
-			"",
-		);
+		await expect
+			.element(screen.getByRole("button", { name: "Previous slide" }))
+			.toHaveAttribute("disabled", "");
 		await vi.waitFor(() => {
 			expect(setApi).toHaveBeenCalledTimes(1);
 		});

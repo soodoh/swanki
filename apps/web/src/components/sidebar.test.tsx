@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactElement, ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/__tests__/browser/render";
 import { AppSidebar } from "./sidebar";
 
@@ -40,17 +40,33 @@ vi.mock("@/components/ui/sidebar", async () => {
 	const React = await import("react");
 
 	return {
-		Sidebar: ({ children }: { children: ReactNode }) => <aside>{children}</aside>,
-		SidebarContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-		SidebarFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-		SidebarGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+		Sidebar: ({ children }: { children: ReactNode }) => (
+			<aside>{children}</aside>
+		),
+		SidebarContent: ({ children }: { children: ReactNode }) => (
+			<div>{children}</div>
+		),
+		SidebarFooter: ({ children }: { children: ReactNode }) => (
+			<div>{children}</div>
+		),
+		SidebarGroup: ({ children }: { children: ReactNode }) => (
+			<div>{children}</div>
+		),
 		SidebarGroupContent: ({ children }: { children: ReactNode }) => (
 			<div>{children}</div>
 		),
-		SidebarGroupLabel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-		SidebarHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-		SidebarMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-		SidebarMenuItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+		SidebarGroupLabel: ({ children }: { children: ReactNode }) => (
+			<div>{children}</div>
+		),
+		SidebarHeader: ({ children }: { children: ReactNode }) => (
+			<div>{children}</div>
+		),
+		SidebarMenu: ({ children }: { children: ReactNode }) => (
+			<div>{children}</div>
+		),
+		SidebarMenuItem: ({ children }: { children: ReactNode }) => (
+			<div>{children}</div>
+		),
 		SidebarRail: () => <div />,
 		SidebarMenuButton: ({
 			children,
@@ -72,7 +88,11 @@ vi.mock("@/components/ui/sidebar", async () => {
 				});
 			}
 			return (
-				<button type="button" data-active={isActive ? "true" : undefined} {...props}>
+				<button
+					type="button"
+					data-active={isActive ? "true" : undefined}
+					{...props}
+				>
 					{children}
 				</button>
 			);
@@ -88,7 +108,9 @@ vi.mock("@/components/ui/dropdown-menu", async () => {
 		setOpen: (open: boolean) => void;
 	};
 
-	const DropdownContext = React.createContext<DropdownContextValue | null>(null);
+	const DropdownContext = React.createContext<DropdownContextValue | null>(
+		null,
+	);
 
 	return {
 		DropdownMenu: ({ children }: { children: ReactNode }): ReactElement => {
@@ -250,10 +272,9 @@ describe("AppSidebar", () => {
 			<AppSidebar user={{ name: "Test User", email: "test@example.com" }} />,
 		);
 
-		await expect.element(screen.getByRole("link", { name: "Browse" })).toHaveAttribute(
-			"aria-current",
-			"page",
-		);
+		await expect
+			.element(screen.getByRole("link", { name: "Browse" }))
+			.toHaveAttribute("aria-current", "page");
 
 		await screen.getByRole("button", { name: /test user/i }).click();
 		await screen.getByRole("button", { name: "Sign out" }).click();
@@ -277,7 +298,9 @@ describe("AppSidebar", () => {
 		await screen.getByRole("button", { name: /test user/i }).click();
 		await screen.getByRole("button", { name: "Sign in" }).click();
 
-		await expect.element(screen.getByRole("heading", { name: "Existing Local Data" })).toBeVisible();
+		await expect
+			.element(screen.getByRole("heading", { name: "Existing Local Data" }))
+			.toBeVisible();
 		await screen.getByRole("button", { name: "Merge Data" }).click();
 
 		expect(sidebarMocks.authCompleteSignIn).toHaveBeenCalledWith({

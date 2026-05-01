@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactElement, ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/__tests__/browser/render";
 import { NoteEditorDialog } from "./note-editor-dialog";
 
@@ -75,11 +75,7 @@ vi.mock("@/components/ui/select", async () => {
 				</SelectContext.Provider>
 			);
 		},
-		SelectTrigger: ({
-			children,
-		}: {
-			children: ReactNode;
-		}): ReactElement => {
+		SelectTrigger: ({ children }: { children: ReactNode }): ReactElement => {
 			const context = React.useContext(SelectContext);
 
 			if (!context) {
@@ -156,11 +152,9 @@ vi.mock("@/components/ui/tabs", async () => {
 				</TabsContext.Provider>
 			);
 		},
-		TabsList: ({
-			children,
-		}: {
-			children: ReactNode;
-		}): ReactElement => <div>{children}</div>,
+		TabsList: ({ children }: { children: ReactNode }): ReactElement => (
+			<div>{children}</div>
+		),
 		TabsTrigger: ({
 			value,
 			children,
@@ -242,36 +236,29 @@ vi.mock("@/components/ui/dialog", async () => {
 
 			return context?.open ? <div>{children}</div> : null;
 		},
-		DialogHeader: ({
-			children,
-		}: {
-			children: ReactNode;
-		}): ReactElement => <div>{children}</div>,
-		DialogTitle: ({
-			children,
-		}: {
-			children: ReactNode;
-		}): ReactElement => <h2>{children}</h2>,
+		DialogHeader: ({ children }: { children: ReactNode }): ReactElement => (
+			<div>{children}</div>
+		),
+		DialogTitle: ({ children }: { children: ReactNode }): ReactElement => (
+			<h2>{children}</h2>
+		),
 		DialogDescription: ({
 			children,
 		}: {
 			children: ReactNode;
 		}): ReactElement => <p>{children}</p>,
-		DialogFooter: ({
-			children,
-		}: {
-			children: ReactNode;
-		}): ReactElement => <div>{children}</div>,
+		DialogFooter: ({ children }: { children: ReactNode }): ReactElement => (
+			<div>{children}</div>
+		),
 	};
 });
 
 vi.mock("@/components/browse/field-attachments", () => ({
-	FieldAttachments: ({
-		fieldValue,
-	}: {
-		fieldValue: string;
-	}): ReactElement => <div>{`Attachment:${fieldValue}`}</div>,
-	isMediaOnlyField: (value: string) => value.startsWith("[") && value.endsWith("]"),
+	FieldAttachments: ({ fieldValue }: { fieldValue: string }): ReactElement => (
+		<div>{`Attachment:${fieldValue}`}</div>
+	),
+	isMediaOnlyField: (value: string) =>
+		value.startsWith("[") && value.endsWith("]"),
 }));
 
 vi.mock("@/components/template-code-editor", () => ({
@@ -290,11 +277,9 @@ vi.mock("@/components/note-type-editor-tabs", () => ({
 	}): ReactElement => (
 		<p>{`FieldsTab:${fields.map((field) => field.name).join("|")}`}</p>
 	),
-	CardsTab: ({
-		fieldNames,
-	}: {
-		fieldNames: string[];
-	}): ReactElement => <p>{`CardsTab:${fieldNames.join("|")}`}</p>,
+	CardsTab: ({ fieldNames }: { fieldNames: string[] }): ReactElement => (
+		<p>{`CardsTab:${fieldNames.join("|")}`}</p>
+	),
 }));
 
 describe("NoteEditorDialog", () => {
@@ -413,7 +398,9 @@ describe("NoteEditorDialog", () => {
 		await expect.element(screen.getByLabelText("Back")).toHaveValue("adios");
 
 		await screen.getByRole("button", { name: "Fields" }).click();
-		await expect.element(screen.getByText("FieldsTab:Front|Back")).toBeVisible();
+		await expect
+			.element(screen.getByText("FieldsTab:Front|Back"))
+			.toBeVisible();
 
 		await screen.getByText("Note", { exact: true }).click();
 		await screen.getByLabelText("Front").fill("hola mundo");

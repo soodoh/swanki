@@ -25,9 +25,7 @@ vi.mock("@/components/note-type-editor-tabs", () => ({
 	}: {
 		name: string;
 		noteTypeId: string;
-	}): React.ReactElement => (
-		<div>{`NameEditor:${name}:${noteTypeId}`}</div>
-	),
+	}): React.ReactElement => <div>{`NameEditor:${name}:${noteTypeId}`}</div>,
 	FieldsTab: ({
 		fields,
 	}: {
@@ -102,7 +100,9 @@ describe("NoteTypeEditorDialog", () => {
 			/>,
 		);
 
-		await expect.element(screen.getByText("Loading note type...")).toBeVisible();
+		await expect
+			.element(screen.getByText("Loading note type..."))
+			.toBeVisible();
 	});
 
 	it("shows an error state when the note type query fails", async () => {

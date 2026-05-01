@@ -128,7 +128,11 @@ describe("upload-service", () => {
 		const userDir = "/uploads/user-1";
 		const expiredPath = `${userDir}/expired.apkg`;
 
-		fs.addFile(expiredPath, new Uint8Array([9, 9, 9]), now - 60 * 60 * 1000 - 1);
+		fs.addFile(
+			expiredPath,
+			new Uint8Array([9, 9, 9]),
+			now - 60 * 60 * 1000 - 1,
+		);
 
 		vi.spyOn(Date, "now").mockReturnValue(now);
 		vi.spyOn(crypto, "randomUUID").mockReturnValue("fixed-upload-id");
@@ -159,18 +163,18 @@ describe("upload-service", () => {
 	it("getUploadPath returns undefined when the user directory is missing", async () => {
 		const fs = new FakeFileSystem(["/uploads"]);
 
-		await expect(getUploadPath(fs, "/uploads", "user-1", "missing")).resolves.toBe(
-			undefined,
-		);
+		await expect(
+			getUploadPath(fs, "/uploads", "user-1", "missing"),
+		).resolves.toBe(undefined);
 	});
 
 	it("getUploadPath returns undefined when no matching upload exists", async () => {
 		const fs = new FakeFileSystem(["/uploads", "/uploads/user-1"]);
 		fs.addFile("/uploads/user-1/other-id.apkg", new Uint8Array([1]), 10);
 
-		await expect(getUploadPath(fs, "/uploads", "user-1", "missing")).resolves.toBe(
-			undefined,
-		);
+		await expect(
+			getUploadPath(fs, "/uploads", "user-1", "missing"),
+		).resolves.toBe(undefined);
 	});
 
 	it("getUploadPath resolves the stored file path when the file id matches", async () => {

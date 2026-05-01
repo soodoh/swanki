@@ -302,7 +302,10 @@ function buildTree(flatDecks: Deck[]): DeckTreeNode[] {
 
 	// Build parent-child relationships
 	for (const deck of flatDecks) {
-		const node = nodeMap.get(deck.id)!;
+		const node = nodeMap.get(deck.id);
+		if (!node) {
+			throw new Error("Deck tree node missing");
+		}
 		if (deck.parentId && nodeMap.has(deck.parentId)) {
 			nodeMap.get(deck.parentId)?.children.push(node);
 		} else {

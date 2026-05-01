@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, vi } from "vitest";
 
 class MockResizeObserver {
-	constructor(_callback: ResizeObserverCallback) {}
-
 	observe(): void {}
 
 	unobserve(): void {}
