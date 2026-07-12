@@ -71,7 +71,7 @@
 		"react-dom": "^19.1.0",
 		"tailwind-merge": "^3.5.0",
 		"tailwindcss": "^4.2.1",
-		"typescript": "^6.0.3",
+		"typescript": "^7.0.2",
 		"vite": "^8.1.4",
 		"vite-tsconfig-paths": "^6.1.1"
 	}
