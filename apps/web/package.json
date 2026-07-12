@@ -22,7 +22,7 @@
 		"@better-auth/electron": "^1.5.5",
 		"@capacitor-community/sqlite": "^7.0.0",
 		"@capacitor/core": "^8.4.1",
-		"@capacitor/filesystem": "^7.0.0",
+		"@capacitor/filesystem": "^8.1.2",
 		"@codemirror/lang-css": "^6.3.1",
 		"@codemirror/lang-html": "^6.4.11",
 		"@codemirror/theme-one-dark": "^6.1.3",
