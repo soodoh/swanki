@@ -44,7 +44,7 @@
 		"embla-carousel-react": "^8.6.0",
 		"fflate": "^0.8.3",
 		"fzstd": "^0.1.1",
-		"isomorphic-dompurify": "^3.18.0",
+		"isomorphic-dompurify": "^4.1.0",
 		"lucide-react": "^0.577.0",
 		"nitro": "^3.0.260311-beta",
 		"react": "^19.2.7",
